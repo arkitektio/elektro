@@ -20,7 +20,7 @@ services:
     ports:
     - 7788:80
     volumes:
-    - ./configs/mikro_next.yaml:/workspace/config.yaml
+    - ./configs/elektro.yaml:/workspace/config.yaml
     - ./public_key.pem:/workspace/public_key.pem
   minio:
     command: server /data

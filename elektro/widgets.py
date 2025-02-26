@@ -44,7 +44,7 @@ def build_roi_query(for_input: str):
 
 
 try:
-    from mikro_nextapi.schema import (
+    from elektroapi.schema import (
         Search_representationQuery,
         Search_sampleQuery,
         Search_tagsQuery,

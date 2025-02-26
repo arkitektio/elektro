@@ -1,0 +1,11 @@
+subscription WatchTraces($dataset: ID) {
+  traces(dataset: $dataset) {
+    create {
+      ...Trace
+    }
+    delete
+    update {
+      ...Trace
+    }
+  }
+}

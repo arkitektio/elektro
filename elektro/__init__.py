@@ -1,7 +1,7 @@
-from .mikro_next import MikroNext
+from .elektro import Elektro
 from .utils import v, e, m, rm, rechunk
 try:
-    from .arkitekt import MikroService
+    from .arkitekt import ElektroService
 except ImportError:
     pass
 try:
@@ -13,7 +13,7 @@ except ImportError as e:
 
 
 __all__ = [
-    "MikroNext",
+    "Elektro",
     "v",
     "e",
     "m",

@@ -1,6 +1,0 @@
-mutation CreateViewCollection($input: ViewCollectionInput!) {
-  createViewCollection(input: $input) {
-    id
-    name
-  }
-}

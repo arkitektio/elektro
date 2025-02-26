@@ -1,5 +1,0 @@
-mutation CreateStage($input: StageInput!) {
-  createStage(input: $input) {
-    ...Stage
-  }
-}

@@ -1,6 +1,6 @@
 fragment ROI on ROI {
   id
-  image {
+  trace {
     id
   }
   vectors

@@ -10,8 +10,8 @@ from herre_next import Herre
 from arkitekt_next.service_registry import BaseArkitektService, Params
 from arkitekt_next.base_models import Requirement
 
-from elektro.mikro_next import MikroNext
-from elektro.rath import MikroNextLinkComposition, MikroNextRath
+from elektro.elektro import Elektro
+from elektro.rath import ElektroLinkComposition, ElektroRath
 from rath.links.split import SplitLink
 from fakts_next.contrib.rath.aiohttp import FaktsAIOHttpLink
 from fakts_next.contrib.rath.graphql_ws import FaktsGraphQLWSLink
@@ -34,7 +34,7 @@ try:
     from rekuest_next.links.context import ContextLink
     from rath.links.compose import TypedComposedLink
 
-    class ArkitektMikroNextLinkComposition(TypedComposedLink):
+    class ArkitektElektroLinkComposition(TypedComposedLink):
         fileextraction: FileExtraction = Field(default_factory=FileExtraction)
         """ A link that extracts files from the request and follows the graphql multipart request spec"""
         dicting: DictingLink = Field(default_factory=DictingLink)
@@ -48,15 +48,15 @@ try:
         split: SplitLink
 
 except ImportError:
-    ArkitektMikroNextLinkComposition = MikroNextLinkComposition
+    ArkitektElektroLinkComposition = ElektroLinkComposition
 
 
-class ArkitektMikroNextRath(MikroNextRath):
-    link: ArkitektMikroNextLinkComposition
+class ArkitektElektroRath(ElektroRath):
+    link: ArkitektElektroLinkComposition
 
 
-class ArkitektNextMikroNext(MikroNext):
-    rath: ArkitektMikroNextRath
+class ArkitektNextElektro(Elektro):
+    rath: ArkitektElektroRath
     datalayer: DataLayer
 
 
@@ -64,29 +64,29 @@ def build_relative_path(*path: str) -> str:
     return os.path.join(os.path.dirname(__file__), *path)
 
 
-class MikroService(BaseArkitektService):
+class ElektroService(BaseArkitektService):
 
     def get_service_name(self):
-        return "mikro"
+        return "elektro"
 
     def build_service(
         self, fakts: Fakts, herre: Herre, params: Params, manifest: Manifest
     ):
         datalayer = FaktsDataLayer(fakts_group="datalayer", fakts=fakts)
 
-        return ArkitektNextMikroNext(
-            rath=ArkitektMikroNextRath(
-                link=ArkitektMikroNextLinkComposition(
+        return ArkitektNextElektro(
+            rath=ArkitektElektroRath(
+                link=ArkitektElektroLinkComposition(
                     auth=HerreAuthLink(herre=herre),
                     upload=UploadLink(
                         datalayer=datalayer,
                     ),
                     split=SplitLink(
                         left=FaktsAIOHttpLink(
-                            fakts_group="mikro", fakts=fakts, endpoint_url="FAKE_URL"
+                            fakts_group="elektro", fakts=fakts, endpoint_url="FAKE_URL"
                         ),
                         right=FaktsGraphQLWSLink(
-                            fakts_group="mikro", fakts=fakts, ws_endpoint_url="FAKE_URL"
+                            fakts_group="elektro", fakts=fakts, ws_endpoint_url="FAKE_URL"
                         ),
                         split=lambda o: o.node.operation != OperationType.SUBSCRIPTION,
                     ),
@@ -98,8 +98,8 @@ class MikroService(BaseArkitektService):
     def get_requirements(self):
         return [
             Requirement(
-                key="mikro",
-                service="live.arkitekt.mikro",
+                key="elektro",
+                service="live.arkitekt.elektro",
                 description="An instance of ArkitektNext Mikro to make requests to the user's data",
                 optional=True,
             ),
@@ -124,4 +124,4 @@ class MikroService(BaseArkitektService):
 
 
 
-get_default_service_registry().register(MikroService())
+get_default_service_registry().register(ElektroService())

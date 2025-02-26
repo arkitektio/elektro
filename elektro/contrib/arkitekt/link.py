@@ -8,7 +8,7 @@ from pydantic import Field
 from elektro.links.upload import UploadLink
 
 
-class ArkitektMikroNextLinkComposition(TypedComposedLink):
+class ArkitektElektroLinkComposition(TypedComposedLink):
     fileextraction: FileExtraction = Field(default_factory=FileExtraction)
     dicting: DictingLink = Field(default_factory=DictingLink)
     assignation_link: SetAssignationLink = Field(default_factory=SetAssignationLink)

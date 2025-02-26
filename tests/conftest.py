@@ -2,17 +2,17 @@ import pytest
 from dokker import mirror, Deployment
 import os
 from koil.composition import Composition
-from elektro.mikro_next import MikroNext
+from elektro.elektro import Elektro
 from rath.links.auth import ComposedAuthLink
 from rath.links.aiohttp import AIOHttpLink
 from rath.links.sign_local_link import ComposedSignTokenLink
 from rath.links.graphql_ws import GraphQLWSLink
-from elektro.mikro_next import MikroNext
+from elektro.elektro import ElektroRath
 from elektro.rath import (
-    MikroNextRath,
+    ElektroRath,
     UploadLink,
     SplitLink,
-    MikroNextLinkComposition,
+    ElektroLinkComposition,
 )
 from elektro.datalayer import DataLayer
 from graphql import OperationType
@@ -25,7 +25,7 @@ async def payload_retriever(o):
     return {"sub": 1}
 
 @pytest.fixture(scope="session")
-def deployed_app() -> MikroNext:
+def deployed_app() -> Elektro:
 
 
     setup = mirror(project_path)
@@ -40,8 +40,8 @@ def deployed_app() -> MikroNext:
         endpoint_url="http://localhost:8457",
     )
 
-    y = MikroNextRath(
-        link=MikroNextLinkComposition(
+    y = ElektroRath(
+        link=ElektroLinkComposition(
             auth=ComposedSignTokenLink(
                 private_key=private_key,
                 payload_retriever=payload_retriever
@@ -55,7 +55,7 @@ def deployed_app() -> MikroNext:
         ),
     )
 
-    mikro = MikroNext(
+    elektro = Elektro(
         datalayer=datalayer,
         rath=y,
     )
@@ -68,8 +68,8 @@ def deployed_app() -> MikroNext:
 
             with watcher:
                 
-                with mikro as m:
-                    yield mikro
+                with elektro as m:
+                    yield elektro
 
 
 

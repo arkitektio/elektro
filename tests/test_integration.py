@@ -1,12 +1,12 @@
 import numpy as np
 import pytest
-from elektro.api.schema import create_dataset, from_array_like, get_random_image
+from elektro.api.schema import create_dataset, from_trace_like, get_random_trace
 import xarray as xr
 
 
 @pytest.mark.integration
 def test_write_random(deployed_app):
-    x = from_array_like(
+    x = from_trace_like(
         xr.DataArray(data=np.random.random((1000, 1000, 10)), dims=["x", "y", "z"]),
         name="test_random_write",
     )
@@ -22,11 +22,11 @@ def test_write_random(deployed_app):
 
 @pytest.mark.integration
 def test_get_random(deployed_app):
-    x = from_array_like(
+    x = from_trace_like(
         xr.DataArray(data=np.random.random((1000, 1000, 10)), dims=["x", "y", "z"]),
         name="test_random_write",
     )
-    x = get_random_image()
+    x = get_random_trace()
     assert x.id, "Did not get a random rep even though one was written"
 
 

@@ -1,10 +1,10 @@
 from pydantic import Field
 from koil.composition import Composition
-from elektro.rath import MikroNextRath
+from elektro.rath import ElektroRath
 from elektro.datalayer import DataLayer
 
 
-class MikroNext(Composition):
+class Elektro(Composition):
     """The Mikro Composition
 
     This composition provides a datalayer and a rath for interacting with the
@@ -30,7 +30,7 @@ class MikroNext(Composition):
     datalayer: DataLayer = Field(
         ..., description="The datalayer for interacting with the mikro api"
     )
-    rath: MikroNextRath
+    rath: ElektroRath
 
     def _repr_html_inline_(self):
         return f"<table><td>rath</td><td>{self.rath._repr_html_inline_()}</td></tr></table>"

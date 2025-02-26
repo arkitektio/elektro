@@ -1,5 +1,5 @@
 """
-Custom scalars for mikro_next
+Custom scalars for elektro
 
 
 """
@@ -52,7 +52,7 @@ FeatureValue = Any
 
 
 class Upload:
-    """A custom scalar for ensuring an interface to files api supported by mikro_next It converts the graphql value
+    """A custom scalar for ensuring an interface to files api supported by elektro It converts the graphql value
     (a string pointed to a zarr store) into a downloadable file. To access the file you need to call the download
     method. This is done to avoid unnecessary requests to the datalayer api.
     """
@@ -329,7 +329,7 @@ class FourByFourMatrix(list):
         return cls(v)
 
 
-class ArrayLike:
+class TraceLike:
     """A custom scalar for wrapping of every supported array like structure on
     the mikro platform. This scalar enables validation of various array formats
     into a mikro api compliant xr.DataArray.."""
@@ -351,53 +351,34 @@ class ArrayLike:
         # but error if they do not make sense
 
         if isinstance(v, np.ndarray):
-            dims = ["c", "t", "z", "y", "x"]
-            v = xr.DataArray(v, dims=dims[5 - v.ndim :])
+            dims = ["c", "t"]
+            v = xr.DataArray(v, dims=dims[2 - v.ndim :])
             was_labeled = False
 
         if not isinstance(v, xr.DataArray):
             raise ValueError("This needs to be a instance of xarray.DataArray")
 
-        if "x" not in v.dims:
-            raise ValueError("Representations must always have a 'x' Dimension")
-
-        if "y" not in v.dims:
-            raise ValueError("Representations must always have a 'y' Dimension")
+        if "c" not in v.dims:
+            raise ValueError("Traces must always have a 'c' Dimension")
 
         if "t" not in v.dims:
-            v = v.expand_dims("t")
-        if "c" not in v.dims:
-            v = v.expand_dims("c")
-        if "z" not in v.dims:
-            v = v.expand_dims("z")
+            raise ValueError("Traces must always have a 't' Dimension")
+
 
         chunks = rechunk(
             v.sizes, itemsize=v.data.itemsize, chunksize_in_bytes=20_000_000
         )
-        if not was_labeled:
-            if v.sizes["t"] > v.sizes["x"] or v.sizes["t"] > v.sizes["y"]:
-                raise ValueError(
-                    f"Probably Non sensical dimensions. T is bigger than x or y: Sizes {v.sizes}"
-                )
-            if v.sizes["z"] > v.sizes["x"] or v.sizes["z"] > v.sizes["y"]:
-                raise ValueError(
-                    f"Probably Non sensical dimensions. Z is bigger than x or y: Sizes {v.sizes}"
-                )
-            if v.sizes["c"] > v.sizes["x"] or v.sizes["c"] > v.sizes["y"]:
-                raise ValueError(
-                    f"Probably Non sensical dimensions. C is bigger than x or y: Sizes {v.sizes}"
-                )
 
         v = v.chunk(
             {key: chunksize for key, chunksize in chunks.items() if key in v.dims}
         )
 
-        v = v.transpose(*"ctzyx")
+        v = v.transpose(*"ct")
 
         return cls(v)
 
     def __repr__(self):
-        return f"InputArray({self.value})"
+        return f"TraceLike({self.value})"
 
 
 class BigFile:
@@ -431,7 +412,7 @@ class BigFile:
 
 class ParquetLike:
     """A custom scalar for ensuring a common format to support write to the
-    parquet api supported by mikro_next It converts the passed value into
+    parquet api supported by elektro It converts the passed value into
     a compliant format.."""
 
     def __init__(self, value: pd.DataFrame) -> None:
@@ -458,7 +439,7 @@ class ParquetLike:
 
 class FileLike:
     """A custom scalar for ensuring a common format to support write to the
-    parquet api supported by mikro_next It converts the passed value into
+    parquet api supported by elektro It converts the passed value into
     a compliant format.."""
 
     def __init__(self, value: IO, name="") -> None:
@@ -491,7 +472,7 @@ class FileLike:
 
 class MeshLike:
     """A custom scalar for ensuring a common format to support write to the
-    mesh api supported by mikro_next It converts the passed value into
+    mesh api supported by elektro It converts the passed value into
     a compliant format.."""
 
     def __init__(self, value: IO, name="") -> None:

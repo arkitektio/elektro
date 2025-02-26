@@ -1,17 +1,17 @@
 {
-    "schema_url": "http://jhnnsrs-lab/mikro/graphql",
-    "documents": "graphql/mikro-next/*/**.graphql",
+    "schema_url": "http://jhnnsrs-lab/elektro/graphql",
+    "documents": "graphql/elektro/*/**.graphql",
     "extensions": {
         "turms": {
             "pydantic_version": "v2",
             "domain": null,
-            "out_dir": "mikro_next/api",
+            "out_dir": "elektro/api",
             "dump_configuration": true,
             "configuration_name": "project.json",
             "dump_schema": true,
             "schema_name": "schema.graphql",
             "generated_name": "schema.py",
-            "documents": "graphql/mikro-next/*/**.graphql",
+            "documents": "graphql/elektro/*/**.graphql",
             "verbose": false,
             "exit_on_error": true,
             "allow_introspection": true,
@@ -24,26 +24,18 @@
             "scalar_definitions": {
                 "Any": "typing.Any",
                 "StructureString": "str",
-                "ArrayLike": "mikro_next.scalars.ArrayLike",
-                "ParquetLike": "mikro_next.scalars.ParquetLike",
-                "FileLike": "mikro_next.scalars.FileLike",
-                "MeshLike": "mikro_next.scalars.MeshLike",
-                "Upload": "mikro_next.scalars.Upload",
-                "Vector": "mikro_next.scalars.Vector",
-                "TwoDVector": "mikro_next.scalars.TwoDVector",
-                "ThreeDVector": "mikro_next.scalars.ThreeDVector",
-                "FourDVector": "mikro_next.scalars.FourDVector",
-                "FiveDVector": "mikro_next.scalars.FiveDVector",
-                "Matrix": "mikro_next.scalars.Matrix",
+                "TraceLike": "elektro.scalars.TraceLike",
+                "FileLike": "elektro.scalars.FileLike",
+                "Upload": "elektro.scalars.Upload",
+                "Vector": "elektro.scalars.Vector",
+                "TwoDVector": "elektro.scalars.TwoDVector",
+                "ThreeDVector": "elektro.scalars.ThreeDVector",
+                "FourDVector": "elektro.scalars.FourDVector",
+                "FiveDVector": "elektro.scalars.FiveDVector",
+                "Matrix": "elektro.scalars.Matrix",
                 "Metric": "typing.Any",
-                "Milliseconds": "mikro_next.scalars.Milliseconds",
-                "Micrometers": "mikro_next.scalars.Micrometers",
-                "MikroStore": "mikro_next.scalars.MikroStore",
-                "Micrograms": "mikro_next.scalars.Micrograms",
-                "Microliters": "mikro_next.scalars.Microliters",
-                "FourByFourMatrix": "mikro_next.scalars.FourByFourMatrix",
                 "ID": "rath.scalars.ID",
-                "RGBAColor": "mikro_next.scalars.RGBAColor"
+                "RGBAColor": "elektro.scalars.RGBAColor"
             },
             "freeze": {
                 "enabled": true,
@@ -74,47 +66,23 @@
             },
             "skip_forwards": false,
             "additional_bases": {
-                "Image": [
-                    "mikro_next.traits.HasZarrStoreTrait"
-                ],
-                "Table": [
-                    "mikro_next.traits.HasParquestStoreTrait"
+                "Trace": [
+                    "elektro.traits.HasZarrStoreTrait"
                 ],
                 "ZarrStore": [
-                    "mikro_next.traits.HasZarrStoreAccessor"
+                    "elektro.traits.HasZarrStoreAccessor"
                 ],
                 "ParquetStore": [
-                    "mikro_next.traits.HasParquetStoreAccesor"
+                    "elektro.traits.HasParquetStoreAccesor"
                 ],
                 "BigFileStore": [
-                    "mikro_next.traits.HasDownloadAccessor"
+                    "elektro.traits.HasDownloadAccessor"
                 ],
                 "MediaStore": [
-                    "mikro_next.traits.HasPresignedDownloadAccessor"
+                    "elektro.traits.HasPresignedDownloadAccessor"
                 ],
                 "ROI": [
-                    "mikro_next.traits.IsVectorizableTrait"
-                ],
-                "TransformationView": [
-                    "mikro_next.traits.PixelTranslatable"
-                ],
-                "Expression": [
-                    "mikro_next.traits.ExpressionTrait"
-                ],
-                "Graph": [
-                    "mikro_next.traits.GraphTrait"
-                ],
-                "LinkedExpression": [
-                    "mikro_next.traits.LinkedExpressionTrait"
-                ],
-                "Entity": [
-                    "mikro_next.traits.EntityTrait"
-                ],
-                "EntityRelation": [
-                    "mikro_next.traits.EntityRelationTrait"
-                ],
-                "Ontology": [
-                    "mikro_next.traits.OntologyTrait"
+                    "elektro.traits.IsVectorizableTrait"
                 ]
             },
             "additional_config": {},
@@ -140,38 +108,38 @@
                     ],
                     "global_kwargs": [
                         {
-                            "type": "mikro_next.rath.MikroNextRath",
+                            "type": "elektro.rath.ElektroRath",
                             "key": "rath",
-                            "description": "The mikro rath client"
+                            "description": "The elektro rath client"
                         }
                     ],
                     "definitions": [
                         {
                             "type": "subscription",
                             "is_async": true,
-                            "use": "mikro_next.funcs.asubscribe"
+                            "use": "elektro.funcs.asubscribe"
                         },
                         {
                             "type": "query",
                             "is_async": true,
-                            "use": "mikro_next.funcs.aexecute"
+                            "use": "elektro.funcs.aexecute"
                         },
                         {
                             "type": "mutation",
                             "is_async": true,
-                            "use": "mikro_next.funcs.aexecute"
+                            "use": "elektro.funcs.aexecute"
                         },
                         {
                             "type": "subscription",
-                            "use": "mikro_next.funcs.subscribe"
+                            "use": "elektro.funcs.subscribe"
                         },
                         {
                             "type": "query",
-                            "use": "mikro_next.funcs.execute"
+                            "use": "elektro.funcs.execute"
                         },
                         {
                             "type": "mutation",
-                            "use": "mikro_next.funcs.execute"
+                            "use": "elektro.funcs.execute"
                         }
                     ]
                 }

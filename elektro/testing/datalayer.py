@@ -1,4 +1,4 @@
-from mikro_nextdatalayer import DataLayer
+from elektrodatalayer import DataLayer
 import xarray as xr
 import zarr
 
@@ -29,7 +29,7 @@ class LocalDataLayer(DataLayer):
         return self._s3fs
 
     async def aget_credentials(self, id=None):
-        from mikro_nextapi.schema import arequest
+        from elektroapi.schema import arequest
 
         c = await arequest()
         self.access_key = c.access_key

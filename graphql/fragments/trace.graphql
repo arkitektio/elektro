@@ -1,0 +1,7 @@
+fragment Trace on Trace {
+  id
+  name
+  store {
+    ...ZarrStore
+  }
+}

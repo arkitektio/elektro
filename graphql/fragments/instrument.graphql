@@ -1,7 +1,0 @@
-fragment Instrument on Instrument {
-    id
-    model
-    name
-    serialNumber
-    
-}

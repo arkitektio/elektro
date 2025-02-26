@@ -1,6 +1,6 @@
-mutation from_array_like($input: FromArrayLikeInput!) {
-  fromArrayLike(input: $input) {
-    ...Image
+mutation FromTraceLike($input: FromTraceLikeInput!) {
+  fromTraceLike(input: $input) {
+    ...Trace
   }
 }
 

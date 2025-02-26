@@ -1,8 +1,8 @@
-def easy_mikro_next(base_url: str, minio_url: str):
-    """Build mikro_next when the parameters are known."""
+def easy_elektro(base_url: str, minio_url: str):
+    """Build elektro when the parameters are known."""
 
 
-def build_local_mikro_next(base_url, storage_path: str):
+def build_local_elektro(base_url, storage_path: str):
     """Use mikro locally, with local storage.
 
     Attention, the storage path here needs to map to a local

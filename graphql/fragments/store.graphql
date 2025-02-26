@@ -5,19 +5,7 @@ fragment ZarrStore on ZarrStore {
   path
 }
 
-fragment ParquetStore on ParquetStore {
-  id
-  key
-  bucket
-  path
-}
 
-fragment MeshStore on MeshStore {
-  id
-  key
-  bucket
-  path
-}
 
 fragment BigFileStore on BigFileStore {
   id

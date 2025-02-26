@@ -1,14 +1,14 @@
-from elektro.api.schema import from_array_like
-from elektro import MikroNext
+from elektro.api.schema import from_trace_like
+from elektro import Elektro
 import xarray as xr
 import numpy as np
 import pytest
 
 
 @pytest.mark.integration
-def test_create_array(deployed_app: MikroNext):
+def test_create_array(deployed_app: Elektro):
     
-    l = from_array_like(
+    l = from_trace_like(
         xr.DataArray(np.zeros((1000, 1000, 10)), dims=["x", "y", "z"]),
         name="Farter 1",
     )

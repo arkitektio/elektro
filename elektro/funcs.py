@@ -1,7 +1,7 @@
 """This module provides helpers for the mikro rath api
 they are wrapped functions for the turms generated api"""
 
-from .rath import MikroNextRath, current_mikro_next_rath
+from .rath import ElektroRath, current_elektro_rath
 from koil.helpers import unkoil, unkoil_gen
 from typing import Optional, Protocol, Type, Dict, Any, TypeVar, Iterator, AsyncIterator
 from pydantic import BaseModel
@@ -23,10 +23,10 @@ T = TypeVar("T")
 async def aexecute(
     operation: Type[T],
     variables: Dict[str, Any],
-    rath: Optional[MikroNextRath] = None,
+    rath: Optional[ElektroRath] = None,
 ) -> T:
     try:
-        rath = rath or current_mikro_next_rath.get()
+        rath = rath or current_elektro_rath.get()
 
         x = await rath.aquery(
             operation.Meta.document,  # type: ignore
@@ -51,7 +51,7 @@ async def aexecute(
 def execute(
     operation: Type[T],
     variables: Dict[str, Any],
-    rath: Optional[MikroNextRath] = None,
+    rath: Optional[ElektroRath] = None,
 ) -> T:
     return unkoil(aexecute, operation, variables, rath=rath)
 
@@ -59,7 +59,7 @@ def execute(
 def subscribe(
     operation: Type[T],
     variables: Dict[str, Any],
-    rath: Optional[MikroNextRath] = None,
+    rath: Optional[ElektroRath] = None,
 ) -> Iterator[T]:
     return unkoil_gen(asubscribe, operation, variables, rath=rath)
 
@@ -67,9 +67,9 @@ def subscribe(
 async def asubscribe(
     operation: Type[T],
     variables: Dict[str, Any],
-    rath: Optional[MikroNextRath] = None,
+    rath: Optional[ElektroRath] = None,
 ) -> AsyncIterator[T]:
-    rath = rath or current_mikro_next_rath.get()
+    rath = rath or current_elektro_rath.get()
     async for event in rath.asubscribe(
         operation.Meta.document,
         operation.Arguments(**variables).dict(by_alias=True),  # type: ignore

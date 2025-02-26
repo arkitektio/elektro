@@ -1,22 +1,22 @@
 from pydantic import BaseModel
 import numpy as np
 import xarray as xr
-from elektro.scalars import ArrayLike
+from elektro.scalars import TraceLike
 
 
 class Arguments(BaseModel):
-    x: ArrayLike
+    x: TraceLike
 
 
 def test_numpy_serialization():
-    x = np.random.random((20, 1000, 1000))
+    x = np.random.random((20, 1000))
 
     t = Arguments(x=x)
-    assert t.x.value.ndim == 5, "Should be five dimensionsal"
+    assert t.x.value.ndim == 2, "Should be five dimensionsal"
 
 
 def test_xarray_serialization():
-    x = xr.DataArray(np.zeros((1000, 1000, 10)), dims=["x", "y", "z"])
+    x = xr.DataArray(np.zeros((20, 1000)), dims=["c", "t"])
 
     t = Arguments(x=x)
-    assert t.x.value.ndim == 5, "Should be five dimensionsal"
+    assert t.x.value.ndim == 2, "Should be five dimensionsal"

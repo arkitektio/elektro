@@ -1,5 +1,0 @@
-mutation CreateSnapshot($input: SnapshotInput!) {
-  createSnapshot(input: $input) {
-    ...Snapshot
-  }
-}

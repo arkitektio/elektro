@@ -29,57 +29,57 @@ projects:
           - type: turms.plugins.operations.OperationsPlugin
           - type: turms.plugins.funcs.FuncsPlugin
             global_kwargs:
-              - type: mikro_nextrath.MikroRath
+              - type: elektrorath.MikroRath
                 key: rath
                 description: "The mikro rath client"
             definitions:
               - type: subscription
                 is_async: True
-                use: mikro_nextfuncs.asubscribe
+                use: elektrofuncs.asubscribe
               - type: query
                 is_async: True
-                use: mikro_nextfuncs.aexecute
+                use: elektrofuncs.aexecute
               - type: mutation
                 is_async: True
-                use: mikro_nextfuncs.aexecute
+                use: elektrofuncs.aexecute
               - type: subscription
-                use: mikro_nextfuncs.subscribe
+                use: elektrofuncs.subscribe
               - type: query
-                use: mikro_nextfuncs.execute
+                use: elektrofuncs.execute
               - type: mutation
-                use: mikro_nextfuncs.execute
+                use: elektrofuncs.execute
         processors:
           - type: turms.processors.black.BlackProcessor
         scalar_definitions:
-          XArrayInput: mikro_nextscalars.XArrayInput
-          File: mikro_nextscalars.File
-          ImageFile: mikro_nextscalars.File
-          Upload: mikro_nextscalars.Upload
-          ModelData: mikro_nextscalars.ModelData
-          ModelFile: mikro_nextscalars.ModelFile
-          ParquetInput: mikro_nextscalars.ParquetInput
-          Store: mikro_nextscalars.Store
-          Parquet: mikro_nextscalars.Parquet
+          XArrayInput: elektroscalars.XArrayInput
+          File: elektroscalars.File
+          ImageFile: elektroscalars.File
+          Upload: elektroscalars.Upload
+          ModelData: elektroscalars.ModelData
+          ModelFile: elektroscalars.ModelFile
+          ParquetInput: elektroscalars.ParquetInput
+          Store: elektroscalars.Store
+          Parquet: elektroscalars.Parquet
           ID: rath.scalars.ID
-          MetricValue: mikro_nextscalars.MetricValue
-          FeatureValue: mikro_nextscalars.FeatureValue
+          MetricValue: elektroscalars.MetricValue
+          FeatureValue: elektroscalars.FeatureValue
         additional_bases:
           Representation:
-            - mikro_nexttraits.Representation
+            - elektrotraits.Representation
           Table:
-            - mikro_nexttraits.Table
+            - elektrotraits.Table
           Omero:
-            - mikro_nexttraits.Omero
+            - elektrotraits.Omero
           Objective:
-            - mikro_nexttraits.Objective
+            - elektrotraits.Objective
           Position:
-            - mikro_nexttraits.Position
+            - elektrotraits.Position
           Stage:
-            - mikro_nexttraits.Stage
+            - elektrotraits.Stage
           ROI:
-            - mikro_nexttraits.ROI
+            - elektrotraits.ROI
           InputVector:
-            - mikro_nexttraits.Vectorizable
+            - elektrotraits.Vectorizable
 """
 
 
