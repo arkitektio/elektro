@@ -1,0 +1,32 @@
+fragment Image on Image {
+  id
+  name
+  store {
+    ...ZarrStore
+  }
+  views {
+    ...ChannelView
+    ...AffineTransformationView
+    ...LabelView
+    ...TimepointView
+    ...OpticsView
+    ...AcquisitionView
+    ...RGBView
+    ...WellPositionView
+    ...StructureView
+    ...DerivedView
+    ...ROIView
+    ...FileView
+    ...ContinousScanView
+  }
+  pixelViews {
+    ...PixelView
+  }
+  rgbContexts {
+    id
+    name
+    views {
+      ...RGBView
+    }
+  }
+}

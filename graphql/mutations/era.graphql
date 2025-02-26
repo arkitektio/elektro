@@ -1,0 +1,6 @@
+mutation CreateEra($input: EraInput!) {
+  createEra(input: $input) {
+    id
+    begin
+  }
+}

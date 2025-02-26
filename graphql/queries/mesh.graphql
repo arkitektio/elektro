@@ -1,0 +1,19 @@
+query GetMesh($id: ID!) {
+  mesh(id: $id) {
+    ...Mesh
+  }
+}
+
+query SearchMeshes(
+  $search: String
+  $values: [ID!]
+  $pagination: OffsetPaginationInput
+) {
+  options: meshes(
+    filters: { search: $search, ids: $values }
+    pagination: $pagination
+  ) {
+    value: id
+    label: name
+  }
+}

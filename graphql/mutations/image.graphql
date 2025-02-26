@@ -1,0 +1,17 @@
+mutation from_array_like($input: FromArrayLikeInput!) {
+  fromArrayLike(input: $input) {
+    ...Image
+  }
+}
+
+mutation RequestUpload($input: RequestUploadInput!) {
+  requestUpload(input: $input) {
+    ...Credentials
+  }
+}
+
+mutation RequestAccess($input: RequestAccessInput!) {
+  requestAccess(input: $input) {
+    ...AccessCredentials
+  }
+}

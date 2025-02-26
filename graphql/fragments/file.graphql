@@ -1,0 +1,10 @@
+fragment File on File {
+  origins {
+    id
+  }
+  id
+  name
+  store {
+    ...BigFileStore
+  }
+}

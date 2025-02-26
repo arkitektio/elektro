@@ -1,0 +1,13 @@
+mutation CreateChannel($input: ChannelInput!) {
+  createChannel(input: $input) {
+    id
+    name
+  }
+}
+
+mutation EnsureChannel($input: ChannelInput!) {
+  ensureChannel(input: $input) {
+    id
+    name
+  }
+}

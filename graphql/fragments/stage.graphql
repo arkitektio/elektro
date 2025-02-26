@@ -1,0 +1,4 @@
+fragment Stage on Stage {
+  id
+  name
+}

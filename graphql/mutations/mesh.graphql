@@ -1,0 +1,11 @@
+mutation CreateMesh($input: MeshInput!) {
+  createMesh(input: $input) {
+    ...Mesh
+  }
+}
+
+mutation RequestMeshUpload($input: RequestMeshUploadInput!) {
+  requestMeshUpload(input: $input) {
+    ...PresignedPostCredentials
+  }
+}

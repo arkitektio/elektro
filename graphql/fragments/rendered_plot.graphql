@@ -1,0 +1,15 @@
+fragment RenderedPlot on RenderedPlot {
+    id
+    store {
+        id
+        key
+    }
+}
+
+fragment ListRenderedPlot on RenderedPlot {
+    id
+    store {
+        id
+        key
+    }
+}

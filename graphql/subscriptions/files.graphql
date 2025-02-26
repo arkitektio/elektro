@@ -1,0 +1,11 @@
+subscription WatchFiles($dataset: ID) {
+  files(dataset: $dataset) {
+    create {
+      ...File
+    }
+    delete
+    update {
+      ...File
+    }
+  }
+}

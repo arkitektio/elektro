@@ -1,0 +1,17 @@
+mutation from_parquet_like($input: FromParquetLike!) {
+  fromParquetLike(input: $input) {
+    ...Table
+  }
+}
+
+mutation RequestTableUpload($input: RequestTableUploadInput!) {
+  requestTableUpload(input: $input) {
+    ...Credentials
+  }
+}
+
+mutation RequestTableAccess($input: RequestTableAccessInput!) {
+  requestTableAccess(input: $input) {
+    ...AccessCredentials
+  }
+}

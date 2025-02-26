@@ -1,0 +1,7 @@
+fragment Mesh on Mesh {
+  id
+  name
+  store {
+    ...MeshStore
+  }
+}

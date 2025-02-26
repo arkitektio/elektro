@@ -1,0 +1,5 @@
+mutation CreateRenderTree($input: RenderTreeInput!) {
+  createRenderTree(input: $input) {
+    id
+  }
+}

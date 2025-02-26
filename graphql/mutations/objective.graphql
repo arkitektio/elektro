@@ -1,0 +1,13 @@
+mutation CreateObjective($input: ObjectiveInput!) {
+  createObjective(input: $input) {
+    id
+    name
+  }
+}
+
+mutation EnsureObjective($input: ObjectiveInput!) {
+  ensureObjective(input: $input) {
+    id
+    name
+  }
+}

@@ -1,0 +1,8 @@
+fragment ROI on ROI {
+  id
+  image {
+    id
+  }
+  vectors
+  kind
+}

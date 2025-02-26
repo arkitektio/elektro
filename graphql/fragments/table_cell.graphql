@@ -1,0 +1,13 @@
+fragment TableCell on TableCell {
+  id
+  table {
+    id
+  }
+  value
+  column {
+    name
+  }
+}
+
+
+

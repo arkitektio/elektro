@@ -1,0 +1,13 @@
+mutation CreateInstrument($input: InstrumentInput!) {
+  createInstrument(input: $input) {
+    id
+    name
+  }
+}
+
+mutation EnsureInstrument($input: InstrumentInput!) {
+  ensureInstrument(input: $input) {
+    id
+    name
+  }
+}

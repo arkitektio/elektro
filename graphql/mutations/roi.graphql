@@ -1,0 +1,15 @@
+mutation CreateRoi($input: RoiInput!) {
+  createRoi(input: $input) {
+    ...ROI
+  }
+}
+
+mutation DeleteRoi($input: DeleteRoiInput!) {
+  deleteRoi(input: $input)
+}
+
+mutation UpdateRoi($input: UpdateRoiInput!) {
+  updateRoi(input: $input) {
+    ...ROI
+  }
+}

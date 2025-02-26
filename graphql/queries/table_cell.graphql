@@ -1,0 +1,15 @@
+query GetTableCell($id: ID!) {
+  tableCell(id: $id) {
+    ...TableCell
+  }
+}
+
+query SearchTableCells($search: String, $values: [ID!]) {
+  options: tableCells(
+    filters: { search: $search, ids: $values }
+    pagination: { limit: 10 }
+  ) {
+    value: id
+    label: name
+  }
+}

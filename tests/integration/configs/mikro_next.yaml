@@ -1,0 +1,43 @@
+csrf_trusted_origins:
+  - http://localhost
+  - https://localhost
+db:
+  db_name: mikro
+  dependency: db
+  engine: django.db.backends.postgresql
+  host: db
+  password: hello_django
+  port: 5432
+  username: hello_django
+django:
+  admin:
+    email: admin@admin.com
+    password: admin
+    username: admin
+  debug: true
+  hosts:
+    - "*"
+  secret_key: ab94ec351412c22324b2f635e0d6b9dd
+lok:
+  issuer: lok
+  key_type: RS256
+  public_key_pem_file: public_key.pem
+redis:
+  dependency: redis
+  host: redis
+  port: 6379
+s3:
+  access_key: mikro_access_key
+  buckets:
+    media: sleazy-tan-seahorse
+    parquet: grumpy-magnolia-capybara
+    zarr: flaky-malachite-ragdoll
+  dependency: minio
+  host: minio
+  name: lanky-green-dalmatian
+  port: 9000
+  protocol: http
+  secret_key: minio_secret_key
+scopes:
+  mikro_read: Read image from the database
+  mikro_write: Write image to the database

@@ -1,0 +1,18 @@
+fragment RGBContext on RGBContext {
+  id
+  views {
+    ...RGBView
+  }
+  image {
+    id
+    store {
+      ...ZarrStore
+    }
+  }
+  pinned
+  name
+  z
+  t
+  c
+  blending
+}

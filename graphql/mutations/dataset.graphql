@@ -1,0 +1,21 @@
+mutation CreateDataset($input: CreateDatasetInput!) {
+  createDataset(input: $input) {
+    id
+    name
+  }
+}
+
+mutation UpdateDataset($input: ChangeDatasetInput!) {
+  updateDataset(input: $input) {
+    id
+    name
+  }
+}
+
+mutation RevertDataset($input: RevertInput!) {
+  revertDataset(input: $input) {
+    id
+    name
+    description
+  }
+}

@@ -1,0 +1,15 @@
+fragment HistoryStuff on History {
+    id
+    app {
+        id
+    }
+}
+
+
+fragment Dataset on Dataset {
+    name
+    description
+    history {
+        ...HistoryStuff
+    }
+}

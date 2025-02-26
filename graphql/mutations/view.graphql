@@ -1,0 +1,11 @@
+mutation CreateRgbView($input: RGBViewInput!) {
+  createRgbView(input: $input) {
+    id
+  }
+}
+
+mutation CreateLabelView($input: LabelViewInput!) {
+  createLabelView(input: $input) {
+    ...LabelView
+  }
+}

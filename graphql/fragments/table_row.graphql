@@ -1,0 +1,13 @@
+fragment TableRow on TableRow {
+  id
+  values
+  table {
+    id
+  }
+  columns {
+    name
+  }
+}
+
+
+

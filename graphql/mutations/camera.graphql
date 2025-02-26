@@ -1,0 +1,13 @@
+mutation CreateCamera($input: CameraInput!) {
+  createCamera(input: $input) {
+    id
+    name
+  }
+}
+
+mutation EnsureCamera($input: CameraInput!) {
+  ensureCamera(input: $input) {
+    id
+    name
+  }
+}

@@ -1,0 +1,5 @@
+mutation CreateRenderedPlot($input: RenderedPlotInput!) {
+  createRenderedPlot(input: $input) {
+    ...RenderedPlot
+  }
+}

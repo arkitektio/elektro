@@ -1,0 +1,5 @@
+query GetRGBContext($id: ID!) {
+  rgbcontext(id: $id) {
+    ...RGBContext
+  }
+}

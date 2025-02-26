@@ -1,0 +1,15 @@
+query GetSnapshot($id: ID!) {
+  snapshot(id: $id) {
+    ...Snapshot
+  }
+}
+
+query SearchSnapshots($search: String, $values: [ID!]) {
+  options: snapshots(
+    filters: { name: { contains: $search }, ids: $values }
+    pagination: { limit: 10 }
+  ) {
+    value: id
+    label: name
+  }
+}

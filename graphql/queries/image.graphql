@@ -1,0 +1,43 @@
+query GetImage($id: ID!) {
+  image(id: $id) {
+    ...Image
+  }
+}
+
+query GetRandomImage {
+  randomImage {
+    ...Image
+  }
+}
+
+query SearchImages($search: String, $values: [ID!]) {
+  options: images(
+    filters: { name: { contains: $search }, ids: $values }
+    pagination: { limit: 10 }
+  ) {
+    value: id
+    label: name
+  }
+}
+
+query Images($filter: ImageFilter, $pagination: OffsetPaginationInput) {
+  images(filters: $filter, pagination: $pagination) {
+    ...Image
+  }
+}
+
+query ViewImage($id: ID!, $filtersggg: ViewFilter) {
+  image(id: $id) {
+    id
+    store {
+      id
+      key
+      bucket
+    }
+    views(filters: $filtersggg) {
+      ... on RGBView {
+        id
+      }
+    }
+  }
+}
