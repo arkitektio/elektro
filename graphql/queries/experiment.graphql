@@ -1,0 +1,21 @@
+query GetExperiment($id: ID!) {
+    experiment(id: $id) {
+        ...Experiment
+    }
+}
+
+query SearchExperiments($search: String, $values: [ID!]) {
+  options: experiments(
+    filters: { name: { contains: $search }, ids: $values }
+    pagination: { limit: 10 }
+  ) {
+    value: id
+    label: name
+  }
+}
+
+query ListExperiments($filter: ExperimentFilter, $pagination: OffsetPaginationInput) {
+  experiments(filters: $filter, pagination: $pagination) {
+    ...Experiment
+  }
+}

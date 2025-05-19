@@ -1,0 +1,14 @@
+fragment Stimulus on Stimulus {
+    id
+    label
+    cell
+    kind
+    trace {
+        id
+        store {
+            ...ZarrStore
+        }
+    }
+}
+
+

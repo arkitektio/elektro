@@ -1,5 +1,5 @@
-subscription WatchRois($image: ID!) {
-  rois(image: $image) {
+subscription WatchRois($trace: ID!) {
+  rois(trace: $trace) {
     create {
       ...ROI
     }

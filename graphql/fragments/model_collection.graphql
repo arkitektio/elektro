@@ -1,0 +1,12 @@
+
+
+
+
+fragment ModelCollection on ModelCollection {
+  name 
+  id
+  models {
+    id 
+    name
+  }
+}

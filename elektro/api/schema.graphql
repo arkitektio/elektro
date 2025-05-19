@@ -1,19 +1,100 @@
-"""Make string uppercase"""
-directive @upper on FIELD
+type SynapticConnection implements NetConnection {
+  id: ID!
+  weight: Float
+  threshold: Float
+  delay: Float
+  netStimulator: ID!
+  synapse: ID!
+}
 
-directive @replace(old: String!, new: String!) on FIELD
+interface NetConnection {
+  id: ID!
+  weight: Float
+  threshold: Float
+  delay: Float
+}
 
-"""Make get stuff uppercase"""
-directive @relation(on: String!) on FIELD
+type Exp2Synapse implements NetSynapse {
+  id: ID!
+  cell: String!
+  location: String!
+  position: Float!
+  e: Float!
+  tau2: Float!
+  tau1: Float!
+  delay: Float!
+}
+
+interface NetSynapse {
+  id: ID!
+  cell: String!
+  location: String!
+  position: Float!
+}
 
 type Query {
   traces(filters: TraceFilter, order: TraceOrder, pagination: OffsetPaginationInput): [Trace!]!
   rois(filters: ROIFilter, pagination: OffsetPaginationInput): [ROI!]!
   datasets(filters: DatasetFilter, pagination: OffsetPaginationInput): [Dataset!]!
   mydatasets(filters: DatasetFilter, pagination: OffsetPaginationInput): [Dataset!]!
+  experiments(filters: ExperimentFilter, pagination: OffsetPaginationInput): [Experiment!]!
+  neuronModels(filters: NeuronModelFilter, pagination: OffsetPaginationInput): [NeuronModel!]!
+  modelCollections(filters: ModelCollectionFilter, pagination: OffsetPaginationInput): [ModelCollection!]!
+  recordings(filters: RecordingFilter, pagination: OffsetPaginationInput): [Recording!]!
+  stimuli(filters: StimulusFilter, pagination: OffsetPaginationInput): [Stimulus!]!
   files(filters: FileFilter, pagination: OffsetPaginationInput): [File!]!
+  simulations(filters: SimulationFilter, pagination: OffsetPaginationInput): [Simulation!]!
   myfiles(filters: FileFilter, pagination: OffsetPaginationInput): [File!]!
   randomTrace: Trace!
+
+  """Returns a list of images"""
+  stimulus(
+    """The unique identifier of an object"""
+    id: ID!
+  ): Stimulus!
+
+  """Returns a list of cells in a model"""
+  cells(
+    """The unique identifier of an object"""
+    modelId: ID!
+    ids: [ID!] = null
+    search: String = null
+  ): [Cell!]!
+
+  """Returns a list of images"""
+  sections(
+    """The unique identifier of an object"""
+    modelId: ID!
+
+    """The unique identifier of an object"""
+    cellId: ID!
+    ids: [ID!] = null
+    search: String = null
+  ): [Section!]!
+
+  """Returns a list of images"""
+  recording(
+    """The unique identifier of an object"""
+    id: ID!
+  ): Recording!
+  experiment(
+    """The unique identifier of an object"""
+    id: ID!
+  ): Experiment!
+  modelCollection(
+    """The unique identifier of an object"""
+    id: ID!
+  ): ModelCollection!
+  simulation(
+    """The unique identifier of an object"""
+    id: ID!
+  ): Simulation!
+
+  """Returns a single image by ID"""
+  neuronModel(
+    """The unique identifier of an object"""
+    id: ID!
+  ): NeuronModel!
 
   """Returns a single image by ID"""
   trace(
@@ -45,12 +126,13 @@ type Trace {
 
   """The dataset this image belongs to"""
   dataset: Dataset
-
-  """History of changes to this image"""
-  history(pagination: OffsetPaginationInput): [History!]!
+  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
 
   """Who created this image"""
   creator: User
+
+  """The rois of this image"""
+  rois(filters: ROIFilter, pagination: OffsetPaginationInput): [ROI!]!
 
   """Is this image pinned by the current user"""
   pinned: Boolean!
@@ -92,7 +174,7 @@ type Dataset {
   children(filters: DatasetFilter, pagination: OffsetPaginationInput): [Dataset!]!
   description: String
   name: String!
-  history(pagination: OffsetPaginationInput): [History!]!
+  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
   isDefault: Boolean!
   createdAt: DateTime!
   creator: User
@@ -105,9 +187,11 @@ input TraceFilter {
   ids: [ID!]
   dataset: DatasetFilter
   notDerived: Boolean = null
-  provenance: ProvenanceFilter
+  search: String
   AND: TraceFilter
   OR: TraceFilter
+  NOT: TraceFilter
+  DISTINCT: Boolean
 }
 
 input StrFilterLookup {
@@ -128,37 +212,15 @@ input StrFilterLookup {
   isNull: Boolean
   regex: String
   iRegex: String
-  nExact: String
-  nIExact: String
-  nContains: String
-  nIContains: String
-  nInList: [String!]
-  nGt: String
-  nGte: String
-  nLt: String
-  nLte: String
-  nStartsWith: String
-  nIStartsWith: String
-  nEndsWith: String
-  nIEndsWith: String
-  nRange: [String!]
-  nIsNull: Boolean
-  nRegex: String
-  nIRegex: String
 }
 
 input DatasetFilter {
   id: ID
   name: StrFilterLookup
-  provenance: ProvenanceFilter
   AND: DatasetFilter
   OR: DatasetFilter
-}
-
-input ProvenanceFilter {
-  during: String
-  AND: ProvenanceFilter
-  OR: ProvenanceFilter
+  NOT: DatasetFilter
+  DISTINCT: Boolean
 }
 
 input TraceOrder {
@@ -167,12 +229,16 @@ input TraceOrder {
 
 enum Ordering {
   ASC
+  ASC_NULLS_FIRST
+  ASC_NULLS_LAST
   DESC
+  DESC_NULLS_FIRST
+  DESC_NULLS_LAST
 }
 
 input OffsetPaginationInput {
   offset: Int! = 0
-  limit: Int! = -1
+  limit: Int
 }
 
 type File {
@@ -195,37 +261,49 @@ input FileFilter {
   search: String
   id: ID
   name: StrFilterLookup
-  provenance: ProvenanceFilter
   AND: FileFilter
   OR: FileFilter
+  NOT: FileFilter
+  DISTINCT: Boolean
 }
 
-type History {
-  app: App
+"""A provenance event for a model."""
+type ProvenanceEntry {
+  client: Client
+
+  """User who made the change."""
   user: User
+
+  """The type of change that was made."""
   kind: HistoryKind!
+
+  """The date of the change."""
   date: DateTime!
+
+  """
+  The assignation ID during which the change occurred. If it was happening outside of an assignation, it will be None.
+  """
   during: String
+
+  """The ID of the history entry."""
   id: ID!
+
+  """The effective changes made to the model."""
   effectiveChanges: [ModelChange!]!
 }
 
-"""An app."""
-type App {
-  id: ID!
-  name: String!
+type Client {
   clientId: String!
+  name: String!
 }
 
-"""A user."""
 type User {
-  id: ID!
   sub: String!
-  username: String!
-  email: String!
-  password: String!
+  preferredUsername: String!
+  roles: [String!]!
 }
 
+"""The type of change that was made."""
 enum HistoryKind {
   CREATE
   UPDATE
@@ -235,9 +313,15 @@ enum HistoryKind {
 """Date with time (isoformat)"""
 scalar DateTime
 
+"""A change made to a model."""
 type ModelChange {
+  """The field that was changed."""
   field: String!
+
+  """The old value of the field."""
   oldValue: String
+
+  """The new value of the field."""
   newValue: String
 }
 
@@ -248,27 +332,17 @@ type ROI {
   vectors: [FiveDVector!]!
   createdAt: DateTime!
   creator: User
-  history(pagination: OffsetPaginationInput): [History!]!
+  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
   pinned: Boolean!
   name: String!
+  label: String
 }
 
 enum RoiKind {
-  ELLIPSIS
-  POLYGON
   LINE
-  RECTANGLE
-  SPECTRAL_RECTANGLE
-  TEMPORAL_RECTANGLE
-  CUBE
-  SPECTRAL_CUBE
-  TEMPORAL_CUBE
-  HYPERCUBE
-  SPECTRAL_HYPERCUBE
-  PATH
-  FRAME
-  SLICE
   POINT
+  SPIKE
+  SLICE
 }
 
 """The `Vector` scalar type represents a matrix values as specified by"""
@@ -278,29 +352,281 @@ input ROIFilter {
   ids: [ID!]
   id: ID
   kind: RoiKindChoices
-  image: ID = null
+  trace: ID = null
   search: String
   AND: ROIFilter
   OR: ROIFilter
+  NOT: ROIFilter
+  DISTINCT: Boolean
 }
 
 enum RoiKindChoices {
-  ELLIPSIS
-  POLYGON
   LINE
-  RECTANGLE
-  SPECTRAL_RECTANGLE
-  TEMPORAL_RECTANGLE
-  CUBE
-  SPECTRAL_CUBE
-  TEMPORAL_CUBE
-  HYPERCUBE
-  SPECTRAL_HYPERCUBE
-  PATH
-  UNKNOWN
-  FRAME
-  SLICE
   POINT
+  SPIKE
+  SLICE
+}
+
+type Experiment {
+  id: ID!
+  name: String!
+  description: String
+  timeTrace: Trace!
+  recordingViews(filters: ExperimentFilter, pagination: OffsetPaginationInput): [ExperimentRecordingView!]!
+  stimulusViews(filters: ExperimentFilter, pagination: OffsetPaginationInput): [ExperimentStimulusView!]!
+}
+
+type ExperimentRecordingView {
+  id: ID!
+  recording: Recording!
+  label: String
+  offset: Float
+  duration: Float
+}
+
+type Recording {
+  id: ID!
+  simulation: Simulation!
+  kind: RecordingKind!
+  trace: Trace!
+  location: String!
+  position: Float!
+  cell: String!
+  label: String!
+}
+
+type Simulation {
+  id: ID!
+  name: String!
+  description: String
+  kind: StimulusKind!
+  creator: User
+  model: NeuronModel!
+  duration: Int!
+  dt: Float!
+  timeTrace: Trace!
+  stimuli(filters: StimulusFilter, pagination: OffsetPaginationInput): [Stimulus!]!
+  recordings(filters: RecordingFilter, pagination: OffsetPaginationInput): [Recording!]!
+  createdAt: DateTime!
+}
+
+enum StimulusKind {
+  VOLTAGE
+  CURRENT
+  UNKNOWN
+}
+
+type NeuronModel {
+  id: ID!
+  name: String!
+  description: String
+  creator: User
+  modelCollections(filters: ModelCollectionFilter, pagination: OffsetPaginationInput): [ModelCollection!]
+  simulations(filters: SimulationFilter, pagination: OffsetPaginationInput): [Simulation!]!
+  config: ModelConfig!
+  changes(to: ID = null): [Change!]!
+  comparisons: [Comparison!]!
+}
+
+type ModelCollection {
+  id: ID!
+  name: String!
+  models(filters: NeuronModelFilter, pagination: OffsetPaginationInput): [NeuronModel!]!
+  description: String
+}
+
+input NeuronModelFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  name: StrFilterLookup
+  AND: NeuronModelFilter
+  OR: NeuronModelFilter
+  NOT: NeuronModelFilter
+  DISTINCT: Boolean
+}
+
+input ModelCollectionFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  name: StrFilterLookup
+  AND: ModelCollectionFilter
+  OR: ModelCollectionFilter
+  NOT: ModelCollectionFilter
+  DISTINCT: Boolean
+}
+
+input SimulationFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  name: StrFilterLookup
+  AND: SimulationFilter
+  OR: SimulationFilter
+  NOT: SimulationFilter
+  DISTINCT: Boolean
+}
+
+type ModelConfig {
+  cells: [Cell!]!
+  netStimulators: [NetStimulator!]
+  netConnections: [NetConnection!]
+  netSynapses: [NetSynapse!]
+  vInit: Float!
+  celsius: Float!
+  label: String
+}
+
+type Cell {
+  id: String!
+  biophysics: Biophysics!
+  topology: Topology!
+}
+
+type Biophysics {
+  compartments: [Compartment!]!
+}
+
+type Compartment {
+  id: String!
+  mechanisms: [String!]!
+  sectionParams: [SectionParamMap!]!
+  globalParams: [GlobalParamMap!]!
+}
+
+type SectionParamMap {
+  param: String!
+
+  """The governing mechanism"""
+  mechanism: String!
+
+  """The value of the parameter"""
+  value: Float!
+
+  """Description of the parameter"""
+  description: String
+}
+
+type GlobalParamMap {
+  param: String!
+  value: Float!
+  description: String
+}
+
+type Topology {
+  sections: [Section!]!
+}
+
+type Section {
+  id: String!
+  category: String!
+  nseg: Int!
+  diam: Float!
+
+  """Length of the section. Required if coords is not provided."""
+  length: Float
+  coords: [Coord!]
+  connections: [Connection!]!
+}
+
+type Coord {
+  x: Float!
+  y: Float!
+  z: Float!
+}
+
+type Connection {
+  parent: String!
+  location: Float!
+}
+
+type NetStimulator {
+  id: ID!
+  start: Float!
+  number: Int!
+  interval: Float
+}
+
+type Change {
+  type: ChangeType!
+  path: [String!]!
+  valueA: Any
+  valueB: Any
+}
+
+enum ChangeType {
+  REMOVED
+  ADDED
+  CHANGED
+}
+
+"""The `Any` scalar any type"""
+scalar Any
+
+type Comparison {
+  collection: ModelCollection!
+  changes: [Change!]!
+}
+
+type Stimulus {
+  id: ID!
+  simulation: Simulation!
+  kind: StimulusKind!
+  trace: Trace!
+  location: String!
+  position: Float!
+  cell: String!
+  label: String!
+}
+
+input StimulusFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  name: StrFilterLookup
+  AND: StimulusFilter
+  OR: StimulusFilter
+  NOT: StimulusFilter
+  DISTINCT: Boolean
+}
+
+input RecordingFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  name: StrFilterLookup
+  AND: RecordingFilter
+  OR: RecordingFilter
+  NOT: RecordingFilter
+  DISTINCT: Boolean
+}
+
+enum RecordingKind {
+  VOLTAGE
+  CURRENT
+  TIME
+  INA
+  UNKNOWN
+}
+
+input ExperimentFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  name: StrFilterLookup
+  AND: ExperimentFilter
+  OR: ExperimentFilter
+  NOT: ExperimentFilter
+  DISTINCT: Boolean
+}
+
+type ExperimentStimulusView {
+  id: ID!
+  stimulus: Stimulus!
+  label: String
+  offset: Float
+  duration: Float
 }
 
 type Mutation {
@@ -334,11 +660,20 @@ type Mutation {
   """Delete an existing image"""
   deleteImage(input: DeleteTraceInput!): ID!
 
+  """Create a new neuron model"""
+  createNeuronModel(input: CreateNeuronModelInput!): NeuronModel!
+
+  """Create a new simulsation"""
+  createSimulation(input: CreateSimulationInput!): Simulation!
+
   """Create a file from file-like data"""
   fromFileLike(input: FromFileLike!): File!
 
   """Delete an existing file"""
   deleteFile(input: DeleteFileInput!): ID!
+
+  """Create a new model collection"""
+  createModelCollection(input: CreateModelCollectionInput!): ModelCollection!
 
   """Create a new dataset to organize data"""
   createDataset(input: CreateDatasetInput!): Dataset!
@@ -372,6 +707,9 @@ type Mutation {
 
   """Remove files from a dataset"""
   releaseFilesFromDataset(input: DesociateInput!): Dataset!
+
+  """Create a new experiment"""
+  createExperiment(input: CreateExperimentInput!): Experiment!
 
   """Create a new region of interest"""
   createRoi(input: RoiInput!): ROI!
@@ -487,6 +825,148 @@ input DeleteTraceInput {
   id: ID!
 }
 
+input CreateNeuronModelInput {
+  name: String!
+  parent: ID
+  config: ModelConfigInput!
+}
+
+input ModelConfigInput {
+  cells: [CellInput!]! = []
+  netStimulators: [NetStimulatorInput!] = []
+  netConnections: [NetConnectionInput!] = []
+  netSynapses: [NetSynapseInput!] = []
+  vInit: Float! = -67
+  celsius: Float! = 36
+  label: String = null
+}
+
+input CellInput {
+  id: String! = "24b2d94b-4f50-419a-b283-9518503f671d"
+  biophysics: BiophysicsInput!
+  topology: TopologyInput!
+}
+
+input BiophysicsInput {
+  compartments: [CompartmentInput!]! = []
+}
+
+input CompartmentInput {
+  id: String! = "6ccd403f-5e2f-4f61-b5e7-b07415629b0e"
+  mechanisms: [String!]! = []
+  sectionParams: [SectionParamMapInput!]
+  globalParams: [GlobalParamMapInput!]
+}
+
+input SectionParamMapInput {
+  param: String!
+
+  """The governing mechanism"""
+  mechanism: String!
+
+  """The value of the parameter"""
+  value: Float!
+
+  """Description of the parameter"""
+  description: String
+}
+
+input GlobalParamMapInput {
+  param: String!
+  value: Float!
+  description: String = null
+}
+
+input TopologyInput {
+  sections: [SectionInput!]!
+}
+
+input SectionInput {
+  id: String!
+  category: String
+  nseg: Int! = 1
+  diam: Float! = 1
+
+  """Length of the section. Required if coords is not provided."""
+  length: Float = null
+  coords: [CoordInput!] = null
+  connections: [ConnectionInput!] = []
+}
+
+input CoordInput {
+  x: Float!
+  y: Float!
+  z: Float!
+}
+
+input ConnectionInput {
+  parent: String!
+  location: Float! = 1
+}
+
+input NetStimulatorInput {
+  id: ID! = "7f5c8b02-73c1-4b19-a39c-bcca8d0dd183"
+  start: Float! = 100
+  number: Int! = 1
+  interval: Float = null
+}
+
+input NetConnectionInput {
+  kind: ConnectionKind! = SYNAPSE
+  id: ID! = "7ee23525-1b2c-4d22-8662-fd39b873e528"
+  weight: Float = null
+  threshold: Float = null
+  delay: Float = null
+  netStimulator: ID!
+  synapse: ID!
+}
+
+enum ConnectionKind {
+  SYNAPSE
+}
+
+input NetSynapseInput {
+  id: ID!
+  kind: SynapseKind! = EXP2SYN
+  e: Float!
+  tau2: Float!
+  tau1: Float!
+  cell: ID!
+  location: ID!
+  position: Float! = 0.5
+}
+
+enum SynapseKind {
+  EXP2SYN
+  GABAA
+}
+
+input CreateSimulationInput {
+  name: String!
+  model: ID!
+  recordings: [RecordingInput!]!
+  stimuli: [StimulusInput!]!
+  timeTrace: TraceLike = null
+  duration: Float!
+  dt: Float = null
+}
+
+input RecordingInput {
+  trace: TraceLike!
+  kind: RecordingKind!
+  cell: ID
+  location: ID
+  position: Float
+}
+
+input StimulusInput {
+  trace: TraceLike!
+  kind: StimulusKind!
+  cell: ID
+  location: ID
+  position: Float
+}
+
 input FromFileLike {
   name: String!
   file: FileLike!
@@ -501,6 +981,12 @@ scalar FileLike
 
 input DeleteFileInput {
   id: ID!
+}
+
+input CreateModelCollectionInput {
+  name: String!
+  models: [ID!]!
+  description: String = null
 }
 
 input CreateDatasetInput {
@@ -536,25 +1022,50 @@ input DesociateInput {
   other: ID!
 }
 
+input CreateExperimentInput {
+  name: String!
+  timeTrace: ID = null
+  stimulusViews: [StimulusViewInput!]!
+  recordingViews: [RecordingViewInput!]!
+  description: String = null
+}
+
+input StimulusViewInput {
+  stimulus: ID!
+  offset: Float = null
+  duration: Float = null
+  label: String = null
+}
+
+input RecordingViewInput {
+  recording: ID!
+  offset: Float = null
+  duration: Float = null
+  label: String = null
+}
+
 input RoiInput {
   """The image this ROI belongs to"""
-  image: ID!
+  trace: ID!
 
-  """The vector coordinates defining the ROI"""
-  vectors: [FiveDVector!]!
+  """The vector coordinates defining the as XY"""
+  vectors: [TwoDVector!]!
 
   """The type/kind of ROI"""
   kind: RoiKind!
+
+  """The label of the ROI"""
+  label: String = null
 }
+
+"""The `Vector` scalar type represents a matrix values as specified by"""
+scalar TwoDVector
 
 input UpdateRoiInput {
   roi: ID!
-  vectors: [FiveDVector!] = null
+  label: String = null
+  vectors: [TwoDVector!] = null
   kind: RoiKind = null
-  entity: ID = null
-  entityKind: ID = null
-  entityGroup: ID = null
-  entityParent: ID = null
 }
 
 input PinROIInput {
@@ -567,11 +1078,8 @@ input DeleteRoiInput {
 }
 
 type Subscription {
-  """Subscribe to real-time image history events"""
-  historyEvents: Trace!
-
   """Subscribe to real-time ROI updates"""
-  rois(image: ID!): RoiEvent!
+  rois(trace: ID!): RoiEvent!
 
   """Subscribe to real-time image updates"""
   traces(dataset: ID = null): TraceEvent!
@@ -588,8 +1096,8 @@ type RoiEvent {
 
 type TraceEvent {
   create: Trace
-  delete: ID
   update: Trace
+  delete: ID
 }
 
 type FileEvent {

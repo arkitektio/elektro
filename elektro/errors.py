@@ -1,14 +1,14 @@
-class MikroError(Exception):
+class ElektroError(Exception):
     """Base class for all Mikro errors."""
 
 
-class NoMikroFound(MikroError):
+class NoElektroFound(ElektroError):
     """Caused when no Mikro is found."""
 
 
-class NoDataLayerFound(MikroError):
+class NoDataLayerFound(ElektroError):
     """Caused when no DataLayer is found."""
 
 
-class NotQueriedError(MikroError):
+class NotQueriedError(ElektroError):
     """Caused when a field has not been queries"""

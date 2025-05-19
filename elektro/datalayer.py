@@ -1,5 +1,5 @@
 """
-This modules provides the datalayer. 
+This modules provides the datalayer.
 
 Example:
 
@@ -28,15 +28,19 @@ Example:
 
     ```
 
- 
+
 """
 
 import contextvars
+from types import TracebackType
+from typing import Optional
 
 from koil.composition import KoiledModel
 
 
-current_next_datalayer = contextvars.ContextVar("current_next_datalayer", default=None)
+current_elektro_datalayer: contextvars.ContextVar[Optional["DataLayer"]] = (
+    contextvars.ContextVar("current_elektro_datalayer", default=None)
+)
 
 
 class DataLayer(KoiledModel):
@@ -60,9 +64,13 @@ class DataLayer(KoiledModel):
         return self.endpoint_url
 
     async def __aenter__(self):
-        current_next_datalayer.set(self)
+        current_elektro_datalayer.set(self)
         return self
 
-    async def __aexit__(self, *args, **kwargs):
-        current_next_datalayer.set(None)
-        return self
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        current_elektro_datalayer.set(None)

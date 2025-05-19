@@ -9,8 +9,8 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from mikro_new.api.schema import (
-        CredentialsFragment as Credentials,
+    from elektro.api.schema import (
+        AccessCredentials,
     )
 from concurrent.futures import ThreadPoolExecutor
 
@@ -39,7 +39,7 @@ class Downloader(Protocol):
         endpoint_url: str,
         bucket: str,
         key: str,
-        credentials: "Credentials",
+        credentials: "AccessCredentials",
         executor: Optional[ThreadPoolExecutor] = None,
     ) -> Any: ...
 
@@ -56,7 +56,7 @@ class Uploader(Protocol):
     def __call__(
         self,
         file: Any,
-        credentials: "Credentials",
+        credentials: "AccessCredentials",
         endpoint_url: str,
         executor: Optional[ThreadPoolExecutor] = None,
     ) -> str: ...

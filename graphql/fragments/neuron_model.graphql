@@ -1,0 +1,99 @@
+fragment ExpTwoSynapse on Exp2Synapse {
+  id
+  tau1
+  tau2
+  e
+  cell
+  location
+  position
+}
+
+fragment SynapticConnection on SynapticConnection {
+  id
+  netStimulator
+  synapse
+  weight
+  threshold
+  delay
+}
+
+fragment Section on Section {
+  id
+  length
+  diam
+  coords {
+    x
+    y
+    z
+  }
+  category
+  nseg
+  connections {
+    parent
+    location
+  }
+}
+
+fragment SectionParamMap on SectionParamMap {
+  param
+  mechanism
+  value
+}
+
+fragment GlobalParamMap on GlobalParamMap {
+  param
+  value
+}
+fragment Compartment on Compartment {
+  id
+  mechanisms
+  globalParams {
+    ...GlobalParamMap
+  }
+  sectionParams {
+    ...SectionParamMap
+  }
+}
+
+fragment Cell on Cell {
+  id
+  biophysics {
+    compartments {
+      ...Compartment
+    }
+  }
+  topology {
+    sections {
+      ...Section
+    }
+  }
+}
+
+fragment NetStimulator on NetStimulator {
+  id
+  interval
+  number
+  start
+}
+
+fragment NeuronModel on NeuronModel {
+  id
+  name
+  config {
+    vInit
+    celsius
+    cells {
+      ...Cell
+    }
+    netSynapses {
+      ...ExpTwoSynapse
+    }
+    netConnections {
+      ...SynapticConnection
+    }
+
+    netStimulators {
+      ...NetStimulator
+    }
+  }
+}

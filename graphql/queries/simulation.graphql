@@ -1,0 +1,21 @@
+query GetSimulation($id: ID!) {
+    simulation(id: $id) {
+        ...Simulation
+    }
+}
+
+query SearchSimulations($search: String, $values: [ID!]) {
+  options: simulations(
+    filters: { name: { contains: $search }, ids: $values }
+    pagination: { limit: 10 }
+  ) {
+    value: id
+    label: name
+  }
+}
+
+query ListSimulations($filter: SimulationFilter, $pagination: OffsetPaginationInput) {
+  simulations(filters: $filter, pagination: $pagination) {
+    ...Simulation
+  }
+}

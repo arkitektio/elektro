@@ -1,3 +1,4 @@
+from types import TracebackType
 from pydantic import Field
 from .links.upload import UploadLink
 from rath import rath
@@ -46,15 +47,18 @@ class ElektroRath(rath.Rath):
     This is a subclass of Rath that adds some default links to convert files and array to support
     the graphql multipart request spec."""
 
-    link: ElektroLinkComposition
-
     async def __aenter__(self) -> "ElektroRath":
         """Sets the current elektro rath to this instance"""
         await super().__aenter__()
         current_elektro_rath.set(self)
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> Optional[bool]:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Resets the current elektro rath to None"""
         await super().__aexit__(exc_type, exc_val, exc_tb)
         current_elektro_rath.set(None)

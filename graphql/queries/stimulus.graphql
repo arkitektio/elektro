@@ -1,0 +1,22 @@
+query GetStimulus($id: ID!) {
+    stimulus(id: $id) {
+        ...Stimulus
+    }
+}
+
+
+query SearchStimuli($search: String, $values: [ID!]) {
+  options: stimuli(
+    filters: { name: { contains: $search }, ids: $values }
+    pagination: { limit: 10 }
+  ) {
+    value: id
+    label: label
+  }
+}
+
+query ListStimuli($filter: StimulusFilter, $pagination: OffsetPaginationInput) {
+  stimuli(filters: $filter, pagination: $pagination) {
+    ...Stimulus
+  }
+}

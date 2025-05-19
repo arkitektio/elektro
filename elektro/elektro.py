@@ -28,9 +28,9 @@ class Elektro(Composition):
     """
 
     datalayer: DataLayer = Field(
-        ..., description="The datalayer for interacting with the mikro api"
+        ..., description="The datalayer for interacting with the minio api"
     )
-    rath: ElektroRath
-
-    def _repr_html_inline_(self):
-        return f"<table><td>rath</td><td>{self.rath._repr_html_inline_()}</td></tr></table>"
+    rath: ElektroRath = Field(
+        ...,
+        description="The rath for interacting with the mikro api",
+    )

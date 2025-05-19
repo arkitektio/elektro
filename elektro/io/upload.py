@@ -34,10 +34,11 @@ async def astore_xarray_input(
         asynchronous=True
     )
 
+
     # random_uuid = uuid.uuid4()
     # s3_path = f"zarr/{random_uuid}.zarr"
 
-    array = xarray.value.transpose("c", "t")
+    array = xarray.value
 
 
     s3_path = f"{credentials.bucket}/{credentials.key}"

@@ -11,25 +11,203 @@ If you want to add your own traits to the graphql type, you can do so by adding 
 
 """
 
-from typing import Awaitable, List, TypeVar, Tuple, Protocol, Optional
-import numpy as np
+from typing import Awaitable, List, TypeVar, Protocol, Optional, cast
 from pydantic import BaseModel
 import xarray as xr
-import pandas as pd
 from typing import TYPE_CHECKING
-from dask.array import from_zarr
+from dask.array import from_zarr  # type: ignore
 import zarr
-from .scalars import FiveDVector
-from .utils import rechunk
-from rath.scalars import ID
 from typing import Any
 from rath.turms.utils import get_attributes_or_error
-import dataclasses
+
 
 if TYPE_CHECKING:
-    from pyarrow.parquet import ParquetDataset
-    from elektro.api.schema import Entity
+    from elektro.api.schema import (
+        Compartment,
+        SectionParamMap,
+        GlobalParamMap,
+        SectionInput,
+        ModelConfigInput,
+        CellInput,
+    )
 
+
+class ModelConfigTrait(BaseModel):
+    def as_input(self) -> "ModelConfigInput":
+        """Convert the model to a ModelConfigInput"""
+        from elektro.api.schema import ModelConfigInput
+
+        return ModelConfigInput(
+            **self.model_dump(exclude={"id", "created_at", "updated_at"}),
+        )
+
+
+class SectionInputTrait(BaseModel):
+    pass
+
+
+class TopologyInputTrait(BaseModel):
+    """Mixin for Topology data"""
+
+    def get_section_for_id(self, id: str) -> "SectionInput":
+        sections = get_attributes_or_error(self, "sections")
+        x = next((section for section in sections if section.id == id), None)
+        if x is None:
+            raise ValueError(f"Section with id {id} not found")
+        return x
+
+    @property
+    def section_ids(self) -> List[str]:
+        sections = get_attributes_or_error(self, "sections")
+        return [section.id for section in sections]
+
+
+class ModelConfigInputTrait(BaseModel):
+    """Mixin for Topology data"""
+
+    def get_cell_for_id(self, id: str) -> "CellInput":
+        sections = get_attributes_or_error(self, "cells")
+        x = next((section for section in sections if section.id == id), None)
+        if x is None:
+            raise ValueError(f"Cell with id {id} not found")
+        return x
+
+    @property
+    def cell_ids(self) -> List[str]:
+        sections = get_attributes_or_error(self, "cells")
+        return [section.id for section in sections]
+
+
+class BiophysicsTrait:
+    """Mixin for Biophysics data"""
+
+    def compartment_for_id(self, id: str) -> "Compartment":
+        compartments = get_attributes_or_error(self, "compartments")
+        x = next(
+            (compartment for compartment in compartments if compartment.id == id), None
+        )
+        if x is None:
+            raise ValueError(f"Compartment with id {id} not found")
+        return x
+
+    @property
+    def compartment_ids(self) -> List[str]:
+        compartments = get_attributes_or_error(self, "compartments")
+        return [compartment.id for compartment in compartments]
+
+
+class CompartmentTrait:
+    """Mixin for Biophysics data"""
+
+    def section_param_for_id(self, id: str) -> "SectionParamMap":
+        compartments = get_attributes_or_error(self, "section_params")
+        x = next(
+            (compartment for compartment in compartments if compartment.param == id),
+            None,
+        )
+        if x is None:
+            raise ValueError(f"SectionParam with id {id} not found")
+        return x
+
+    def global_param_for_id(self, id: str) -> "GlobalParamMap":
+        compartments = get_attributes_or_error(self, "global_params")
+        x = next(
+            (compartment for compartment in compartments if compartment.param == id),
+            None,
+        )
+        if x is None:
+            raise ValueError(f"GlobalParam with id {id} not found")
+        return x
+    
+    
+    
+    
+    
+class ExperimentTrait(BaseModel):
+    
+    
+    @property
+    def data(self) -> xr.Dataset:
+        from elektro.api.schema import Experiment
+        
+        self = cast(Experiment, self)
+
+    
+        time_trace = self.time_trace.data
+        
+        
+        
+        
+        recording_arrays = []
+        recording_labels = []
+        
+        for i in self.recording_views:
+            
+            
+            recording_xarray = i.recording.trace.data
+            label = i.label
+            
+            label_array = xr.DataArray(
+                data=recording_xarray.data,
+                dims=["time"],
+                coords={
+                    "time": time_trace
+                },
+            )
+            
+            recording_arrays.append(label_array)
+            recording_labels.append(label)
+            
+        
+        simulation_arrays = []
+        simulation_labels = []
+            
+        for i in self.stimulus_views:
+            stimulus_xarray = i.stimulus.trace.data
+            label = i.label
+            
+            labeled_array = xr.DataArray(
+                data=stimulus_xarray.data,
+                dims=["time"],
+                coords={
+                    "time": time_trace
+                },
+            )
+            
+            simulation_arrays.append(labeled_array)
+            simulation_labels.append(label)
+            
+            
+            # Add the recording to the dataset
+            
+            
+        recording_arrays = xr.concat(recording_arrays, dim="trace")
+        recording_arrays = recording_arrays.assign_coords(trace=recording_labels)
+        
+        simulation_arrays = xr.concat(simulation_arrays, dim="trace")
+        simulation_arrays = simulation_arrays.assign_coords(trace=simulation_labels)
+        
+        # Create the dataset
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        return xr.Dataset({
+            "recordings": recording_arrays,
+            "stimulations": simulation_arrays,
+        })
+    
+    
+    
+    
+    
 
 
 class HasZarrStoreTrait(BaseModel):
@@ -50,7 +228,7 @@ class HasZarrStoreTrait(BaseModel):
         array: zarr.Array = from_zarr(store.zarr_store)
         print(array)
 
-        return xr.DataArray(array, dims=["c", "t", "z", "y", "x"])
+        return xr.DataArray(array, dims=["time"])
 
     @property
     def multi_scale_data(self) -> List[xr.DataArray]:
@@ -76,226 +254,6 @@ class HasZarrStoreTrait(BaseModel):
         pstore = get_attributes_or_error(self, "store")
         return await pstore.aopen()
 
-    def get_pixel_size(self, stage: ID = None) -> Tuple[float, float, float]:
-        """The pixel size of the representation
-
-        Returns:
-            Tuple[float, float, float]: The pixel size
-        """
-        views = get_attributes_or_error(self, "views")
-
-        for view in views:
-            if isinstance(view, PixelTranslatable):
-                if stage is None:
-                    return view.pixel_size
-                else:
-                    if get_attributes_or_error(view, "stage.id") == stage:
-                        return view.pixel_size
-
-        raise NotImplementedError(
-            f"No pixel size found for this representation {self}. Have you attached any views?"
-        )
-
-
-class PhysicalSizeProtocol(Protocol):
-    """A Protocol for Vectorizable data
-
-    Attributes:
-        x (float): The x value
-        y (float): The y value
-        z (float): The z value
-        t (float): The t value
-        c (float): The c value
-    """
-
-    x: float
-    y: float
-    z: float
-    t: float
-    c: float
-
-    def __call__(
-        self,
-        x: Optional[int] = None,
-        y: Optional[int] = None,
-        z: Optional[int] = None,
-        t: Optional[int] = None,
-        c: Optional[int] = None,
-    ): ...
-
-
-class PhysicalSizeTrait:
-    """Additional Methods for PhysicalSize"""
-
-    def is_similar(
-        self: PhysicalSizeProtocol,
-        other: PhysicalSizeProtocol,
-        tolerance: Optional[float] = 0.02,
-        raise_exception: Optional[bool] = False,
-    ) -> bool:
-        if hasattr(self, "x") and self.x is not None and other.x is not None:
-            if abs(other.x - self.x) > tolerance:
-                if raise_exception:
-                    raise ValueError(
-                        f"X values are not similar: {self.x} vs {other.x} is above tolerance {tolerance}"
-                    )
-                return False
-        if hasattr(self, "y") and self.y is not None and other.y is not None:
-            if abs(other.y - self.y) > tolerance:
-                if raise_exception:
-                    raise ValueError(
-                        f"Y values are not similar: {self.y} vs {other.y} is above tolerance {tolerance}"
-                    )
-                return False
-        if hasattr(self, "z") and self.z is not None and other.z is not None:
-            if abs(other.z - self.z) > tolerance:
-                if raise_exception:
-                    raise ValueError(
-                        f"Z values are not similar: {self.z} vs {other.z} is above tolerance {tolerance}"
-                    )
-                return False
-        if hasattr(self, "t") and self.t is not None and other.t is not None:
-            if abs(other.t - self.t) > tolerance:
-                if raise_exception:
-                    raise ValueError(
-                        f"T values are not similar: {self.t} vs {other.t} is above tolerance {tolerance}"
-                    )
-                return False
-        if hasattr(self, "c") and self.c is not None and other.c is not None:
-            if abs(other.c - self.c) > tolerance:
-                if raise_exception:
-                    raise ValueError(
-                        f"C values are not similar: {self.c} vs {other.c} is above tolerance {tolerance}"
-                    )
-                return False
-
-        return True
-
-    def to_scale(self):
-        return [
-            getattr(self, "t", 1),
-            getattr(self, "c", 1),
-            getattr(self, "z", 1),
-            getattr(self, "y", 1),
-            getattr(self, "x", 1),
-        ]
-
-
-class IsVectorizableTrait:
-    """Additional Methods for ROI"""
-
-    @property
-    def vector_data(self) -> np.ndarray:
-        """A numpy array of the vectors of the ROI
-
-        Returns:
-            np.ndarray: _description_
-        """
-        return self.get_vector_data(dims="yx")
-
-    def get_vector_data(self, dims="yx") -> np.ndarray:
-        vector_list = getattr(self, "vectors", None)
-        assert (
-            vector_list
-        ), "Please query 'vectors' in your request on 'ROI'. Data is not accessible otherwise"
-        vector_list: list
-
-        mapper = {
-            "y": 4,
-            "x": 3,
-            "z": 2,
-            "t": 1,
-            "c": 0,
-        }
-
-        return np.array([[v[mapper[ac]] for ac in dims] for v in vector_list])
-
-    def center(self) -> FiveDVector:
-        """The center of the ROI
-
-        Caluclates the geometrical center of the ROI according to its type
-        and the vectors of the ROI.
-
-        Returns:
-            InputVector: The center of the ROI
-        """
-        from elektro.api.schema import RoiTypeInput, InputVector
-
-        assert hasattr(
-            self, "type"
-        ), "Please query 'type' in your request on 'ROI'. Center is not accessible otherwise"
-        if self.type == RoiTypeInput.RECTANGLE:
-            return InputVector.from_array(
-                self.get_vector_data(dims="ctzyx").mean(axis=0)
-            )
-
-        raise NotImplementedError(
-            f"Center calculation not implemented for this ROI type {self.type}"
-        )
-
-    def crop(self, data: xr.DataArray) -> xr.DataArray:
-        """Crop the data to the ROI
-
-        Args:
-            data (xr.DataArray): The data to crop
-
-        Returns:
-            xr.DataArray: The cropped data
-        """
-        vector_data = self.get_vector_data(dims="ctzyx")
-        return data.sel(
-            x=slice(vector_data[:, 3].min(), vector_data[:, 3].max()),
-            y=slice(vector_data[:, 4].min(), vector_data[:, 4].max()),
-            z=slice(vector_data[:, 2].min(), vector_data[:, 2].max()),
-            t=slice(vector_data[:, 1].min(), vector_data[:, 1].max()),
-            c=slice(vector_data[:, 0].min(), vector_data[:, 0].max()),
-        )
-
-    def center_as_array(self) -> np.ndarray:
-        """The center of the ROI
-
-        Caluclates the geometrical center of the ROI according to its type
-        and the vectors of the ROI.
-
-        Returns:
-            InputVector: The center of the ROI
-        """
-        from elektro.api.schema import RoiTypeInput
-
-        assert hasattr(
-            self, "type"
-        ), "Please query 'type' in your request on 'ROI'. Center is not accessible otherwise"
-        if self.type == RoiTypeInput.RECTANGLE:
-            return self.get_vector_data(dims="ctzyx").mean(axis=0)
-        if self.type == RoiTypeInput.POINT:
-            return self.get_vector_data(dims="ctzyx")[0]
-
-        raise NotImplementedError(
-            f"Center calculation not implemented for this ROI type {self.type}"
-        )
-
-
-class HasParquestStoreTrait(BaseModel):
-    """Table Trait
-
-    Implements both identifier and shrinking methods.
-    Also Implements the data attribute
-
-    Attributes:
-        data (pd.DataFrame): The data of the table.
-
-    """
-
-    @property
-    def data(self) -> pd.DataFrame:
-        """The data of this table as a pandas dataframe
-
-        Returns:
-            pd.DataFrame: The Dataframe
-        """
-        store: "ParquetStore" = get_attributes_or_error(self, "store")
-        return store.parquet_dataset.read_pandas().to_pandas()
-
 
 V = TypeVar("V")
 
@@ -313,24 +271,10 @@ class HasZarrStoreAccessor(BaseModel):
         return self._openstore
 
 
-class HasParquetStoreAccesor(BaseModel):
-    _dataset: Any = None
-
-    @property
-    def parquet_dataset(self) -> "ParquetDataset":
-        import pyarrow.parquet as pq
-        from elektro.io.download import open_parquet_filesystem
-
-        if self._dataset is None:
-            id = get_attributes_or_error(self, "id")
-            self._dataset = open_parquet_filesystem(id)
-        return self._dataset
-
-
 class HasDownloadAccessor(BaseModel):
     _dataset: Any = None
 
-    def download(self, file_name: str = None) -> "str":
+    def download(self, file_name: str | None = None) -> "str":
         from elektro.io.download import download_file
 
         url, key = get_attributes_or_error(self, "presigned_url", "key")
@@ -340,7 +284,7 @@ class HasDownloadAccessor(BaseModel):
 class HasPresignedDownloadAccessor(BaseModel):
     _dataset: Any = None
 
-    def download(self, file_name: str = None) -> str:
+    def download(self, file_name: str | None = None) -> str:
         from elektro.io.download import download_file
 
         url, key = get_attributes_or_error(self, "presigned_url", "key")
@@ -374,77 +318,5 @@ class Vector(Protocol):
     ) -> V: ...
 
 
-T = TypeVar("T", bound=Vector)
-
-
-class HasPixelSizeTrait:
-    """Mixin for PixelTranslatable data"""
-
-    @property
-    def pixel_size(self) -> Tuple[float, float, float]:
-        """The pixel size of the representation
-
-        Returns:
-            Tuple[float, float, float]: The pixel size
-        """
-        kind, matrix = get_attributes_or_error(self, "kind", "matrix")
-
-        if kind == "AFFINE":
-            return tuple(np.array(matrix).reshape(4, 4).diagonal()[:3])
-
-        raise NotImplementedError(f"Pixel size not implemented for this kind {kind}")
-
-    @property
-    def position(self) -> Tuple[float, float, float]:
-        """The pixel size of the representation
-
-        Returns:
-            Tuple[float, float, float]: The pixel size
-        """
-        kind, matrix = get_attributes_or_error(self, "kind", "matrix")
-
-        if kind == "AFFINE":
-            return tuple(np.array(matrix).reshape(4, 4)[:3, 3])
-
-        raise NotImplementedError(f"Pixel size not implemented for this kind {kind}")
-
-
-class HasFromNumpyArrayTrait:
-    """Mixin for Vectorizable data
-    adds functionality to convert a numpy array to a list of vectors
-    """
-
-    @classmethod
-    def list_from_numpyarray(
-        cls: T,
-        x: np.ndarray,
-        t: Optional[int] = None,
-        c: Optional[int] = None,
-        z: Optional[int] = None,
-    ) -> List[T]:
-        """Creates a list of InputVector from a numpya array
-
-        Args:
-            vector_list (List[List[float]]): A list of lists of floats
-
-        Returns:
-            List[Vectorizable]: A list of InputVector
-        """
-        assert x.ndim == 2, "Needs to be a List array of vectors"
-        if x.shape[1] == 4:
-            return [cls(x=i[1], y=i[0], z=i[2], t=i[3], c=c) for i in x.tolist()]
-        if x.shape[1] == 3:
-            return [cls(x=i[1], y=i[0], z=i[2], t=t, c=c) for i in x.tolist()]
-        elif x.shape[1] == 2:
-            return [cls(x=i[1], y=i[0], t=t, c=c, z=z) for i in x.tolist()]
-        else:
-            raise NotImplementedError(
-                f"Incompatible shape {x.shape} of {x}. List dimension needs to either be of size 2 or 3"
-            )
-
-    @classmethod
-    def from_array(
-        cls: T,
-        x: np.ndarray,
-    ) -> T:
-        return cls(x=x[4], y=x[3], z=x[2], t=x[1], c=x[0])
+class IsVectorizableTrait:
+    pass

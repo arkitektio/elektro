@@ -1,0 +1,19 @@
+fragment Experiment on Experiment {
+  name
+  id
+  timeTrace {
+    ...Trace
+  }
+  recordingViews {
+    label
+    recording {
+      ...Recording
+    }
+  }
+  stimulusViews {
+    label
+    stimulus {
+      ...Stimulus
+    }
+  }
+}

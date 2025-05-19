@@ -1,0 +1,16 @@
+fragment Simulation on Simulation {
+    id
+    model {
+      ...NeuronModel
+    }
+    duration
+    recordings {
+      ...Recording
+    }
+    stimuli {
+      ...Stimulus
+    }
+    timeTrace {
+      ...Trace
+    }
+}

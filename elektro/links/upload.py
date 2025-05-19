@@ -89,23 +89,6 @@ class UploadLink(ParsingLink):
         async for result in self.next.aexecute(operation):
             return RequestUploadMutation(**result.data).request_upload
 
-    async def aget_table_credentials(self, key, datalayer) -> Any:
-        from elektro.api.schema import (
-            RequestTableUploadMutation,
-            RequestTableUploadInput,
-        )
-
-        operation = opify(
-            RequestTableUploadMutation.Meta.document,
-            variables={
-                "input": RequestTableUploadInput(
-                    key=key, datalayer=datalayer
-                ).model_dump()
-            },
-        )
-
-        async for result in self.next.aexecute(operation):
-            return RequestTableUploadMutation(**result.data).request_table_upload
 
     async def aget_bigfile_credentials(self, key, datalayer) -> Any:
         from elektro.api.schema import (

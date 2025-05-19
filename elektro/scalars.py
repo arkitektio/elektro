@@ -11,7 +11,6 @@ import xarray as xr
 import pandas as pd
 import numpy as np
 import uuid
-from .utils import rechunk
 from collections.abc import Iterable
 
 
@@ -49,6 +48,8 @@ class XArrayConversionException(Exception):
 
 MetricValue = Any
 FeatureValue = Any
+
+TraceCoercible = xr.DataArray | np.ndarray | list | tuple 
 
 
 class Upload:
@@ -150,9 +151,29 @@ class TwoDVector(list):
             assert v.ndim == 1
             v = v.tolist()
 
-        assert isinstance(v, list)
-        assert len(v) == 3
-        return cls(v)
+        if not isinstance(v, Iterable):
+            raise ValueError("The input must be a list or a 1-D numpy array.")
+        if not isinstance(v, list):
+            v = list(v)
+
+        validated_list = []
+        for i in v:
+            if isinstance(i, (np.integer, np.floating)):
+                validated = float(i) if isinstance(i, np.floating) else int(i)
+            else:
+                validated = i
+
+            if not isinstance(validated, (int, float)):
+                raise ValueError(
+                    f"The input must be a list of integers or floats. You provided a list of {type(validated)}"
+                )
+
+            validated_list.append(validated)
+        if len(validated_list) != 2:
+            raise ValueError(
+                f"The input must be a list of 2 elements (x, y). You provided a list of {len(v)} elements"
+            )
+        return cls(validated_list)
 
     def as_vector(self):
         return np.array(self).reshape(-1)
@@ -226,7 +247,6 @@ class FiveDVector(list):
 
         for i in v:
             if not isinstance(i, (int, float)):
-
                 raise ValueError(
                     f"The input must be a list of integers or floats. You provided a list of {type(i)}"
                 )
@@ -343,37 +363,22 @@ class TraceLike:
         yield cls.validate
 
     @classmethod
-    def validate(cls, v: xr.DataArray, *info):
+    def validate(cls, v: TraceCoercible, *info):
         """Validate the input array and convert it to a xr.DataArray."""
-        was_labeled = True
         # initial coercion checks, if a numpy array is passed, we need to convert it to a xarray
         # but that means the user didnt pass the dimensions explicitly so we need to add them
         # but error if they do not make sense
 
         if isinstance(v, np.ndarray):
-            dims = ["c", "t"]
-            v = xr.DataArray(v, dims=dims[2 - v.ndim :])
-            was_labeled = False
+            v = xr.DataArray(v, dims=["c"])
 
         if not isinstance(v, xr.DataArray):
             raise ValueError("This needs to be a instance of xarray.DataArray")
 
-        if "c" not in v.dims:
-            raise ValueError("Traces must always have a 'c' Dimension")
-
-        if "t" not in v.dims:
-            raise ValueError("Traces must always have a 't' Dimension")
+        if v.ndim != 1:
+            raise ValueError("This needs to be a 1D array")
 
 
-        chunks = rechunk(
-            v.sizes, itemsize=v.data.itemsize, chunksize_in_bytes=20_000_000
-        )
-
-        v = v.chunk(
-            {key: chunksize for key, chunksize in chunks.items() if key in v.dims}
-        )
-
-        v = v.transpose(*"ct")
 
         return cls(v)
 

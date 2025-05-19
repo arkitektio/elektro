@@ -1,0 +1,21 @@
+query GetNeuronModel($id: ID!) {
+    neuronModel(id: $id) {
+        ...NeuronModel
+    }
+}
+
+query SearchNeuronModels($search: String, $values: [ID!]) {
+  options: neuronModels(
+    filters: { name: { contains: $search }, ids: $values }
+    pagination: { limit: 10 }
+  ) {
+    value: id
+    label: name
+  }
+}
+
+query ListNeuronModels($filter: NeuronModelFilter, $pagination: OffsetPaginationInput) {
+  neuronModels(filters: $filter, pagination: $pagination) {
+    ...NeuronModel
+  }
+}

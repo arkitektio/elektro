@@ -1,0 +1,5 @@
+mutation CreateModelCollection($input: CreateModelCollectionInput!) {
+  createModelCollection(input: $input) {
+   ...ModelCollection
+  }
+}

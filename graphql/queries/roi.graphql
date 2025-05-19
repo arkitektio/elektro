@@ -1,5 +1,5 @@
-query GetRois($image: ID!) {
-  rois(filters: { image: $image }) {
+query GetRois($trace: ID!) {
+  rois(filters: { trace: $trace }) {
     ...ROI
   }
 }

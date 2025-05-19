@@ -38,7 +38,7 @@
                 "RGBAColor": "elektro.scalars.RGBAColor"
             },
             "freeze": {
-                "enabled": true,
+                "enabled": false,
                 "types": [
                     "input",
                     "fragment",
@@ -50,6 +50,7 @@
                 "include_fields": [],
                 "convert_list_to_tuple": true
             },
+            "create_catchall": true,
             "options": {
                 "enabled": true,
                 "extra": "forbid",
@@ -68,6 +69,27 @@
             "additional_bases": {
                 "Trace": [
                     "elektro.traits.HasZarrStoreTrait"
+                ],
+                "Biophysics": [
+                    "elektro.traits.BiophysicsTrait"
+                ],
+                "Compartment": [
+                    "elektro.traits.CompartmentTrait"
+                ],
+                "SectionInput": [
+                    "elektro.traits.SectionInputTrait"
+                ],
+                "ModelConfig": [
+                    "elektro.traits.ModelConfigTrait"
+                ],
+                "Experiment": [
+                    "elektro.traits.ExperimentTrait"
+                ],
+                "ModelConfigInput": [
+                    "elektro.traits.ModelConfigInputTrait"
+                ],
+                "TopologyInput": [
+                    "elektro.traits.TopologyInputTrait"
                 ],
                 "ZarrStore": [
                     "elektro.traits.HasZarrStoreAccessor"
@@ -103,6 +125,10 @@
                 },
                 {
                     "type": "turms.plugins.funcs.FuncsPlugin",
+                    "coercible_scalars": {
+                        "TraceLike": "elektro.scalars.TraceCoercible",
+                        "ID": "rath.scalars.IDCoercible"
+                    },
                     "expand_input_types": [
                         "input"
                     ],
