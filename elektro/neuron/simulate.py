@@ -81,9 +81,11 @@ def instantiate_cell(h: Any, cell: Cell):
         h_sections[sec_def.id] = sec
 
         if sec_def.coords:
+            print("Setting coordinates for section", sec_def.id)
             h.pt3dclear(sec=sec)
             for pt in sec_def.coords:
                 h.pt3dadd(pt.x, pt.y, pt.z, sec_def.diam, sec=sec)
+
         elif sec_def.length:
             sec.L = sec_def.length
         else:
@@ -270,7 +272,6 @@ def run_simulation_processed(
         logger.debug("Adding stimulus:", stim_param)
         if isinstance(stim_param, CurrentClampStimulus):  # type: ignore[no-untyped-call]
             stim_sec = hmodel.cell_h_sections[stim_param.cell][stim_param.location]
-            print("Stimulus section:", stim_sec)
             stim = h.IClamp(stim_sec(stim_param.position))  # type: ignore[no-untyped-call]
             stim.delay = stim_param.delay
             stim.dur = stim_param.duration or duration
@@ -278,6 +279,13 @@ def run_simulation_processed(
 
             v_vec = h.Vector().record(stim._ref_i)  # type: ignore[no-untyped-call]
             raw_stimulations[stim_param.id] = v_vec
+            print(
+                "Stimulus added:",
+                stim_param.id,
+                stim_param.amp,
+                stim_param.delay,
+                stim_param.duration,
+            )
 
         else:
             raise ValueError(f"Unknown stimulus type: {stim_param}")
@@ -336,6 +344,38 @@ def run_simulation_processed(
         raw_results=raw_results,
         raw_stimulations=raw_stimulations,
     )
+
+
+async def asimulate(
+    model: NeuronModel,
+    duration: int,
+    stims: List[Union[CurrentClampStimulus]],  # type: ignore[no-untyped-call]
+    records: List[Union[VRecord]],  # type: ignore[no-untyped-call]
+    name: str | None = None,
+    dt: int = 1,
+    process_pool: ProcessPoolExecutor | None = None,
+) -> SimulationResults:
+    if process_pool is None:
+        process_pool = ProcessPoolExecutor(max_workers=1)
+
+    loop = asyncio.get_event_loop()
+
+    if not name:
+        name = f"Simulation for {model.name}"
+
+    future = loop.run_in_executor(
+        process_pool,
+        run_simulation_processed,
+        model,
+        duration,
+        stims,
+        records,
+        name,
+        dt,
+    )
+    # Run the simulation in a separate process
+    result = await future
+    return result
 
 
 async def arun_simulation(

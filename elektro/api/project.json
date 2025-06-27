@@ -73,6 +73,9 @@
                 "Biophysics": [
                     "elektro.traits.BiophysicsTrait"
                 ],
+                "Topology": [
+                    "elektro.traits.TopologyTrait"
+                ],
                 "Compartment": [
                     "elektro.traits.CompartmentTrait"
                 ],
@@ -84,6 +87,12 @@
                 ],
                 "Experiment": [
                     "elektro.traits.ExperimentTrait"
+                ],
+                "BiophysicsInput": [
+                    "elektro.traits.BiophysicsInputTrait"
+                ],
+                "CompartmentInput": [
+                    "elektro.traits.CompartmentInputTrait"
                 ],
                 "ModelConfigInput": [
                     "elektro.traits.ModelConfigInputTrait"

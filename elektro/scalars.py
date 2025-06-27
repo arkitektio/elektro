@@ -49,7 +49,7 @@ class XArrayConversionException(Exception):
 MetricValue = Any
 FeatureValue = Any
 
-TraceCoercible = xr.DataArray | np.ndarray | list | tuple 
+TraceCoercible = xr.DataArray | np.ndarray | list | tuple
 
 
 class Upload:
@@ -62,9 +62,6 @@ class Upload:
 
     def __init__(self, value) -> None:
         self.value = value
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        os.remove(self.local_file)
 
     @classmethod
     def __get_validators__(cls):
@@ -377,8 +374,6 @@ class TraceLike:
 
         if v.ndim != 1:
             raise ValueError("This needs to be a 1D array")
-
-
 
         return cls(v)
 

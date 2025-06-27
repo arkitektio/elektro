@@ -1,5 +1,5 @@
 from typing import TYPE_CHECKING
-from elektro.scalars import TraceLike,  FileLike
+from elektro.scalars import TraceLike, FileLike
 import asyncio
 import s3fs
 from aiobotocore.session import get_session
@@ -13,7 +13,7 @@ import zarr.api.asynchronous as async_api
 import aiohttp
 
 if TYPE_CHECKING:
-    from elektro.api.schema import Credentials, PresignedPostCredentials
+    from elektro.api.schema import Credentials
     from elektro.datalayer import DataLayer
 
 
@@ -31,27 +31,22 @@ async def astore_xarray_input(
             "endpoint_url": endpoint_url,
             "aws_session_token": credentials.session_token,
         },
-        asynchronous=True
+        asynchronous=True,
     )
-
 
     # random_uuid = uuid.uuid4()
     # s3_path = f"zarr/{random_uuid}.zarr"
 
     array = xarray.value
 
-
     s3_path = f"{credentials.bucket}/{credentials.key}"
-    store = FsspecStore(filesystem, read_only=False, path=s3_path )
-
-
+    store = FsspecStore(filesystem, read_only=False, path=s3_path)
 
     try:
         await async_api.save_array(store, array.to_numpy(), zarr_version=3)
         return credentials.store
     except Exception as e:
         raise UploadError(f"Error while uploading to {s3_path}") from e
-
 
 
 async def aupload_bigfile(
@@ -95,5 +90,6 @@ async def aupload_xarray(
     executor: ThreadPoolExecutor,
 ) -> str:
     """Store a DataFrame in the DataLayer"""
-    return await astore_xarray_input(array, credentials, await datalayer.get_endpoint_url())
-
+    return await astore_xarray_input(
+        array, credentials, await datalayer.get_endpoint_url()
+    )

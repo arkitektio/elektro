@@ -12,6 +12,7 @@ If you want to add your own traits to the graphql type, you can do so by adding 
 """
 
 from typing import Awaitable, List, TypeVar, Protocol, Optional, cast
+import pandas as pd
 from pydantic import BaseModel
 import xarray as xr
 from typing import TYPE_CHECKING
@@ -24,11 +25,14 @@ from rath.turms.utils import get_attributes_or_error
 if TYPE_CHECKING:
     from elektro.api.schema import (
         Compartment,
+        Section,
         SectionParamMap,
         GlobalParamMap,
         SectionInput,
         ModelConfigInput,
         CellInput,
+        CompartmentInput,
+        SectionParamMapInput,
     )
 
 
@@ -44,6 +48,26 @@ class ModelConfigTrait(BaseModel):
 
 class SectionInputTrait(BaseModel):
     pass
+
+
+class CompartmentInputTrait(BaseModel):
+    def get_section_param_for_id(self, id: str) -> "SectionParamMapInput":
+        sections = get_attributes_or_error(self, "section_params")
+        x = next((section for section in sections if section.param == id), None)
+        if x is None:
+            raise ValueError(f"SectionParam with id {id} not found available are: {",".join(map(lambda x: x.param, sections))}")
+        return x
+
+
+class BiophysicsInputTrait(BaseModel):
+    """Mixin for Biophysics data"""
+
+    def get_compartment_for_id(self, id: str) -> "CompartmentInput":
+        sections = get_attributes_or_error(self, "compartments")
+        x = next((section for section in sections if section.id == id), None)
+        if x is None:
+            raise ValueError(f"Compartment with id {id} not found")
+        return x
 
 
 class TopologyInputTrait(BaseModel):
@@ -94,6 +118,76 @@ class BiophysicsTrait:
     def compartment_ids(self) -> List[str]:
         compartments = get_attributes_or_error(self, "compartments")
         return [compartment.id for compartment in compartments]
+    
+    
+    
+    def as_dataframe(self) -> pd.DataFrame:
+        """Convert the biophysics data to a pandas DataFrame"""
+        from elektro.api.schema import Compartment
+        
+        
+        compartments: list[Compartment] = get_attributes_or_error(self, "compartments")
+        
+        records = []
+        
+        for compartment in compartments:
+        
+            data = {
+                "id": compartment.id,
+                "mechanisms": " ".join(([mechanism for mechanism in compartment.mechanisms])),
+                **{param.param: param.value for param in compartment.section_params},
+                **{param.param: param.value for param in compartment.global_params}
+            }
+            
+            records.append(data)
+            
+        return pd.DataFrame.from_records(records)
+            
+      
+class TopologyTrait:
+    """Mixin for Biophysics data"""
+
+    def section_for_id(self, id: str) -> "Section":
+        sections = get_attributes_or_error(self, "sections")
+        x = next(
+            (sec for sec in sections if sec.id == id), None
+        )
+        if x is None:
+            raise ValueError(f"Compartment with id {id} not found")
+        return x
+
+    @property
+    def section_ids(self) -> List[str]:
+        compartments = get_attributes_or_error(self, "sections")
+        return [compartment.id for compartment in compartments]
+    
+    
+    
+    def as_dataframe(self) -> pd.DataFrame:
+        """Convert the biophysics data to a pandas DataFrame"""
+        from elektro.api.schema import Section
+        
+        
+        compartments: list[Section] = get_attributes_or_error(self, "sections")
+        
+        records = []
+        
+        for sec in compartments:
+        
+            data = {
+                "id": sec.id,
+                "length": sec.length,
+                "diameter": sec.diam,
+                "category": sec.category,
+                "n_segments": sec.nseg,
+                "connections": ", ".join([f"{conn.parent}({conn.location})" for conn in sec.connections]),
+            }
+            
+            records.append(data)
+            
+        return pd.DataFrame.from_records(records)  
+        
+        
 
 
 class CompartmentTrait:
@@ -118,96 +212,65 @@ class CompartmentTrait:
         if x is None:
             raise ValueError(f"GlobalParam with id {id} not found")
         return x
-    
-    
-    
-    
-    
+
+
 class ExperimentTrait(BaseModel):
-    
-    
     @property
     def data(self) -> xr.Dataset:
         from elektro.api.schema import Experiment
-        
+
         self = cast(Experiment, self)
 
-    
         time_trace = self.time_trace.data
-        
-        
-        
-        
+
         recording_arrays = []
         recording_labels = []
-        
+
         for i in self.recording_views:
-            
-            
             recording_xarray = i.recording.trace.data
             label = i.label
-            
+
             label_array = xr.DataArray(
                 data=recording_xarray.data,
                 dims=["time"],
-                coords={
-                    "time": time_trace
-                },
+                coords={"time": time_trace},
             )
-            
+
             recording_arrays.append(label_array)
             recording_labels.append(label)
-            
-        
+
         simulation_arrays = []
         simulation_labels = []
-            
+
         for i in self.stimulus_views:
             stimulus_xarray = i.stimulus.trace.data
             label = i.label
-            
+
             labeled_array = xr.DataArray(
                 data=stimulus_xarray.data,
                 dims=["time"],
-                coords={
-                    "time": time_trace
-                },
+                coords={"time": time_trace},
             )
-            
+
             simulation_arrays.append(labeled_array)
             simulation_labels.append(label)
-            
-            
+
             # Add the recording to the dataset
-            
-            
+
         recording_arrays = xr.concat(recording_arrays, dim="trace")
         recording_arrays = recording_arrays.assign_coords(trace=recording_labels)
-        
+
         simulation_arrays = xr.concat(simulation_arrays, dim="trace")
         simulation_arrays = simulation_arrays.assign_coords(trace=simulation_labels)
-        
+
         # Create the dataset
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        return xr.Dataset({
-            "recordings": recording_arrays,
-            "stimulations": simulation_arrays,
-        })
-    
-    
-    
-    
-    
+
+        return xr.Dataset(
+            {
+                "recordings": recording_arrays,
+                "stimulations": simulation_arrays,
+            }
+        )
 
 
 class HasZarrStoreTrait(BaseModel):

@@ -842,7 +842,7 @@ input ModelConfigInput {
 }
 
 input CellInput {
-  id: String! = "24b2d94b-4f50-419a-b283-9518503f671d"
+  id: String! = "dd657166-5c60-4d35-aab9-0454bc779dbe"
   biophysics: BiophysicsInput!
   topology: TopologyInput!
 }
@@ -852,7 +852,7 @@ input BiophysicsInput {
 }
 
 input CompartmentInput {
-  id: String! = "6ccd403f-5e2f-4f61-b5e7-b07415629b0e"
+  id: String! = "77397cb1-285f-479b-85cf-ef21b6254f14"
   mechanisms: [String!]! = []
   sectionParams: [SectionParamMapInput!]
   globalParams: [GlobalParamMapInput!]
@@ -905,7 +905,7 @@ input ConnectionInput {
 }
 
 input NetStimulatorInput {
-  id: ID! = "7f5c8b02-73c1-4b19-a39c-bcca8d0dd183"
+  id: ID! = "0e548bce-bcbe-4803-8cf5-e3a99258d632"
   start: Float! = 100
   number: Int! = 1
   interval: Float = null
@@ -913,7 +913,7 @@ input NetStimulatorInput {
 
 input NetConnectionInput {
   kind: ConnectionKind! = SYNAPSE
-  id: ID! = "7ee23525-1b2c-4d22-8662-fd39b873e528"
+  id: ID! = "dc34ce26-889e-4f43-b577-b50823da904d"
   weight: Float = null
   threshold: Float = null
   delay: Float = null
