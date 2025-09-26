@@ -1,34 +1,35 @@
 from elektro.traits import (
-    HasZarrStoreTrait,
-    TopologyTrait,
-    TopologyInputTrait,
-    CompartmentTrait,
     HasZarrStoreAccessor,
-    CompartmentInputTrait,
-    ModelConfigTrait,
-    HasDownloadAccessor,
-    ModelConfigInputTrait,
-    IsVectorizableTrait,
-    BiophysicsTrait,
-    SectionInputTrait,
+    TopologyTrait,
     ExperimentTrait,
+    CompartmentTrait,
+    ModelConfigInputTrait,
+    HasZarrStoreTrait,
+    TopologyInputTrait,
+    HasDownloadAccessor,
     BiophysicsInputTrait,
+    CompartmentInputTrait,
+    SectionInputTrait,
+    ModelConfigTrait,
+    BiophysicsTrait,
+    IsVectorizableTrait,
 )
-from rath.scalars import IDCoercible, ID
-from elektro.scalars import TwoDVector, TraceCoercible, FileLike, FiveDVector, TraceLike
-from pydantic import ConfigDict, BaseModel, Field
 from typing import (
-    Iterator,
+    Optional,
     Annotated,
-    AsyncIterator,
     List,
     Union,
     Iterable,
     Literal,
-    Optional,
+    AsyncIterator,
+    Iterator,
 )
-from elektro.funcs import execute, asubscribe, subscribe, aexecute
+from elektro.funcs import subscribe, execute, asubscribe, aexecute
+from rath.scalars import ID, IDCoercible
+from elektro.scalars import FiveDVector, TraceCoercible, FileLike, TwoDVector, TraceLike
+from pydantic import Field, ConfigDict, BaseModel
 from elektro.rath import ElektroRath
+from datetime import datetime
 from enum import Enum
 
 
@@ -269,6 +270,90 @@ class RequestFileAccessInput(BaseModel):
 
     store: ID
     duration: Optional[int] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class CreateBlockInput(BaseModel):
+    """No documentation"""
+
+    file: Optional[ID] = None
+    name: str
+    recording_time: Optional[datetime] = Field(alias="recordingTime", default=None)
+    segments: List["BlockSegmentInput"]
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class BlockSegmentInput(BaseModel):
+    """No documentation"""
+
+    name: Optional[str] = None
+    description: Optional[str] = None
+    analog_signals: List["AnalogSignalInput"] = Field(alias="analogSignals")
+    irregularly_sampled_signals: List["IrregularlySampledSignalInput"] = Field(
+        alias="irregularlySampledSignals"
+    )
+    spike_trains: List["SpikeTrainInput"] = Field(alias="spikeTrains")
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class AnalogSignalInput(BaseModel):
+    """No documentation"""
+
+    time_trace: TraceLike = Field(alias="timeTrace")
+    name: Optional[str] = None
+    description: Optional[str] = None
+    sampling_rate: float = Field(alias="samplingRate")
+    t_start: float = Field(alias="tStart")
+    unit: Optional[str] = None
+    channels: List["AnalogSignalChannelInput"]
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class AnalogSignalChannelInput(BaseModel):
+    """No documentation"""
+
+    name: str
+    index: int
+    unit: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[List[int]] = None
+    trace: TraceLike
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class IrregularlySampledSignalInput(BaseModel):
+    """No documentation"""
+
+    times: TraceLike
+    trace: TraceLike
+    name: Optional[str] = None
+    unit: Optional[str] = None
+    description: Optional[str] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class SpikeTrainInput(BaseModel):
+    """No documentation"""
+
+    times: TraceLike
+    t_start: float = Field(alias="tStart")
+    t_stop: float = Field(alias="tStop")
+    waveforms: Optional[TraceLike] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    left_sweep: Optional[float] = Field(alias="leftSweep", default=None)
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, use_enum_values=True
     )
@@ -640,6 +725,85 @@ class DeleteRoiInput(BaseModel):
     )
 
 
+class BlockGroup(BaseModel):
+    """No documentation"""
+
+    typename: Literal["BlockGroup"] = Field(
+        alias="__typename", default="BlockGroup", exclude=True
+    )
+    id: ID
+    name: str
+
+    class Meta:
+        """Meta class for BlockGroup"""
+
+        document = "fragment BlockGroup on BlockGroup {\n  id\n  name\n  __typename\n}"
+        name = "BlockGroup"
+        type = "BlockGroup"
+
+
+class Credentials(BaseModel):
+    """Temporary Credentials for a file upload that can be used by a Client (e.g. in a python datalayer)"""
+
+    typename: Literal["Credentials"] = Field(
+        alias="__typename", default="Credentials", exclude=True
+    )
+    access_key: str = Field(alias="accessKey")
+    status: str
+    secret_key: str = Field(alias="secretKey")
+    bucket: str
+    key: str
+    session_token: str = Field(alias="sessionToken")
+    store: str
+
+    class Meta:
+        """Meta class for Credentials"""
+
+        document = "fragment Credentials on Credentials {\n  accessKey\n  status\n  secretKey\n  bucket\n  key\n  sessionToken\n  store\n  __typename\n}"
+        name = "Credentials"
+        type = "Credentials"
+
+
+class AccessCredentials(BaseModel):
+    """Temporary Credentials for a file download that can be used by a Client (e.g. in a python datalayer)"""
+
+    typename: Literal["AccessCredentials"] = Field(
+        alias="__typename", default="AccessCredentials", exclude=True
+    )
+    access_key: str = Field(alias="accessKey")
+    secret_key: str = Field(alias="secretKey")
+    bucket: str
+    key: str
+    session_token: str = Field(alias="sessionToken")
+    path: str
+
+    class Meta:
+        """Meta class for AccessCredentials"""
+
+        document = "fragment AccessCredentials on AccessCredentials {\n  accessKey\n  secretKey\n  bucket\n  key\n  sessionToken\n  path\n  __typename\n}"
+        name = "AccessCredentials"
+        type = "AccessCredentials"
+
+
+class Dataset(BaseModel):
+    """No documentation"""
+
+    typename: Literal["Dataset"] = Field(
+        alias="__typename", default="Dataset", exclude=True
+    )
+    name: str
+    description: Optional[str] = Field(default=None)
+
+    class Meta:
+        """Meta class for Dataset"""
+
+        document = (
+            "fragment Dataset on Dataset {\n  name\n  description\n  __typename\n}"
+        )
+        name = "Dataset"
+        type = "Dataset"
+
+
 class ModelCollectionModels(BaseModel):
     """No documentation"""
 
@@ -660,6 +824,13 @@ class ModelCollection(BaseModel):
     id: ID
     models: List[ModelCollectionModels]
 
+    class Meta:
+        """Meta class for ModelCollection"""
+
+        document = "fragment ModelCollection on ModelCollection {\n  name\n  id\n  models {\n    id\n    name\n    __typename\n  }\n  __typename\n}"
+        name = "ModelCollection"
+        type = "ModelCollection"
+
 
 class ExpTwoSynapse(BaseModel):
     """No documentation"""
@@ -675,6 +846,13 @@ class ExpTwoSynapse(BaseModel):
     location: str
     position: float
 
+    class Meta:
+        """Meta class for ExpTwoSynapse"""
+
+        document = "fragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}"
+        name = "ExpTwoSynapse"
+        type = "Exp2Synapse"
+
 
 class SynapticConnection(BaseModel):
     """No documentation"""
@@ -688,6 +866,13 @@ class SynapticConnection(BaseModel):
     weight: Optional[float] = Field(default=None)
     threshold: Optional[float] = Field(default=None)
     delay: Optional[float] = Field(default=None)
+
+    class Meta:
+        """Meta class for SynapticConnection"""
+
+        document = "fragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}"
+        name = "SynapticConnection"
+        type = "SynapticConnection"
 
 
 class SectionCoords(BaseModel):
@@ -726,6 +911,13 @@ class Section(BaseModel):
     nseg: int
     connections: List[SectionConnections]
 
+    class Meta:
+        """Meta class for Section"""
+
+        document = "fragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}"
+        name = "Section"
+        type = "Section"
+
 
 class SectionParamMap(BaseModel):
     """No documentation"""
@@ -739,6 +931,13 @@ class SectionParamMap(BaseModel):
     value: float
     "The value of the parameter"
 
+    class Meta:
+        """Meta class for SectionParamMap"""
+
+        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}"
+        name = "SectionParamMap"
+        type = "SectionParamMap"
+
 
 class GlobalParamMap(BaseModel):
     """No documentation"""
@@ -748,6 +947,13 @@ class GlobalParamMap(BaseModel):
     )
     param: str
     value: float
+
+    class Meta:
+        """Meta class for GlobalParamMap"""
+
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}"
+        name = "GlobalParamMap"
+        type = "GlobalParamMap"
 
 
 class NetStimulator(BaseModel):
@@ -761,34 +967,12 @@ class NetStimulator(BaseModel):
     number: int
     start: float
 
+    class Meta:
+        """Meta class for NetStimulator"""
 
-class Credentials(BaseModel):
-    """Temporary Credentials for a file upload that can be used by a Client (e.g. in a python datalayer)"""
-
-    typename: Literal["Credentials"] = Field(
-        alias="__typename", default="Credentials", exclude=True
-    )
-    access_key: str = Field(alias="accessKey")
-    status: str
-    secret_key: str = Field(alias="secretKey")
-    bucket: str
-    key: str
-    session_token: str = Field(alias="sessionToken")
-    store: str
-
-
-class AccessCredentials(BaseModel):
-    """Temporary Credentials for a file download that can be used by a Client (e.g. in a python datalayer)"""
-
-    typename: Literal["AccessCredentials"] = Field(
-        alias="__typename", default="AccessCredentials", exclude=True
-    )
-    access_key: str = Field(alias="accessKey")
-    secret_key: str = Field(alias="secretKey")
-    bucket: str
-    key: str
-    session_token: str = Field(alias="sessionToken")
-    path: str
+        document = "fragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}"
+        name = "NetStimulator"
+        type = "NetStimulator"
 
 
 class ROITrace(HasZarrStoreTrait, BaseModel):
@@ -809,15 +993,12 @@ class ROI(IsVectorizableTrait, BaseModel):
     vectors: List[FiveDVector]
     kind: RoiKind
 
+    class Meta:
+        """Meta class for ROI"""
 
-class Dataset(BaseModel):
-    """No documentation"""
-
-    typename: Literal["Dataset"] = Field(
-        alias="__typename", default="Dataset", exclude=True
-    )
-    name: str
-    description: Optional[str] = Field(default=None)
+        document = "fragment ROI on ROI {\n  id\n  trace {\n    id\n    __typename\n  }\n  vectors\n  kind\n  __typename\n}"
+        name = "ROI"
+        type = "ROI"
 
 
 class ZarrStore(HasZarrStoreAccessor, BaseModel):
@@ -834,6 +1015,13 @@ class ZarrStore(HasZarrStoreAccessor, BaseModel):
     path: Optional[str] = Field(default=None)
     "The path to the data. Relative to the bucket."
 
+    class Meta:
+        """Meta class for ZarrStore"""
+
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}"
+        name = "ZarrStore"
+        type = "ZarrStore"
+
 
 class BigFileStore(HasDownloadAccessor, BaseModel):
     """No documentation"""
@@ -847,6 +1035,13 @@ class BigFileStore(HasDownloadAccessor, BaseModel):
     path: str
     presigned_url: str = Field(alias="presignedUrl")
 
+    class Meta:
+        """Meta class for BigFileStore"""
+
+        document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}"
+        name = "BigFileStore"
+        type = "BigFileStore"
+
 
 class Compartment(CompartmentTrait, BaseModel):
     """No documentation"""
@@ -858,6 +1053,43 @@ class Compartment(CompartmentTrait, BaseModel):
     mechanisms: List[str]
     global_params: List[GlobalParamMap] = Field(alias="globalParams")
     section_params: List[SectionParamMap] = Field(alias="sectionParams")
+
+    class Meta:
+        """Meta class for Compartment"""
+
+        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}"
+        name = "Compartment"
+        type = "Compartment"
+
+
+class RecordingTrace(HasZarrStoreTrait, BaseModel):
+    """No documentation"""
+
+    typename: Literal["Trace"] = Field(
+        alias="__typename", default="Trace", exclude=True
+    )
+    id: ID
+    store: ZarrStore
+    "The store where the image data is stored."
+
+
+class Recording(BaseModel):
+    """No documentation"""
+
+    typename: Literal["Recording"] = Field(
+        alias="__typename", default="Recording", exclude=True
+    )
+    id: ID
+    label: str
+    cell: str
+    trace: RecordingTrace
+
+    class Meta:
+        """Meta class for Recording"""
+
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
+        name = "Recording"
+        type = "Recording"
 
 
 class StimulusTrace(HasZarrStoreTrait, BaseModel):
@@ -883,28 +1115,12 @@ class Stimulus(BaseModel):
     kind: StimulusKind
     trace: StimulusTrace
 
+    class Meta:
+        """Meta class for Stimulus"""
 
-class RecordingTrace(HasZarrStoreTrait, BaseModel):
-    """No documentation"""
-
-    typename: Literal["Trace"] = Field(
-        alias="__typename", default="Trace", exclude=True
-    )
-    id: ID
-    store: ZarrStore
-    "The store where the image data is stored."
-
-
-class Recording(BaseModel):
-    """No documentation"""
-
-    typename: Literal["Recording"] = Field(
-        alias="__typename", default="Recording", exclude=True
-    )
-    id: ID
-    label: str
-    cell: str
-    trace: RecordingTrace
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
+        name = "Stimulus"
+        type = "Stimulus"
 
 
 class Trace(HasZarrStoreTrait, BaseModel):
@@ -918,6 +1134,13 @@ class Trace(HasZarrStoreTrait, BaseModel):
     "The name of the image"
     store: ZarrStore
     "The store where the image data is stored."
+
+    class Meta:
+        """Meta class for Trace"""
+
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}"
+        name = "Trace"
+        type = "Trace"
 
 
 class FileOrigins(HasZarrStoreTrait, BaseModel):
@@ -937,6 +1160,13 @@ class File(BaseModel):
     id: ID
     name: str
     store: BigFileStore
+
+    class Meta:
+        """Meta class for File"""
+
+        document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment File on File {\n  origins {\n    id\n    __typename\n  }\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}"
+        name = "File"
+        type = "File"
 
 
 class CellBiophysics(BiophysicsTrait, BaseModel):
@@ -964,6 +1194,31 @@ class Cell(BaseModel):
     id: str
     biophysics: CellBiophysics
     topology: CellTopology
+
+    class Meta:
+        """Meta class for Cell"""
+
+        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
+        name = "Cell"
+        type = "Cell"
+
+
+class AnalogSignalChannel(BaseModel):
+    """No documentation"""
+
+    typename: Literal["AnalogSignalChannel"] = Field(
+        alias="__typename", default="AnalogSignalChannel", exclude=True
+    )
+    id: ID
+    index: int
+    trace: Trace
+
+    class Meta:
+        """Meta class for AnalogSignalChannel"""
+
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment AnalogSignalChannel on AnalogSignalChannel {\n  id\n  index\n  trace {\n    ...Trace\n    __typename\n  }\n  __typename\n}"
+        name = "AnalogSignalChannel"
+        type = "AnalogSignalChannel"
 
 
 class ExperimentRecordingviews(BaseModel):
@@ -997,6 +1252,13 @@ class Experiment(ExperimentTrait, BaseModel):
     time_trace: Trace = Field(alias="timeTrace")
     recording_views: List[ExperimentRecordingviews] = Field(alias="recordingViews")
     stimulus_views: List[ExperimentStimulusviews] = Field(alias="stimulusViews")
+
+    class Meta:
+        """Meta class for Experiment"""
+
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Experiment on Experiment {\n  name\n  id\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  recordingViews {\n    label\n    recording {\n      ...Recording\n      __typename\n    }\n    __typename\n  }\n  stimulusViews {\n    label\n    stimulus {\n      ...Stimulus\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
+        name = "Experiment"
+        type = "Experiment"
 
 
 class NeuronModelConfigNetsynapsesBase(BaseModel):
@@ -1089,6 +1351,31 @@ class NeuronModel(BaseModel):
     name: str
     config: NeuronModelConfig
 
+    class Meta:
+        """Meta class for NeuronModel"""
+
+        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
+        name = "NeuronModel"
+        type = "NeuronModel"
+
+
+class AnalogSignal(BaseModel):
+    """No documentation"""
+
+    typename: Literal["AnalogSignal"] = Field(
+        alias="__typename", default="AnalogSignal", exclude=True
+    )
+    id: ID
+    unit: Optional[str] = Field(default=None)
+    channels: List[AnalogSignalChannel]
+
+    class Meta:
+        """Meta class for AnalogSignal"""
+
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment AnalogSignalChannel on AnalogSignalChannel {\n  id\n  index\n  trace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment AnalogSignal on AnalogSignal {\n  id\n  unit\n  channels {\n    ...AnalogSignalChannel\n    __typename\n  }\n  __typename\n}"
+        name = "AnalogSignal"
+        type = "AnalogSignal"
+
 
 class Simulation(BaseModel):
     """No documentation"""
@@ -1103,167 +1390,68 @@ class Simulation(BaseModel):
     stimuli: List[Stimulus]
     time_trace: Trace = Field(alias="timeTrace")
 
+    class Meta:
+        """Meta class for Simulation"""
 
-class CreateModelCollectionMutation(BaseModel):
+        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}"
+        name = "Simulation"
+        type = "Simulation"
+
+
+class BlockSegment(BaseModel):
+    """No documentation"""
+
+    typename: Literal["BlockSegment"] = Field(
+        alias="__typename", default="BlockSegment", exclude=True
+    )
+    id: ID
+    analog_signals: List[AnalogSignal] = Field(alias="analogSignals")
+    "The analog signals in this group"
+
+    class Meta:
+        """Meta class for BlockSegment"""
+
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment AnalogSignalChannel on AnalogSignalChannel {\n  id\n  index\n  trace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment AnalogSignal on AnalogSignal {\n  id\n  unit\n  channels {\n    ...AnalogSignalChannel\n    __typename\n  }\n  __typename\n}\n\nfragment BlockSegment on BlockSegment {\n  id\n  analogSignals {\n    ...AnalogSignal\n    __typename\n  }\n  __typename\n}"
+        name = "BlockSegment"
+        type = "BlockSegment"
+
+
+class Block(BaseModel):
+    """No documentation"""
+
+    typename: Literal["Block"] = Field(
+        alias="__typename", default="Block", exclude=True
+    )
+    id: ID
+    segments: List[BlockSegment]
+    "The segments in this recording session"
+    groups: List[BlockGroup]
+    "The groups in this recording session"
+
+    class Meta:
+        """Meta class for Block"""
+
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment AnalogSignalChannel on AnalogSignalChannel {\n  id\n  index\n  trace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment AnalogSignal on AnalogSignal {\n  id\n  unit\n  channels {\n    ...AnalogSignalChannel\n    __typename\n  }\n  __typename\n}\n\nfragment BlockGroup on BlockGroup {\n  id\n  name\n  __typename\n}\n\nfragment BlockSegment on BlockSegment {\n  id\n  analogSignals {\n    ...AnalogSignal\n    __typename\n  }\n  __typename\n}\n\nfragment Block on Block {\n  id\n  segments {\n    ...BlockSegment\n    __typename\n  }\n  groups {\n    ...BlockGroup\n    __typename\n  }\n  __typename\n}"
+        name = "Block"
+        type = "Block"
+
+
+class CreateBlockMutation(BaseModel):
     """No documentation found for this operation."""
 
-    create_model_collection: ModelCollection = Field(alias="createModelCollection")
-    "Create a new model collection"
+    create_block: Block = Field(alias="createBlock")
+    "Create a new block"
 
     class Arguments(BaseModel):
-        """Arguments for CreateModelCollection"""
+        """Arguments for CreateBlock"""
 
-        input: CreateModelCollectionInput
+        input: CreateBlockInput
         model_config = ConfigDict(populate_by_name=True)
 
     class Meta:
-        """Meta class for CreateModelCollection"""
+        """Meta class for CreateBlock"""
 
-        document = "fragment ModelCollection on ModelCollection {\n  name\n  id\n  models {\n    id\n    name\n    __typename\n  }\n  __typename\n}\n\nmutation CreateModelCollection($input: CreateModelCollectionInput!) {\n  createModelCollection(input: $input) {\n    ...ModelCollection\n    __typename\n  }\n}"
-
-
-class CreateNeuronmodelMutation(BaseModel):
-    """No documentation found for this operation."""
-
-    create_neuron_model: NeuronModel = Field(alias="createNeuronModel")
-    "Create a new neuron model"
-
-    class Arguments(BaseModel):
-        """Arguments for CreateNeuronmodel"""
-
-        input: CreateNeuronModelInput
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for CreateNeuronmodel"""
-
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nmutation CreateNeuronmodel($input: CreateNeuronModelInput!) {\n  createNeuronModel(input: $input) {\n    ...NeuronModel\n    __typename\n  }\n}"
-
-
-class From_file_likeMutation(BaseModel):
-    """No documentation found for this operation."""
-
-    from_file_like: File = Field(alias="fromFileLike")
-    "Create a file from file-like data"
-
-    class Arguments(BaseModel):
-        """Arguments for from_file_like"""
-
-        input: FromFileLike
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for from_file_like"""
-
-        document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment File on File {\n  origins {\n    id\n    __typename\n  }\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}\n\nmutation from_file_like($input: FromFileLike!) {\n  fromFileLike(input: $input) {\n    ...File\n    __typename\n  }\n}"
-
-
-class RequestFileUploadMutation(BaseModel):
-    """No documentation found for this operation."""
-
-    request_file_upload: Credentials = Field(alias="requestFileUpload")
-    "Request credentials to upload a new file"
-
-    class Arguments(BaseModel):
-        """Arguments for RequestFileUpload"""
-
-        input: RequestFileUploadInput
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for RequestFileUpload"""
-
-        document = "fragment Credentials on Credentials {\n  accessKey\n  status\n  secretKey\n  bucket\n  key\n  sessionToken\n  store\n  __typename\n}\n\nmutation RequestFileUpload($input: RequestFileUploadInput!) {\n  requestFileUpload(input: $input) {\n    ...Credentials\n    __typename\n  }\n}"
-
-
-class RequestFileAccessMutation(BaseModel):
-    """No documentation found for this operation."""
-
-    request_file_access: AccessCredentials = Field(alias="requestFileAccess")
-    "Request credentials to access a file"
-
-    class Arguments(BaseModel):
-        """Arguments for RequestFileAccess"""
-
-        input: RequestFileAccessInput
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for RequestFileAccess"""
-
-        document = "fragment AccessCredentials on AccessCredentials {\n  accessKey\n  secretKey\n  bucket\n  key\n  sessionToken\n  path\n  __typename\n}\n\nmutation RequestFileAccess($input: RequestFileAccessInput!) {\n  requestFileAccess(input: $input) {\n    ...AccessCredentials\n    __typename\n  }\n}"
-
-
-class CreateRoiMutation(BaseModel):
-    """No documentation found for this operation."""
-
-    create_roi: ROI = Field(alias="createRoi")
-    "Create a new region of interest"
-
-    class Arguments(BaseModel):
-        """Arguments for CreateRoi"""
-
-        input: RoiInput
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for CreateRoi"""
-
-        document = "fragment ROI on ROI {\n  id\n  trace {\n    id\n    __typename\n  }\n  vectors\n  kind\n  __typename\n}\n\nmutation CreateRoi($input: RoiInput!) {\n  createRoi(input: $input) {\n    ...ROI\n    __typename\n  }\n}"
-
-
-class DeleteRoiMutation(BaseModel):
-    """No documentation found for this operation."""
-
-    delete_roi: ID = Field(alias="deleteRoi")
-    "Delete an existing region of interest"
-
-    class Arguments(BaseModel):
-        """Arguments for DeleteRoi"""
-
-        input: DeleteRoiInput
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for DeleteRoi"""
-
-        document = "mutation DeleteRoi($input: DeleteRoiInput!) {\n  deleteRoi(input: $input)\n}"
-
-
-class UpdateRoiMutation(BaseModel):
-    """No documentation found for this operation."""
-
-    update_roi: ROI = Field(alias="updateRoi")
-    "Update an existing region of interest"
-
-    class Arguments(BaseModel):
-        """Arguments for UpdateRoi"""
-
-        input: UpdateRoiInput
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for UpdateRoi"""
-
-        document = "fragment ROI on ROI {\n  id\n  trace {\n    id\n    __typename\n  }\n  vectors\n  kind\n  __typename\n}\n\nmutation UpdateRoi($input: UpdateRoiInput!) {\n  updateRoi(input: $input) {\n    ...ROI\n    __typename\n  }\n}"
-
-
-class CreateSimulationMutation(BaseModel):
-    """No documentation found for this operation."""
-
-    create_simulation: Simulation = Field(alias="createSimulation")
-    "Create a new simulsation"
-
-    class Arguments(BaseModel):
-        """Arguments for CreateSimulation"""
-
-        input: CreateSimulationInput
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for CreateSimulation"""
-
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nmutation CreateSimulation($input: CreateSimulationInput!) {\n  createSimulation(input: $input) {\n    ...Simulation\n    __typename\n  }\n}"
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment AnalogSignalChannel on AnalogSignalChannel {\n  id\n  index\n  trace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment AnalogSignal on AnalogSignal {\n  id\n  unit\n  channels {\n    ...AnalogSignalChannel\n    __typename\n  }\n  __typename\n}\n\nfragment BlockGroup on BlockGroup {\n  id\n  name\n  __typename\n}\n\nfragment BlockSegment on BlockSegment {\n  id\n  analogSignals {\n    ...AnalogSignal\n    __typename\n  }\n  __typename\n}\n\nfragment Block on Block {\n  id\n  segments {\n    ...BlockSegment\n    __typename\n  }\n  groups {\n    ...BlockGroup\n    __typename\n  }\n  __typename\n}\n\nmutation CreateBlock($input: CreateBlockInput!) {\n  createBlock(input: $input) {\n    ...Block\n    __typename\n  }\n}"
 
 
 class CreateDatasetMutationCreatedataset(BaseModel):
@@ -1351,6 +1539,186 @@ class RevertDatasetMutation(BaseModel):
         document = "mutation RevertDataset($input: RevertInput!) {\n  revertDataset(input: $input) {\n    id\n    name\n    description\n    __typename\n  }\n}"
 
 
+class CreateExperimentMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    create_experiment: Experiment = Field(alias="createExperiment")
+    "Create a new experiment"
+
+    class Arguments(BaseModel):
+        """Arguments for CreateExperiment"""
+
+        input: CreateExperimentInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for CreateExperiment"""
+
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Experiment on Experiment {\n  name\n  id\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  recordingViews {\n    label\n    recording {\n      ...Recording\n      __typename\n    }\n    __typename\n  }\n  stimulusViews {\n    label\n    stimulus {\n      ...Stimulus\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nmutation CreateExperiment($input: CreateExperimentInput!) {\n  createExperiment(input: $input) {\n    ...Experiment\n    __typename\n  }\n}"
+
+
+class From_file_likeMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    from_file_like: File = Field(alias="fromFileLike")
+    "Create a file from file-like data"
+
+    class Arguments(BaseModel):
+        """Arguments for from_file_like"""
+
+        input: FromFileLike
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for from_file_like"""
+
+        document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment File on File {\n  origins {\n    id\n    __typename\n  }\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}\n\nmutation from_file_like($input: FromFileLike!) {\n  fromFileLike(input: $input) {\n    ...File\n    __typename\n  }\n}"
+
+
+class RequestFileUploadMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    request_file_upload: Credentials = Field(alias="requestFileUpload")
+    "Request credentials to upload a new file"
+
+    class Arguments(BaseModel):
+        """Arguments for RequestFileUpload"""
+
+        input: RequestFileUploadInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for RequestFileUpload"""
+
+        document = "fragment Credentials on Credentials {\n  accessKey\n  status\n  secretKey\n  bucket\n  key\n  sessionToken\n  store\n  __typename\n}\n\nmutation RequestFileUpload($input: RequestFileUploadInput!) {\n  requestFileUpload(input: $input) {\n    ...Credentials\n    __typename\n  }\n}"
+
+
+class RequestFileAccessMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    request_file_access: AccessCredentials = Field(alias="requestFileAccess")
+    "Request credentials to access a file"
+
+    class Arguments(BaseModel):
+        """Arguments for RequestFileAccess"""
+
+        input: RequestFileAccessInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for RequestFileAccess"""
+
+        document = "fragment AccessCredentials on AccessCredentials {\n  accessKey\n  secretKey\n  bucket\n  key\n  sessionToken\n  path\n  __typename\n}\n\nmutation RequestFileAccess($input: RequestFileAccessInput!) {\n  requestFileAccess(input: $input) {\n    ...AccessCredentials\n    __typename\n  }\n}"
+
+
+class CreateModelCollectionMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    create_model_collection: ModelCollection = Field(alias="createModelCollection")
+    "Create a new model collection"
+
+    class Arguments(BaseModel):
+        """Arguments for CreateModelCollection"""
+
+        input: CreateModelCollectionInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for CreateModelCollection"""
+
+        document = "fragment ModelCollection on ModelCollection {\n  name\n  id\n  models {\n    id\n    name\n    __typename\n  }\n  __typename\n}\n\nmutation CreateModelCollection($input: CreateModelCollectionInput!) {\n  createModelCollection(input: $input) {\n    ...ModelCollection\n    __typename\n  }\n}"
+
+
+class CreateNeuronmodelMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    create_neuron_model: NeuronModel = Field(alias="createNeuronModel")
+    "Create a new neuron model"
+
+    class Arguments(BaseModel):
+        """Arguments for CreateNeuronmodel"""
+
+        input: CreateNeuronModelInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for CreateNeuronmodel"""
+
+        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nmutation CreateNeuronmodel($input: CreateNeuronModelInput!) {\n  createNeuronModel(input: $input) {\n    ...NeuronModel\n    __typename\n  }\n}"
+
+
+class CreateRoiMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    create_roi: ROI = Field(alias="createRoi")
+    "Create a new region of interest"
+
+    class Arguments(BaseModel):
+        """Arguments for CreateRoi"""
+
+        input: RoiInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for CreateRoi"""
+
+        document = "fragment ROI on ROI {\n  id\n  trace {\n    id\n    __typename\n  }\n  vectors\n  kind\n  __typename\n}\n\nmutation CreateRoi($input: RoiInput!) {\n  createRoi(input: $input) {\n    ...ROI\n    __typename\n  }\n}"
+
+
+class DeleteRoiMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    delete_roi: ID = Field(alias="deleteRoi")
+    "Delete an existing region of interest"
+
+    class Arguments(BaseModel):
+        """Arguments for DeleteRoi"""
+
+        input: DeleteRoiInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for DeleteRoi"""
+
+        document = "mutation DeleteRoi($input: DeleteRoiInput!) {\n  deleteRoi(input: $input)\n}"
+
+
+class UpdateRoiMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    update_roi: ROI = Field(alias="updateRoi")
+    "Update an existing region of interest"
+
+    class Arguments(BaseModel):
+        """Arguments for UpdateRoi"""
+
+        input: UpdateRoiInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for UpdateRoi"""
+
+        document = "fragment ROI on ROI {\n  id\n  trace {\n    id\n    __typename\n  }\n  vectors\n  kind\n  __typename\n}\n\nmutation UpdateRoi($input: UpdateRoiInput!) {\n  updateRoi(input: $input) {\n    ...ROI\n    __typename\n  }\n}"
+
+
+class CreateSimulationMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    create_simulation: Simulation = Field(alias="createSimulation")
+    "Create a new simulsation"
+
+    class Arguments(BaseModel):
+        """Arguments for CreateSimulation"""
+
+        input: CreateSimulationInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for CreateSimulation"""
+
+        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nmutation CreateSimulation($input: CreateSimulationInput!) {\n  createSimulation(input: $input) {\n    ...Simulation\n    __typename\n  }\n}"
+
+
 class FromTraceLikeMutation(BaseModel):
     """No documentation found for this operation."""
 
@@ -1405,22 +1773,128 @@ class RequestAccessMutation(BaseModel):
         document = "fragment AccessCredentials on AccessCredentials {\n  accessKey\n  secretKey\n  bucket\n  key\n  sessionToken\n  path\n  __typename\n}\n\nmutation RequestAccess($input: RequestAccessInput!) {\n  requestAccess(input: $input) {\n    ...AccessCredentials\n    __typename\n  }\n}"
 
 
-class CreateExperimentMutation(BaseModel):
+class GetDatasetQuery(BaseModel):
     """No documentation found for this operation."""
 
-    create_experiment: Experiment = Field(alias="createExperiment")
-    "Create a new experiment"
+    dataset: Dataset
 
     class Arguments(BaseModel):
-        """Arguments for CreateExperiment"""
+        """Arguments for GetDataset"""
 
-        input: CreateExperimentInput
+        id: ID
         model_config = ConfigDict(populate_by_name=True)
 
     class Meta:
-        """Meta class for CreateExperiment"""
+        """Meta class for GetDataset"""
 
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Experiment on Experiment {\n  name\n  id\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  recordingViews {\n    label\n    recording {\n      ...Recording\n      __typename\n    }\n    __typename\n  }\n  stimulusViews {\n    label\n    stimulus {\n      ...Stimulus\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nmutation CreateExperiment($input: CreateExperimentInput!) {\n  createExperiment(input: $input) {\n    ...Experiment\n    __typename\n  }\n}"
+        document = "fragment Dataset on Dataset {\n  name\n  description\n  __typename\n}\n\nquery GetDataset($id: ID!) {\n  dataset(id: $id) {\n    ...Dataset\n    __typename\n  }\n}"
+
+
+class GetExperimentQuery(BaseModel):
+    """No documentation found for this operation."""
+
+    experiment: Experiment
+
+    class Arguments(BaseModel):
+        """Arguments for GetExperiment"""
+
+        id: ID
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for GetExperiment"""
+
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Experiment on Experiment {\n  name\n  id\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  recordingViews {\n    label\n    recording {\n      ...Recording\n      __typename\n    }\n    __typename\n  }\n  stimulusViews {\n    label\n    stimulus {\n      ...Stimulus\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetExperiment($id: ID!) {\n  experiment(id: $id) {\n    ...Experiment\n    __typename\n  }\n}"
+
+
+class SearchExperimentsQueryOptions(ExperimentTrait, BaseModel):
+    """No documentation"""
+
+    typename: Literal["Experiment"] = Field(
+        alias="__typename", default="Experiment", exclude=True
+    )
+    value: ID
+    label: str
+
+
+class SearchExperimentsQuery(BaseModel):
+    """No documentation found for this operation."""
+
+    options: List[SearchExperimentsQueryOptions]
+
+    class Arguments(BaseModel):
+        """Arguments for SearchExperiments"""
+
+        search: Optional[str] = Field(default=None)
+        values: Optional[List[ID]] = Field(default=None)
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for SearchExperiments"""
+
+        document = "query SearchExperiments($search: String, $values: [ID!]) {\n  options: experiments(\n    filters: {name: {contains: $search}, ids: $values}\n    pagination: {limit: 10}\n  ) {\n    value: id\n    label: name\n    __typename\n  }\n}"
+
+
+class ListExperimentsQuery(BaseModel):
+    """No documentation found for this operation."""
+
+    experiments: List[Experiment]
+
+    class Arguments(BaseModel):
+        """Arguments for ListExperiments"""
+
+        filter: Optional[ExperimentFilter] = Field(default=None)
+        pagination: Optional[OffsetPaginationInput] = Field(default=None)
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for ListExperiments"""
+
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Experiment on Experiment {\n  name\n  id\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  recordingViews {\n    label\n    recording {\n      ...Recording\n      __typename\n    }\n    __typename\n  }\n  stimulusViews {\n    label\n    stimulus {\n      ...Stimulus\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListExperiments($filter: ExperimentFilter, $pagination: OffsetPaginationInput) {\n  experiments(filters: $filter, pagination: $pagination) {\n    ...Experiment\n    __typename\n  }\n}"
+
+
+class GetFileQuery(BaseModel):
+    """No documentation found for this operation."""
+
+    file: File
+
+    class Arguments(BaseModel):
+        """Arguments for GetFile"""
+
+        id: ID
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for GetFile"""
+
+        document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment File on File {\n  origins {\n    id\n    __typename\n  }\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}\n\nquery GetFile($id: ID!) {\n  file(id: $id) {\n    ...File\n    __typename\n  }\n}"
+
+
+class SearchFilesQueryOptions(BaseModel):
+    """No documentation"""
+
+    typename: Literal["File"] = Field(alias="__typename", default="File", exclude=True)
+    value: ID
+    label: str
+
+
+class SearchFilesQuery(BaseModel):
+    """No documentation found for this operation."""
+
+    options: List[SearchFilesQueryOptions]
+
+    class Arguments(BaseModel):
+        """Arguments for SearchFiles"""
+
+        search: Optional[str] = Field(default=None)
+        values: Optional[List[ID]] = Field(default=None)
+        pagination: Optional[OffsetPaginationInput] = Field(default=None)
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for SearchFiles"""
+
+        document = "query SearchFiles($search: String, $values: [ID!], $pagination: OffsetPaginationInput) {\n  options: files(\n    filters: {search: $search, ids: $values}\n    pagination: $pagination\n  ) {\n    value: id\n    label: name\n    __typename\n  }\n}"
 
 
 class GetModelCollectionQuery(BaseModel):
@@ -1486,70 +1960,6 @@ class ListModelCollectionsQuery(BaseModel):
         document = "fragment ModelCollection on ModelCollection {\n  name\n  id\n  models {\n    id\n    name\n    __typename\n  }\n  __typename\n}\n\nquery ListModelCollections($filter: ModelCollectionFilter, $pagination: OffsetPaginationInput) {\n  modelCollections(filters: $filter, pagination: $pagination) {\n    ...ModelCollection\n    __typename\n  }\n}"
 
 
-class GetStimulusQuery(BaseModel):
-    """No documentation found for this operation."""
-
-    stimulus: Stimulus
-    "Returns a list of images"
-
-    class Arguments(BaseModel):
-        """Arguments for GetStimulus"""
-
-        id: ID
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for GetStimulus"""
-
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetStimulus($id: ID!) {\n  stimulus(id: $id) {\n    ...Stimulus\n    __typename\n  }\n}"
-
-
-class SearchStimuliQueryOptions(BaseModel):
-    """No documentation"""
-
-    typename: Literal["Stimulus"] = Field(
-        alias="__typename", default="Stimulus", exclude=True
-    )
-    value: ID
-    label: str
-
-
-class SearchStimuliQuery(BaseModel):
-    """No documentation found for this operation."""
-
-    options: List[SearchStimuliQueryOptions]
-
-    class Arguments(BaseModel):
-        """Arguments for SearchStimuli"""
-
-        search: Optional[str] = Field(default=None)
-        values: Optional[List[ID]] = Field(default=None)
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for SearchStimuli"""
-
-        document = "query SearchStimuli($search: String, $values: [ID!]) {\n  options: stimuli(\n    filters: {name: {contains: $search}, ids: $values}\n    pagination: {limit: 10}\n  ) {\n    value: id\n    label: label\n    __typename\n  }\n}"
-
-
-class ListStimuliQuery(BaseModel):
-    """No documentation found for this operation."""
-
-    stimuli: List[Stimulus]
-
-    class Arguments(BaseModel):
-        """Arguments for ListStimuli"""
-
-        filter: Optional[StimulusFilter] = Field(default=None)
-        pagination: Optional[OffsetPaginationInput] = Field(default=None)
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for ListStimuli"""
-
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListStimuli($filter: StimulusFilter, $pagination: OffsetPaginationInput) {\n  stimuli(filters: $filter, pagination: $pagination) {\n    ...Stimulus\n    __typename\n  }\n}"
-
-
 class GetNeuronModelQuery(BaseModel):
     """No documentation found for this operation."""
 
@@ -1565,7 +1975,7 @@ class GetNeuronModelQuery(BaseModel):
     class Meta:
         """Meta class for GetNeuronModel"""
 
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetNeuronModel($id: ID!) {\n  neuronModel(id: $id) {\n    ...NeuronModel\n    __typename\n  }\n}"
+        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetNeuronModel($id: ID!) {\n  neuronModel(id: $id) {\n    ...NeuronModel\n    __typename\n  }\n}"
 
 
 class SearchNeuronModelsQueryOptions(BaseModel):
@@ -1611,51 +2021,71 @@ class ListNeuronModelsQuery(BaseModel):
     class Meta:
         """Meta class for ListNeuronModels"""
 
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListNeuronModels($filter: NeuronModelFilter, $pagination: OffsetPaginationInput) {\n  neuronModels(filters: $filter, pagination: $pagination) {\n    ...NeuronModel\n    __typename\n  }\n}"
+        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListNeuronModels($filter: NeuronModelFilter, $pagination: OffsetPaginationInput) {\n  neuronModels(filters: $filter, pagination: $pagination) {\n    ...NeuronModel\n    __typename\n  }\n}"
 
 
-class GetFileQuery(BaseModel):
+class GetRecordingQuery(BaseModel):
     """No documentation found for this operation."""
 
-    file: File
+    recording: Recording
+    "Returns a list of images"
 
     class Arguments(BaseModel):
-        """Arguments for GetFile"""
+        """Arguments for GetRecording"""
 
         id: ID
         model_config = ConfigDict(populate_by_name=True)
 
     class Meta:
-        """Meta class for GetFile"""
+        """Meta class for GetRecording"""
 
-        document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment File on File {\n  origins {\n    id\n    __typename\n  }\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}\n\nquery GetFile($id: ID!) {\n  file(id: $id) {\n    ...File\n    __typename\n  }\n}"
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetRecording($id: ID!) {\n  recording(id: $id) {\n    ...Recording\n    __typename\n  }\n}"
 
 
-class SearchFilesQueryOptions(BaseModel):
+class SearchRecordingsQueryOptions(BaseModel):
     """No documentation"""
 
-    typename: Literal["File"] = Field(alias="__typename", default="File", exclude=True)
+    typename: Literal["Recording"] = Field(
+        alias="__typename", default="Recording", exclude=True
+    )
     value: ID
     label: str
 
 
-class SearchFilesQuery(BaseModel):
+class SearchRecordingsQuery(BaseModel):
     """No documentation found for this operation."""
 
-    options: List[SearchFilesQueryOptions]
+    options: List[SearchRecordingsQueryOptions]
 
     class Arguments(BaseModel):
-        """Arguments for SearchFiles"""
+        """Arguments for SearchRecordings"""
 
         search: Optional[str] = Field(default=None)
         values: Optional[List[ID]] = Field(default=None)
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for SearchRecordings"""
+
+        document = "query SearchRecordings($search: String, $values: [ID!]) {\n  options: recordings(\n    filters: {name: {contains: $search}, ids: $values}\n    pagination: {limit: 10}\n  ) {\n    value: id\n    label: label\n    __typename\n  }\n}"
+
+
+class ListRecordingsQuery(BaseModel):
+    """No documentation found for this operation."""
+
+    recordings: List[Recording]
+
+    class Arguments(BaseModel):
+        """Arguments for ListRecordings"""
+
+        filter: Optional[RecordingFilter] = Field(default=None)
         pagination: Optional[OffsetPaginationInput] = Field(default=None)
         model_config = ConfigDict(populate_by_name=True)
 
     class Meta:
-        """Meta class for SearchFiles"""
+        """Meta class for ListRecordings"""
 
-        document = "query SearchFiles($search: String, $values: [ID!], $pagination: OffsetPaginationInput) {\n  options: files(\n    filters: {search: $search, ids: $values}\n    pagination: $pagination\n  ) {\n    value: id\n    label: name\n    __typename\n  }\n}"
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListRecordings($filter: RecordingFilter, $pagination: OffsetPaginationInput) {\n  recordings(filters: $filter, pagination: $pagination) {\n    ...Recording\n    __typename\n  }\n}"
 
 
 class GetRoisQuery(BaseModel):
@@ -1732,7 +2162,7 @@ class GetSimulationQuery(BaseModel):
     class Meta:
         """Meta class for GetSimulation"""
 
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery GetSimulation($id: ID!) {\n  simulation(id: $id) {\n    ...Simulation\n    __typename\n  }\n}"
+        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery GetSimulation($id: ID!) {\n  simulation(id: $id) {\n    ...Simulation\n    __typename\n  }\n}"
 
 
 class SearchSimulationsQueryOptions(BaseModel):
@@ -1778,88 +2208,71 @@ class ListSimulationsQuery(BaseModel):
     class Meta:
         """Meta class for ListSimulations"""
 
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery ListSimulations($filter: SimulationFilter, $pagination: OffsetPaginationInput) {\n  simulations(filters: $filter, pagination: $pagination) {\n    ...Simulation\n    __typename\n  }\n}"
+        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery ListSimulations($filter: SimulationFilter, $pagination: OffsetPaginationInput) {\n  simulations(filters: $filter, pagination: $pagination) {\n    ...Simulation\n    __typename\n  }\n}"
 
 
-class GetDatasetQuery(BaseModel):
+class GetStimulusQuery(BaseModel):
     """No documentation found for this operation."""
 
-    dataset: Dataset
-
-    class Arguments(BaseModel):
-        """Arguments for GetDataset"""
-
-        id: ID
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for GetDataset"""
-
-        document = "fragment Dataset on Dataset {\n  name\n  description\n  __typename\n}\n\nquery GetDataset($id: ID!) {\n  dataset(id: $id) {\n    ...Dataset\n    __typename\n  }\n}"
-
-
-class GetRecordingQuery(BaseModel):
-    """No documentation found for this operation."""
-
-    recording: Recording
+    stimulus: Stimulus
     "Returns a list of images"
 
     class Arguments(BaseModel):
-        """Arguments for GetRecording"""
+        """Arguments for GetStimulus"""
 
         id: ID
         model_config = ConfigDict(populate_by_name=True)
 
     class Meta:
-        """Meta class for GetRecording"""
+        """Meta class for GetStimulus"""
 
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetRecording($id: ID!) {\n  recording(id: $id) {\n    ...Recording\n    __typename\n  }\n}"
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetStimulus($id: ID!) {\n  stimulus(id: $id) {\n    ...Stimulus\n    __typename\n  }\n}"
 
 
-class SearchRecordingsQueryOptions(BaseModel):
+class SearchStimuliQueryOptions(BaseModel):
     """No documentation"""
 
-    typename: Literal["Recording"] = Field(
-        alias="__typename", default="Recording", exclude=True
+    typename: Literal["Stimulus"] = Field(
+        alias="__typename", default="Stimulus", exclude=True
     )
     value: ID
     label: str
 
 
-class SearchRecordingsQuery(BaseModel):
+class SearchStimuliQuery(BaseModel):
     """No documentation found for this operation."""
 
-    options: List[SearchRecordingsQueryOptions]
+    options: List[SearchStimuliQueryOptions]
 
     class Arguments(BaseModel):
-        """Arguments for SearchRecordings"""
+        """Arguments for SearchStimuli"""
 
         search: Optional[str] = Field(default=None)
         values: Optional[List[ID]] = Field(default=None)
         model_config = ConfigDict(populate_by_name=True)
 
     class Meta:
-        """Meta class for SearchRecordings"""
+        """Meta class for SearchStimuli"""
 
-        document = "query SearchRecordings($search: String, $values: [ID!]) {\n  options: recordings(\n    filters: {name: {contains: $search}, ids: $values}\n    pagination: {limit: 10}\n  ) {\n    value: id\n    label: label\n    __typename\n  }\n}"
+        document = "query SearchStimuli($search: String, $values: [ID!]) {\n  options: stimuli(\n    filters: {name: {contains: $search}, ids: $values}\n    pagination: {limit: 10}\n  ) {\n    value: id\n    label: label\n    __typename\n  }\n}"
 
 
-class ListRecordingsQuery(BaseModel):
+class ListStimuliQuery(BaseModel):
     """No documentation found for this operation."""
 
-    recordings: List[Recording]
+    stimuli: List[Stimulus]
 
     class Arguments(BaseModel):
-        """Arguments for ListRecordings"""
+        """Arguments for ListStimuli"""
 
-        filter: Optional[RecordingFilter] = Field(default=None)
+        filter: Optional[StimulusFilter] = Field(default=None)
         pagination: Optional[OffsetPaginationInput] = Field(default=None)
         model_config = ConfigDict(populate_by_name=True)
 
     class Meta:
-        """Meta class for ListRecordings"""
+        """Meta class for ListStimuli"""
 
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListRecordings($filter: RecordingFilter, $pagination: OffsetPaginationInput) {\n  recordings(filters: $filter, pagination: $pagination) {\n    ...Recording\n    __typename\n  }\n}"
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListStimuli($filter: StimulusFilter, $pagination: OffsetPaginationInput) {\n  stimuli(filters: $filter, pagination: $pagination) {\n    ...Stimulus\n    __typename\n  }\n}"
 
 
 class GetTraceQuery(BaseModel):
@@ -1943,98 +2356,6 @@ class ListTracesQuery(BaseModel):
         document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nquery ListTraces($filter: TraceFilter, $pagination: OffsetPaginationInput) {\n  traces(filters: $filter, pagination: $pagination) {\n    ...Trace\n    __typename\n  }\n}"
 
 
-class GetExperimentQuery(BaseModel):
-    """No documentation found for this operation."""
-
-    experiment: Experiment
-
-    class Arguments(BaseModel):
-        """Arguments for GetExperiment"""
-
-        id: ID
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for GetExperiment"""
-
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Experiment on Experiment {\n  name\n  id\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  recordingViews {\n    label\n    recording {\n      ...Recording\n      __typename\n    }\n    __typename\n  }\n  stimulusViews {\n    label\n    stimulus {\n      ...Stimulus\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetExperiment($id: ID!) {\n  experiment(id: $id) {\n    ...Experiment\n    __typename\n  }\n}"
-
-
-class SearchExperimentsQueryOptions(ExperimentTrait, BaseModel):
-    """No documentation"""
-
-    typename: Literal["Experiment"] = Field(
-        alias="__typename", default="Experiment", exclude=True
-    )
-    value: ID
-    label: str
-
-
-class SearchExperimentsQuery(BaseModel):
-    """No documentation found for this operation."""
-
-    options: List[SearchExperimentsQueryOptions]
-
-    class Arguments(BaseModel):
-        """Arguments for SearchExperiments"""
-
-        search: Optional[str] = Field(default=None)
-        values: Optional[List[ID]] = Field(default=None)
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for SearchExperiments"""
-
-        document = "query SearchExperiments($search: String, $values: [ID!]) {\n  options: experiments(\n    filters: {name: {contains: $search}, ids: $values}\n    pagination: {limit: 10}\n  ) {\n    value: id\n    label: name\n    __typename\n  }\n}"
-
-
-class ListExperimentsQuery(BaseModel):
-    """No documentation found for this operation."""
-
-    experiments: List[Experiment]
-
-    class Arguments(BaseModel):
-        """Arguments for ListExperiments"""
-
-        filter: Optional[ExperimentFilter] = Field(default=None)
-        pagination: Optional[OffsetPaginationInput] = Field(default=None)
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for ListExperiments"""
-
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Experiment on Experiment {\n  name\n  id\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  recordingViews {\n    label\n    recording {\n      ...Recording\n      __typename\n    }\n    __typename\n  }\n  stimulusViews {\n    label\n    stimulus {\n      ...Stimulus\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListExperiments($filter: ExperimentFilter, $pagination: OffsetPaginationInput) {\n  experiments(filters: $filter, pagination: $pagination) {\n    ...Experiment\n    __typename\n  }\n}"
-
-
-class WatchTracesSubscriptionTraces(BaseModel):
-    """No documentation"""
-
-    typename: Literal["TraceEvent"] = Field(
-        alias="__typename", default="TraceEvent", exclude=True
-    )
-    create: Optional[Trace] = Field(default=None)
-    delete: Optional[ID] = Field(default=None)
-    update: Optional[Trace] = Field(default=None)
-
-
-class WatchTracesSubscription(BaseModel):
-    """No documentation found for this operation."""
-
-    traces: WatchTracesSubscriptionTraces
-    "Subscribe to real-time image updates"
-
-    class Arguments(BaseModel):
-        """Arguments for WatchTraces"""
-
-        dataset: Optional[ID] = Field(default=None)
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for WatchTraces"""
-
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nsubscription WatchTraces($dataset: ID) {\n  traces(dataset: $dataset) {\n    create {\n      ...Trace\n      __typename\n    }\n    delete\n    update {\n      ...Trace\n      __typename\n    }\n    __typename\n  }\n}"
-
-
 class WatchFilesSubscriptionFiles(BaseModel):
     """No documentation"""
 
@@ -2093,112 +2414,307 @@ class WatchRoisSubscription(BaseModel):
         document = "fragment ROI on ROI {\n  id\n  trace {\n    id\n    __typename\n  }\n  vectors\n  kind\n  __typename\n}\n\nsubscription WatchRois($trace: ID!) {\n  rois(trace: $trace) {\n    create {\n      ...ROI\n      __typename\n    }\n    delete\n    update {\n      ...ROI\n      __typename\n    }\n    __typename\n  }\n}"
 
 
-async def acreate_model_collection(
-    name: str,
-    models: Iterable[IDCoercible],
-    description: Optional[str] = None,
-    rath: Optional[ElektroRath] = None,
-) -> ModelCollection:
-    """CreateModelCollection
+class WatchTracesSubscriptionTraces(BaseModel):
+    """No documentation"""
 
-    Create a new model collection
+    typename: Literal["TraceEvent"] = Field(
+        alias="__typename", default="TraceEvent", exclude=True
+    )
+    create: Optional[Trace] = Field(default=None)
+    delete: Optional[ID] = Field(default=None)
+    update: Optional[Trace] = Field(default=None)
+
+
+class WatchTracesSubscription(BaseModel):
+    """No documentation found for this operation."""
+
+    traces: WatchTracesSubscriptionTraces
+    "Subscribe to real-time image updates"
+
+    class Arguments(BaseModel):
+        """Arguments for WatchTraces"""
+
+        dataset: Optional[ID] = Field(default=None)
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for WatchTraces"""
+
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nsubscription WatchTraces($dataset: ID) {\n  traces(dataset: $dataset) {\n    create {\n      ...Trace\n      __typename\n    }\n    delete\n    update {\n      ...Trace\n      __typename\n    }\n    __typename\n  }\n}"
+
+
+async def acreate_block(
+    name: str,
+    segments: Iterable[BlockSegmentInput],
+    file: Optional[IDCoercible] = None,
+    recording_time: Optional[datetime] = None,
+    rath: Optional[ElektroRath] = None,
+) -> Block:
+    """CreateBlock
+
+    Create a new block
+
+    Args:
+        file: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        recording_time: Date with time (isoformat)
+        segments:  (required) (list) (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        Block
+    """
+    return (
+        await aexecute(
+            CreateBlockMutation,
+            {
+                "input": {
+                    "file": file,
+                    "name": name,
+                    "recordingTime": recording_time,
+                    "segments": segments,
+                }
+            },
+            rath=rath,
+        )
+    ).create_block
+
+
+def create_block(
+    name: str,
+    segments: Iterable[BlockSegmentInput],
+    file: Optional[IDCoercible] = None,
+    recording_time: Optional[datetime] = None,
+    rath: Optional[ElektroRath] = None,
+) -> Block:
+    """CreateBlock
+
+    Create a new block
+
+    Args:
+        file: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        recording_time: Date with time (isoformat)
+        segments:  (required) (list) (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        Block
+    """
+    return execute(
+        CreateBlockMutation,
+        {
+            "input": {
+                "file": file,
+                "name": name,
+                "recordingTime": recording_time,
+                "segments": segments,
+            }
+        },
+        rath=rath,
+    ).create_block
+
+
+async def acreate_dataset(
+    name: str, rath: Optional[ElektroRath] = None
+) -> CreateDatasetMutationCreatedataset:
+    """CreateDataset
+
+    Create a new dataset to organize data
 
     Args:
         name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        models: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required) (list) (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        CreateDatasetMutationCreatedataset
+    """
+    return (
+        await aexecute(CreateDatasetMutation, {"input": {"name": name}}, rath=rath)
+    ).create_dataset
+
+
+def create_dataset(
+    name: str, rath: Optional[ElektroRath] = None
+) -> CreateDatasetMutationCreatedataset:
+    """CreateDataset
+
+    Create a new dataset to organize data
+
+    Args:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        CreateDatasetMutationCreatedataset
+    """
+    return execute(
+        CreateDatasetMutation, {"input": {"name": name}}, rath=rath
+    ).create_dataset
+
+
+async def aupdate_dataset(
+    name: str, id: IDCoercible, rath: Optional[ElektroRath] = None
+) -> UpdateDatasetMutationUpdatedataset:
+    """UpdateDataset
+
+    Update dataset metadata
+
+    Args:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        UpdateDatasetMutationUpdatedataset
+    """
+    return (
+        await aexecute(
+            UpdateDatasetMutation, {"input": {"name": name, "id": id}}, rath=rath
+        )
+    ).update_dataset
+
+
+def update_dataset(
+    name: str, id: IDCoercible, rath: Optional[ElektroRath] = None
+) -> UpdateDatasetMutationUpdatedataset:
+    """UpdateDataset
+
+    Update dataset metadata
+
+    Args:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        UpdateDatasetMutationUpdatedataset
+    """
+    return execute(
+        UpdateDatasetMutation, {"input": {"name": name, "id": id}}, rath=rath
+    ).update_dataset
+
+
+async def arevert_dataset(
+    id: IDCoercible, history_id: IDCoercible, rath: Optional[ElektroRath] = None
+) -> RevertDatasetMutationRevertdataset:
+    """RevertDataset
+
+    Revert dataset to a previous version
+
+    Args:
+        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+        history_id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        RevertDatasetMutationRevertdataset
+    """
+    return (
+        await aexecute(
+            RevertDatasetMutation,
+            {"input": {"id": id, "historyId": history_id}},
+            rath=rath,
+        )
+    ).revert_dataset
+
+
+def revert_dataset(
+    id: IDCoercible, history_id: IDCoercible, rath: Optional[ElektroRath] = None
+) -> RevertDatasetMutationRevertdataset:
+    """RevertDataset
+
+    Revert dataset to a previous version
+
+    Args:
+        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+        history_id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        RevertDatasetMutationRevertdataset
+    """
+    return execute(
+        RevertDatasetMutation, {"input": {"id": id, "historyId": history_id}}, rath=rath
+    ).revert_dataset
+
+
+async def acreate_experiment(
+    name: str,
+    stimulus_views: Iterable[StimulusViewInput],
+    recording_views: Iterable[RecordingViewInput],
+    time_trace: Optional[IDCoercible] = None,
+    description: Optional[str] = None,
+    rath: Optional[ElektroRath] = None,
+) -> Experiment:
+    """CreateExperiment
+
+    Create a new experiment
+
+    Args:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        time_trace: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        stimulus_views:  (required) (list) (required)
+        recording_views:  (required) (list) (required)
         description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        ModelCollection
+        Experiment
     """
     return (
         await aexecute(
-            CreateModelCollectionMutation,
-            {"input": {"name": name, "models": models, "description": description}},
+            CreateExperimentMutation,
+            {
+                "input": {
+                    "name": name,
+                    "timeTrace": time_trace,
+                    "stimulusViews": stimulus_views,
+                    "recordingViews": recording_views,
+                    "description": description,
+                }
+            },
             rath=rath,
         )
-    ).create_model_collection
+    ).create_experiment
 
 
-def create_model_collection(
+def create_experiment(
     name: str,
-    models: Iterable[IDCoercible],
+    stimulus_views: Iterable[StimulusViewInput],
+    recording_views: Iterable[RecordingViewInput],
+    time_trace: Optional[IDCoercible] = None,
     description: Optional[str] = None,
     rath: Optional[ElektroRath] = None,
-) -> ModelCollection:
-    """CreateModelCollection
+) -> Experiment:
+    """CreateExperiment
 
-    Create a new model collection
+    Create a new experiment
 
     Args:
         name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        models: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required) (list) (required)
+        time_trace: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        stimulus_views:  (required) (list) (required)
+        recording_views:  (required) (list) (required)
         description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        ModelCollection
+        Experiment
     """
     return execute(
-        CreateModelCollectionMutation,
-        {"input": {"name": name, "models": models, "description": description}},
+        CreateExperimentMutation,
+        {
+            "input": {
+                "name": name,
+                "timeTrace": time_trace,
+                "stimulusViews": stimulus_views,
+                "recordingViews": recording_views,
+                "description": description,
+            }
+        },
         rath=rath,
-    ).create_model_collection
-
-
-async def acreate_neuronmodel(
-    name: str,
-    config: ModelConfigInput,
-    parent: Optional[IDCoercible] = None,
-    rath: Optional[ElektroRath] = None,
-) -> NeuronModel:
-    """CreateNeuronmodel
-
-    Create a new neuron model
-
-    Args:
-        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
-        config:  (required)
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        NeuronModel
-    """
-    return (
-        await aexecute(
-            CreateNeuronmodelMutation,
-            {"input": {"name": name, "parent": parent, "config": config}},
-            rath=rath,
-        )
-    ).create_neuron_model
-
-
-def create_neuronmodel(
-    name: str,
-    config: ModelConfigInput,
-    parent: Optional[IDCoercible] = None,
-    rath: Optional[ElektroRath] = None,
-) -> NeuronModel:
-    """CreateNeuronmodel
-
-    Create a new neuron model
-
-    Args:
-        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
-        config:  (required)
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        NeuronModel
-    """
-    return execute(
-        CreateNeuronmodelMutation,
-        {"input": {"name": name, "parent": parent, "config": config}},
-        rath=rath,
-    ).create_neuron_model
+    ).create_experiment
 
 
 async def afrom_file_like(
@@ -2360,6 +2876,114 @@ def request_file_access(
         {"input": {"store": store, "duration": duration}},
         rath=rath,
     ).request_file_access
+
+
+async def acreate_model_collection(
+    name: str,
+    models: Iterable[IDCoercible],
+    description: Optional[str] = None,
+    rath: Optional[ElektroRath] = None,
+) -> ModelCollection:
+    """CreateModelCollection
+
+    Create a new model collection
+
+    Args:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        models: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required) (list) (required)
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ModelCollection
+    """
+    return (
+        await aexecute(
+            CreateModelCollectionMutation,
+            {"input": {"name": name, "models": models, "description": description}},
+            rath=rath,
+        )
+    ).create_model_collection
+
+
+def create_model_collection(
+    name: str,
+    models: Iterable[IDCoercible],
+    description: Optional[str] = None,
+    rath: Optional[ElektroRath] = None,
+) -> ModelCollection:
+    """CreateModelCollection
+
+    Create a new model collection
+
+    Args:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        models: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required) (list) (required)
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ModelCollection
+    """
+    return execute(
+        CreateModelCollectionMutation,
+        {"input": {"name": name, "models": models, "description": description}},
+        rath=rath,
+    ).create_model_collection
+
+
+async def acreate_neuronmodel(
+    name: str,
+    config: ModelConfigInput,
+    parent: Optional[IDCoercible] = None,
+    rath: Optional[ElektroRath] = None,
+) -> NeuronModel:
+    """CreateNeuronmodel
+
+    Create a new neuron model
+
+    Args:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        config:  (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        NeuronModel
+    """
+    return (
+        await aexecute(
+            CreateNeuronmodelMutation,
+            {"input": {"name": name, "parent": parent, "config": config}},
+            rath=rath,
+        )
+    ).create_neuron_model
+
+
+def create_neuronmodel(
+    name: str,
+    config: ModelConfigInput,
+    parent: Optional[IDCoercible] = None,
+    rath: Optional[ElektroRath] = None,
+) -> NeuronModel:
+    """CreateNeuronmodel
+
+    Create a new neuron model
+
+    Args:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        config:  (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        NeuronModel
+    """
+    return execute(
+        CreateNeuronmodelMutation,
+        {"input": {"name": name, "parent": parent, "config": config}},
+        rath=rath,
+    ).create_neuron_model
 
 
 async def acreate_roi(
@@ -2607,130 +3231,6 @@ def create_simulation(
     ).create_simulation
 
 
-async def acreate_dataset(
-    name: str, rath: Optional[ElektroRath] = None
-) -> CreateDatasetMutationCreatedataset:
-    """CreateDataset
-
-    Create a new dataset to organize data
-
-    Args:
-        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        CreateDatasetMutationCreatedataset
-    """
-    return (
-        await aexecute(CreateDatasetMutation, {"input": {"name": name}}, rath=rath)
-    ).create_dataset
-
-
-def create_dataset(
-    name: str, rath: Optional[ElektroRath] = None
-) -> CreateDatasetMutationCreatedataset:
-    """CreateDataset
-
-    Create a new dataset to organize data
-
-    Args:
-        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        CreateDatasetMutationCreatedataset
-    """
-    return execute(
-        CreateDatasetMutation, {"input": {"name": name}}, rath=rath
-    ).create_dataset
-
-
-async def aupdate_dataset(
-    name: str, id: IDCoercible, rath: Optional[ElektroRath] = None
-) -> UpdateDatasetMutationUpdatedataset:
-    """UpdateDataset
-
-    Update dataset metadata
-
-    Args:
-        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        UpdateDatasetMutationUpdatedataset
-    """
-    return (
-        await aexecute(
-            UpdateDatasetMutation, {"input": {"name": name, "id": id}}, rath=rath
-        )
-    ).update_dataset
-
-
-def update_dataset(
-    name: str, id: IDCoercible, rath: Optional[ElektroRath] = None
-) -> UpdateDatasetMutationUpdatedataset:
-    """UpdateDataset
-
-    Update dataset metadata
-
-    Args:
-        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        UpdateDatasetMutationUpdatedataset
-    """
-    return execute(
-        UpdateDatasetMutation, {"input": {"name": name, "id": id}}, rath=rath
-    ).update_dataset
-
-
-async def arevert_dataset(
-    id: IDCoercible, history_id: IDCoercible, rath: Optional[ElektroRath] = None
-) -> RevertDatasetMutationRevertdataset:
-    """RevertDataset
-
-    Revert dataset to a previous version
-
-    Args:
-        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
-        history_id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        RevertDatasetMutationRevertdataset
-    """
-    return (
-        await aexecute(
-            RevertDatasetMutation,
-            {"input": {"id": id, "historyId": history_id}},
-            rath=rath,
-        )
-    ).revert_dataset
-
-
-def revert_dataset(
-    id: IDCoercible, history_id: IDCoercible, rath: Optional[ElektroRath] = None
-) -> RevertDatasetMutationRevertdataset:
-    """RevertDataset
-
-    Revert dataset to a previous version
-
-    Args:
-        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
-        history_id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        RevertDatasetMutationRevertdataset
-    """
-    return execute(
-        RevertDatasetMutation, {"input": {"id": id, "historyId": history_id}}, rath=rath
-    ).revert_dataset
-
-
 async def afrom_trace_like(
     array: TraceCoercible,
     name: str,
@@ -2885,82 +3385,230 @@ def request_access(
     ).request_access
 
 
-async def acreate_experiment(
-    name: str,
-    stimulus_views: Iterable[StimulusViewInput],
-    recording_views: Iterable[RecordingViewInput],
-    time_trace: Optional[IDCoercible] = None,
-    description: Optional[str] = None,
-    rath: Optional[ElektroRath] = None,
-) -> Experiment:
-    """CreateExperiment
+async def aget_dataset(id: ID, rath: Optional[ElektroRath] = None) -> Dataset:
+    """GetDataset
 
-    Create a new experiment
 
     Args:
-        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        time_trace: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
-        stimulus_views:  (required) (list) (required)
-        recording_views:  (required) (list) (required)
-        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        id (ID): The unique identifier of an object
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        Dataset
+    """
+    return (await aexecute(GetDatasetQuery, {"id": id}, rath=rath)).dataset
+
+
+def get_dataset(id: ID, rath: Optional[ElektroRath] = None) -> Dataset:
+    """GetDataset
+
+
+    Args:
+        id (ID): The unique identifier of an object
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        Dataset
+    """
+    return execute(GetDatasetQuery, {"id": id}, rath=rath).dataset
+
+
+async def aget_experiment(id: ID, rath: Optional[ElektroRath] = None) -> Experiment:
+    """GetExperiment
+
+
+    Args:
+        id (ID): The unique identifier of an object
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
         Experiment
+    """
+    return (await aexecute(GetExperimentQuery, {"id": id}, rath=rath)).experiment
+
+
+def get_experiment(id: ID, rath: Optional[ElektroRath] = None) -> Experiment:
+    """GetExperiment
+
+
+    Args:
+        id (ID): The unique identifier of an object
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        Experiment
+    """
+    return execute(GetExperimentQuery, {"id": id}, rath=rath).experiment
+
+
+async def asearch_experiments(
+    search: Optional[str] = None,
+    values: Optional[List[ID]] = None,
+    rath: Optional[ElektroRath] = None,
+) -> List[SearchExperimentsQueryOptions]:
+    """SearchExperiments
+
+
+    Args:
+        search (Optional[str], optional): No description.
+        values (Optional[List[ID]], optional): No description.
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        List[SearchExperimentsQueryExperiments]
     """
     return (
         await aexecute(
-            CreateExperimentMutation,
-            {
-                "input": {
-                    "name": name,
-                    "timeTrace": time_trace,
-                    "stimulusViews": stimulus_views,
-                    "recordingViews": recording_views,
-                    "description": description,
-                }
-            },
-            rath=rath,
+            SearchExperimentsQuery, {"search": search, "values": values}, rath=rath
         )
-    ).create_experiment
+    ).options
 
 
-def create_experiment(
-    name: str,
-    stimulus_views: Iterable[StimulusViewInput],
-    recording_views: Iterable[RecordingViewInput],
-    time_trace: Optional[IDCoercible] = None,
-    description: Optional[str] = None,
+def search_experiments(
+    search: Optional[str] = None,
+    values: Optional[List[ID]] = None,
     rath: Optional[ElektroRath] = None,
-) -> Experiment:
-    """CreateExperiment
+) -> List[SearchExperimentsQueryOptions]:
+    """SearchExperiments
 
-    Create a new experiment
 
     Args:
-        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        time_trace: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
-        stimulus_views:  (required) (list) (required)
-        recording_views:  (required) (list) (required)
-        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        search (Optional[str], optional): No description.
+        values (Optional[List[ID]], optional): No description.
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        Experiment
+        List[SearchExperimentsQueryExperiments]
     """
     return execute(
-        CreateExperimentMutation,
-        {
-            "input": {
-                "name": name,
-                "timeTrace": time_trace,
-                "stimulusViews": stimulus_views,
-                "recordingViews": recording_views,
-                "description": description,
-            }
-        },
+        SearchExperimentsQuery, {"search": search, "values": values}, rath=rath
+    ).options
+
+
+async def alist_experiments(
+    filter: Optional[ExperimentFilter] = None,
+    pagination: Optional[OffsetPaginationInput] = None,
+    rath: Optional[ElektroRath] = None,
+) -> List[Experiment]:
+    """ListExperiments
+
+
+    Args:
+        filter (Optional[ExperimentFilter], optional): No description.
+        pagination (Optional[OffsetPaginationInput], optional): No description.
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        List[Experiment]
+    """
+    return (
+        await aexecute(
+            ListExperimentsQuery,
+            {"filter": filter, "pagination": pagination},
+            rath=rath,
+        )
+    ).experiments
+
+
+def list_experiments(
+    filter: Optional[ExperimentFilter] = None,
+    pagination: Optional[OffsetPaginationInput] = None,
+    rath: Optional[ElektroRath] = None,
+) -> List[Experiment]:
+    """ListExperiments
+
+
+    Args:
+        filter (Optional[ExperimentFilter], optional): No description.
+        pagination (Optional[OffsetPaginationInput], optional): No description.
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        List[Experiment]
+    """
+    return execute(
+        ListExperimentsQuery, {"filter": filter, "pagination": pagination}, rath=rath
+    ).experiments
+
+
+async def aget_file(id: ID, rath: Optional[ElektroRath] = None) -> File:
+    """GetFile
+
+
+    Args:
+        id (ID): The unique identifier of an object
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        File
+    """
+    return (await aexecute(GetFileQuery, {"id": id}, rath=rath)).file
+
+
+def get_file(id: ID, rath: Optional[ElektroRath] = None) -> File:
+    """GetFile
+
+
+    Args:
+        id (ID): The unique identifier of an object
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        File
+    """
+    return execute(GetFileQuery, {"id": id}, rath=rath).file
+
+
+async def asearch_files(
+    search: Optional[str] = None,
+    values: Optional[List[ID]] = None,
+    pagination: Optional[OffsetPaginationInput] = None,
+    rath: Optional[ElektroRath] = None,
+) -> List[SearchFilesQueryOptions]:
+    """SearchFiles
+
+
+    Args:
+        search (Optional[str], optional): No description.
+        values (Optional[List[ID]], optional): No description.
+        pagination (Optional[OffsetPaginationInput], optional): No description.
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        List[SearchFilesQueryFiles]
+    """
+    return (
+        await aexecute(
+            SearchFilesQuery,
+            {"search": search, "values": values, "pagination": pagination},
+            rath=rath,
+        )
+    ).options
+
+
+def search_files(
+    search: Optional[str] = None,
+    values: Optional[List[ID]] = None,
+    pagination: Optional[OffsetPaginationInput] = None,
+    rath: Optional[ElektroRath] = None,
+) -> List[SearchFilesQueryOptions]:
+    """SearchFiles
+
+
+    Args:
+        search (Optional[str], optional): No description.
+        values (Optional[List[ID]], optional): No description.
+        pagination (Optional[OffsetPaginationInput], optional): No description.
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        List[SearchFilesQueryFiles]
+    """
+    return execute(
+        SearchFilesQuery,
+        {"search": search, "values": values, "pagination": pagination},
         rath=rath,
-    ).create_experiment
+    ).options
 
 
 async def aget_model_collection(
@@ -3087,124 +3735,6 @@ def list_model_collections(
     ).model_collections
 
 
-async def aget_stimulus(id: ID, rath: Optional[ElektroRath] = None) -> Stimulus:
-    """GetStimulus
-
-    Returns a list of images
-
-    Args:
-        id (ID): The unique identifier of an object
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        Stimulus
-    """
-    return (await aexecute(GetStimulusQuery, {"id": id}, rath=rath)).stimulus
-
-
-def get_stimulus(id: ID, rath: Optional[ElektroRath] = None) -> Stimulus:
-    """GetStimulus
-
-    Returns a list of images
-
-    Args:
-        id (ID): The unique identifier of an object
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        Stimulus
-    """
-    return execute(GetStimulusQuery, {"id": id}, rath=rath).stimulus
-
-
-async def asearch_stimuli(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
-    rath: Optional[ElektroRath] = None,
-) -> List[SearchStimuliQueryOptions]:
-    """SearchStimuli
-
-
-    Args:
-        search (Optional[str], optional): No description.
-        values (Optional[List[ID]], optional): No description.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        List[SearchStimuliQueryStimuli]
-    """
-    return (
-        await aexecute(
-            SearchStimuliQuery, {"search": search, "values": values}, rath=rath
-        )
-    ).options
-
-
-def search_stimuli(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
-    rath: Optional[ElektroRath] = None,
-) -> List[SearchStimuliQueryOptions]:
-    """SearchStimuli
-
-
-    Args:
-        search (Optional[str], optional): No description.
-        values (Optional[List[ID]], optional): No description.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        List[SearchStimuliQueryStimuli]
-    """
-    return execute(
-        SearchStimuliQuery, {"search": search, "values": values}, rath=rath
-    ).options
-
-
-async def alist_stimuli(
-    filter: Optional[StimulusFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
-    rath: Optional[ElektroRath] = None,
-) -> List[Stimulus]:
-    """ListStimuli
-
-
-    Args:
-        filter (Optional[StimulusFilter], optional): No description.
-        pagination (Optional[OffsetPaginationInput], optional): No description.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        List[Stimulus]
-    """
-    return (
-        await aexecute(
-            ListStimuliQuery, {"filter": filter, "pagination": pagination}, rath=rath
-        )
-    ).stimuli
-
-
-def list_stimuli(
-    filter: Optional[StimulusFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
-    rath: Optional[ElektroRath] = None,
-) -> List[Stimulus]:
-    """ListStimuli
-
-
-    Args:
-        filter (Optional[StimulusFilter], optional): No description.
-        pagination (Optional[OffsetPaginationInput], optional): No description.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        List[Stimulus]
-    """
-    return execute(
-        ListStimuliQuery, {"filter": filter, "pagination": pagination}, rath=rath
-    ).stimuli
-
-
 async def aget_neuron_model(id: ID, rath: Optional[ElektroRath] = None) -> NeuronModel:
     """GetNeuronModel
 
@@ -3325,84 +3855,122 @@ def list_neuron_models(
     ).neuron_models
 
 
-async def aget_file(id: ID, rath: Optional[ElektroRath] = None) -> File:
-    """GetFile
+async def aget_recording(id: ID, rath: Optional[ElektroRath] = None) -> Recording:
+    """GetRecording
 
-
-    Args:
-        id (ID): The unique identifier of an object
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        File
-    """
-    return (await aexecute(GetFileQuery, {"id": id}, rath=rath)).file
-
-
-def get_file(id: ID, rath: Optional[ElektroRath] = None) -> File:
-    """GetFile
-
+    Returns a list of images
 
     Args:
         id (ID): The unique identifier of an object
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        File
+        Recording
     """
-    return execute(GetFileQuery, {"id": id}, rath=rath).file
+    return (await aexecute(GetRecordingQuery, {"id": id}, rath=rath)).recording
 
 
-async def asearch_files(
+def get_recording(id: ID, rath: Optional[ElektroRath] = None) -> Recording:
+    """GetRecording
+
+    Returns a list of images
+
+    Args:
+        id (ID): The unique identifier of an object
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        Recording
+    """
+    return execute(GetRecordingQuery, {"id": id}, rath=rath).recording
+
+
+async def asearch_recordings(
     search: Optional[str] = None,
     values: Optional[List[ID]] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
     rath: Optional[ElektroRath] = None,
-) -> List[SearchFilesQueryOptions]:
-    """SearchFiles
+) -> List[SearchRecordingsQueryOptions]:
+    """SearchRecordings
 
 
     Args:
         search (Optional[str], optional): No description.
         values (Optional[List[ID]], optional): No description.
-        pagination (Optional[OffsetPaginationInput], optional): No description.
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        List[SearchFilesQueryFiles]
+        List[SearchRecordingsQueryRecordings]
     """
     return (
         await aexecute(
-            SearchFilesQuery,
-            {"search": search, "values": values, "pagination": pagination},
-            rath=rath,
+            SearchRecordingsQuery, {"search": search, "values": values}, rath=rath
         )
     ).options
 
 
-def search_files(
+def search_recordings(
     search: Optional[str] = None,
     values: Optional[List[ID]] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
     rath: Optional[ElektroRath] = None,
-) -> List[SearchFilesQueryOptions]:
-    """SearchFiles
+) -> List[SearchRecordingsQueryOptions]:
+    """SearchRecordings
 
 
     Args:
         search (Optional[str], optional): No description.
         values (Optional[List[ID]], optional): No description.
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        List[SearchRecordingsQueryRecordings]
+    """
+    return execute(
+        SearchRecordingsQuery, {"search": search, "values": values}, rath=rath
+    ).options
+
+
+async def alist_recordings(
+    filter: Optional[RecordingFilter] = None,
+    pagination: Optional[OffsetPaginationInput] = None,
+    rath: Optional[ElektroRath] = None,
+) -> List[Recording]:
+    """ListRecordings
+
+
+    Args:
+        filter (Optional[RecordingFilter], optional): No description.
         pagination (Optional[OffsetPaginationInput], optional): No description.
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        List[SearchFilesQueryFiles]
+        List[Recording]
+    """
+    return (
+        await aexecute(
+            ListRecordingsQuery, {"filter": filter, "pagination": pagination}, rath=rath
+        )
+    ).recordings
+
+
+def list_recordings(
+    filter: Optional[RecordingFilter] = None,
+    pagination: Optional[OffsetPaginationInput] = None,
+    rath: Optional[ElektroRath] = None,
+) -> List[Recording]:
+    """ListRecordings
+
+
+    Args:
+        filter (Optional[RecordingFilter], optional): No description.
+        pagination (Optional[OffsetPaginationInput], optional): No description.
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        List[Recording]
     """
     return execute(
-        SearchFilesQuery,
-        {"search": search, "values": values, "pagination": pagination},
-        rath=rath,
-    ).options
+        ListRecordingsQuery, {"filter": filter, "pagination": pagination}, rath=rath
+    ).recordings
 
 
 async def aget_rois(trace: ID, rath: Optional[ElektroRath] = None) -> List[ROI]:
@@ -3621,36 +4189,8 @@ def list_simulations(
     ).simulations
 
 
-async def aget_dataset(id: ID, rath: Optional[ElektroRath] = None) -> Dataset:
-    """GetDataset
-
-
-    Args:
-        id (ID): The unique identifier of an object
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        Dataset
-    """
-    return (await aexecute(GetDatasetQuery, {"id": id}, rath=rath)).dataset
-
-
-def get_dataset(id: ID, rath: Optional[ElektroRath] = None) -> Dataset:
-    """GetDataset
-
-
-    Args:
-        id (ID): The unique identifier of an object
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        Dataset
-    """
-    return execute(GetDatasetQuery, {"id": id}, rath=rath).dataset
-
-
-async def aget_recording(id: ID, rath: Optional[ElektroRath] = None) -> Recording:
-    """GetRecording
+async def aget_stimulus(id: ID, rath: Optional[ElektroRath] = None) -> Stimulus:
+    """GetStimulus
 
     Returns a list of images
 
@@ -3659,13 +4199,13 @@ async def aget_recording(id: ID, rath: Optional[ElektroRath] = None) -> Recordin
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        Recording
+        Stimulus
     """
-    return (await aexecute(GetRecordingQuery, {"id": id}, rath=rath)).recording
+    return (await aexecute(GetStimulusQuery, {"id": id}, rath=rath)).stimulus
 
 
-def get_recording(id: ID, rath: Optional[ElektroRath] = None) -> Recording:
-    """GetRecording
+def get_stimulus(id: ID, rath: Optional[ElektroRath] = None) -> Stimulus:
+    """GetStimulus
 
     Returns a list of images
 
@@ -3674,17 +4214,17 @@ def get_recording(id: ID, rath: Optional[ElektroRath] = None) -> Recording:
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        Recording
+        Stimulus
     """
-    return execute(GetRecordingQuery, {"id": id}, rath=rath).recording
+    return execute(GetStimulusQuery, {"id": id}, rath=rath).stimulus
 
 
-async def asearch_recordings(
+async def asearch_stimuli(
     search: Optional[str] = None,
     values: Optional[List[ID]] = None,
     rath: Optional[ElektroRath] = None,
-) -> List[SearchRecordingsQueryOptions]:
-    """SearchRecordings
+) -> List[SearchStimuliQueryOptions]:
+    """SearchStimuli
 
 
     Args:
@@ -3693,21 +4233,21 @@ async def asearch_recordings(
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        List[SearchRecordingsQueryRecordings]
+        List[SearchStimuliQueryStimuli]
     """
     return (
         await aexecute(
-            SearchRecordingsQuery, {"search": search, "values": values}, rath=rath
+            SearchStimuliQuery, {"search": search, "values": values}, rath=rath
         )
     ).options
 
 
-def search_recordings(
+def search_stimuli(
     search: Optional[str] = None,
     values: Optional[List[ID]] = None,
     rath: Optional[ElektroRath] = None,
-) -> List[SearchRecordingsQueryOptions]:
-    """SearchRecordings
+) -> List[SearchStimuliQueryOptions]:
+    """SearchStimuli
 
 
     Args:
@@ -3716,55 +4256,55 @@ def search_recordings(
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        List[SearchRecordingsQueryRecordings]
+        List[SearchStimuliQueryStimuli]
     """
     return execute(
-        SearchRecordingsQuery, {"search": search, "values": values}, rath=rath
+        SearchStimuliQuery, {"search": search, "values": values}, rath=rath
     ).options
 
 
-async def alist_recordings(
-    filter: Optional[RecordingFilter] = None,
+async def alist_stimuli(
+    filter: Optional[StimulusFilter] = None,
     pagination: Optional[OffsetPaginationInput] = None,
     rath: Optional[ElektroRath] = None,
-) -> List[Recording]:
-    """ListRecordings
+) -> List[Stimulus]:
+    """ListStimuli
 
 
     Args:
-        filter (Optional[RecordingFilter], optional): No description.
+        filter (Optional[StimulusFilter], optional): No description.
         pagination (Optional[OffsetPaginationInput], optional): No description.
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        List[Recording]
+        List[Stimulus]
     """
     return (
         await aexecute(
-            ListRecordingsQuery, {"filter": filter, "pagination": pagination}, rath=rath
+            ListStimuliQuery, {"filter": filter, "pagination": pagination}, rath=rath
         )
-    ).recordings
+    ).stimuli
 
 
-def list_recordings(
-    filter: Optional[RecordingFilter] = None,
+def list_stimuli(
+    filter: Optional[StimulusFilter] = None,
     pagination: Optional[OffsetPaginationInput] = None,
     rath: Optional[ElektroRath] = None,
-) -> List[Recording]:
-    """ListRecordings
+) -> List[Stimulus]:
+    """ListStimuli
 
 
     Args:
-        filter (Optional[RecordingFilter], optional): No description.
+        filter (Optional[StimulusFilter], optional): No description.
         pagination (Optional[OffsetPaginationInput], optional): No description.
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        List[Recording]
+        List[Stimulus]
     """
     return execute(
-        ListRecordingsQuery, {"filter": filter, "pagination": pagination}, rath=rath
-    ).recordings
+        ListStimuliQuery, {"filter": filter, "pagination": pagination}, rath=rath
+    ).stimuli
 
 
 async def aget_trace(id: ID, rath: Optional[ElektroRath] = None) -> Trace:
@@ -3911,162 +4451,6 @@ def list_traces(
     ).traces
 
 
-async def aget_experiment(id: ID, rath: Optional[ElektroRath] = None) -> Experiment:
-    """GetExperiment
-
-
-    Args:
-        id (ID): The unique identifier of an object
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        Experiment
-    """
-    return (await aexecute(GetExperimentQuery, {"id": id}, rath=rath)).experiment
-
-
-def get_experiment(id: ID, rath: Optional[ElektroRath] = None) -> Experiment:
-    """GetExperiment
-
-
-    Args:
-        id (ID): The unique identifier of an object
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        Experiment
-    """
-    return execute(GetExperimentQuery, {"id": id}, rath=rath).experiment
-
-
-async def asearch_experiments(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
-    rath: Optional[ElektroRath] = None,
-) -> List[SearchExperimentsQueryOptions]:
-    """SearchExperiments
-
-
-    Args:
-        search (Optional[str], optional): No description.
-        values (Optional[List[ID]], optional): No description.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        List[SearchExperimentsQueryExperiments]
-    """
-    return (
-        await aexecute(
-            SearchExperimentsQuery, {"search": search, "values": values}, rath=rath
-        )
-    ).options
-
-
-def search_experiments(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
-    rath: Optional[ElektroRath] = None,
-) -> List[SearchExperimentsQueryOptions]:
-    """SearchExperiments
-
-
-    Args:
-        search (Optional[str], optional): No description.
-        values (Optional[List[ID]], optional): No description.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        List[SearchExperimentsQueryExperiments]
-    """
-    return execute(
-        SearchExperimentsQuery, {"search": search, "values": values}, rath=rath
-    ).options
-
-
-async def alist_experiments(
-    filter: Optional[ExperimentFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
-    rath: Optional[ElektroRath] = None,
-) -> List[Experiment]:
-    """ListExperiments
-
-
-    Args:
-        filter (Optional[ExperimentFilter], optional): No description.
-        pagination (Optional[OffsetPaginationInput], optional): No description.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        List[Experiment]
-    """
-    return (
-        await aexecute(
-            ListExperimentsQuery,
-            {"filter": filter, "pagination": pagination},
-            rath=rath,
-        )
-    ).experiments
-
-
-def list_experiments(
-    filter: Optional[ExperimentFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
-    rath: Optional[ElektroRath] = None,
-) -> List[Experiment]:
-    """ListExperiments
-
-
-    Args:
-        filter (Optional[ExperimentFilter], optional): No description.
-        pagination (Optional[OffsetPaginationInput], optional): No description.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        List[Experiment]
-    """
-    return execute(
-        ListExperimentsQuery, {"filter": filter, "pagination": pagination}, rath=rath
-    ).experiments
-
-
-async def awatch_traces(
-    dataset: Optional[ID] = None, rath: Optional[ElektroRath] = None
-) -> AsyncIterator[WatchTracesSubscriptionTraces]:
-    """WatchTraces
-
-    Subscribe to real-time image updates
-
-    Args:
-        dataset (Optional[ID], optional): No description.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        WatchTracesSubscriptionTraces
-    """
-    async for event in asubscribe(
-        WatchTracesSubscription, {"dataset": dataset}, rath=rath
-    ):
-        yield event.traces
-
-
-def watch_traces(
-    dataset: Optional[ID] = None, rath: Optional[ElektroRath] = None
-) -> Iterator[WatchTracesSubscriptionTraces]:
-    """WatchTraces
-
-    Subscribe to real-time image updates
-
-    Args:
-        dataset (Optional[ID], optional): No description.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        WatchTracesSubscriptionTraces
-    """
-    for event in subscribe(WatchTracesSubscription, {"dataset": dataset}, rath=rath):
-        yield event.traces
-
-
 async def awatch_files(
     dataset: Optional[ID] = None, rath: Optional[ElektroRath] = None
 ) -> AsyncIterator[WatchFilesSubscriptionFiles]:
@@ -4141,9 +4525,50 @@ def watch_rois(
         yield event.rois
 
 
+async def awatch_traces(
+    dataset: Optional[ID] = None, rath: Optional[ElektroRath] = None
+) -> AsyncIterator[WatchTracesSubscriptionTraces]:
+    """WatchTraces
+
+    Subscribe to real-time image updates
+
+    Args:
+        dataset (Optional[ID], optional): No description.
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        WatchTracesSubscriptionTraces
+    """
+    async for event in asubscribe(
+        WatchTracesSubscription, {"dataset": dataset}, rath=rath
+    ):
+        yield event.traces
+
+
+def watch_traces(
+    dataset: Optional[ID] = None, rath: Optional[ElektroRath] = None
+) -> Iterator[WatchTracesSubscriptionTraces]:
+    """WatchTraces
+
+    Subscribe to real-time image updates
+
+    Args:
+        dataset (Optional[ID], optional): No description.
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        WatchTracesSubscriptionTraces
+    """
+    for event in subscribe(WatchTracesSubscription, {"dataset": dataset}, rath=rath):
+        yield event.traces
+
+
+AnalogSignalInput.model_rebuild()
 BiophysicsInput.model_rebuild()
+BlockSegmentInput.model_rebuild()
 CellInput.model_rebuild()
 CompartmentInput.model_rebuild()
+CreateBlockInput.model_rebuild()
 CreateExperimentInput.model_rebuild()
 CreateNeuronModelInput.model_rebuild()
 CreateSimulationInput.model_rebuild()

@@ -33,6 +33,7 @@ interface NetSynapse {
 }
 
 type Query {
+  blocks(filters: BlockFilter, pagination: OffsetPaginationInput): [Block!]!
   traces(filters: TraceFilter, order: TraceOrder, pagination: OffsetPaginationInput): [Trace!]!
   rois(filters: ROIFilter, pagination: OffsetPaginationInput): [ROI!]!
   datasets(filters: DatasetFilter, pagination: OffsetPaginationInput): [Dataset!]!
@@ -77,6 +78,10 @@ type Query {
     """The unique identifier of an object"""
     id: ID!
   ): Recording!
+  block(
+    """The unique identifier of an object"""
+    id: ID!
+  ): Block!
   experiment(
     """The unique identifier of an object"""
     id: ID!
@@ -113,6 +118,24 @@ type Query {
     """The unique identifier of an object"""
     id: ID!
   ): Dataset!
+}
+
+type Block {
+  id: ID!
+  name: String!
+  description: String
+  trace: Trace!
+  acquiredAt: DateTime
+  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
+
+  """Who created this recording session"""
+  creator: User
+
+  """The groups in this recording session"""
+  groups(filters: BlockGroupFilter, pagination: OffsetPaginationInput): [BlockGroup!]!
+
+  """The segments in this recording session"""
+  segments(filters: BlockSegmentFilter, pagination: OffsetPaginationInput): [BlockSegment!]!
 }
 
 type Trace {
@@ -300,7 +323,12 @@ type Client {
 type User {
   sub: String!
   preferredUsername: String!
-  roles: [String!]!
+  activeOrganization: Organization
+}
+
+type Organization {
+  id: String!
+  slug: String!
 }
 
 """The type of change that was made."""
@@ -365,6 +393,171 @@ enum RoiKindChoices {
   POINT
   SPIKE
   SLICE
+}
+
+type BlockGroup {
+  id: ID!
+  name: String!
+  block: Block!
+  description: String
+
+  """The analog signals in this group"""
+  analogSignals(filters: AnalogSignalFilter, pagination: OffsetPaginationInput): [AnalogSignal!]!
+
+  """The irregularly sampled signals in this group"""
+  irregularlySampledSignals(filters: IrregularlySampledSignalFilter, pagination: OffsetPaginationInput): [IrregularlySampledSignal!]!
+
+  """The spike trains in this group"""
+  spikeTrains(filters: SpikeTrainFilter, pagination: OffsetPaginationInput): [SpikeTrain!]!
+}
+
+type AnalogSignal implements Signal {
+  name: String!
+  segment: BlockSegment!
+  id: ID!
+  samplingRate: Float!
+  unit: String
+  channels(filters: AnalogSignalChannelFilter, pagination: OffsetPaginationInput): [AnalogSignalChannel!]!
+}
+
+"""A signal recorded during a recording session"""
+interface Signal {
+  name: String!
+  segment: BlockSegment!
+}
+
+type BlockSegment {
+  id: ID!
+  block: Block!
+  label: String!
+  description: String
+  startTime: Float!
+  endTime: Float!
+
+  """Who created this segment"""
+  creator: User
+  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
+
+  """The groups that this segment belongs to"""
+  groups(filters: BlockGroupFilter, pagination: OffsetPaginationInput): [BlockGroup!]!
+
+  """The analog signals in this group"""
+  analogSignals(filters: AnalogSignalFilter, pagination: OffsetPaginationInput): [AnalogSignal!]!
+
+  """The irregularly sampled signals in this group"""
+  irregularlySampledSignals(filters: IrregularlySampledSignalFilter, pagination: OffsetPaginationInput): [IrregularlySampledSignal!]!
+
+  """The spike trains in this group"""
+  spikeTrains(filters: SpikeTrainFilter, pagination: OffsetPaginationInput): [SpikeTrain!]!
+}
+
+input BlockGroupFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  name: StrFilterLookup
+  description: StrFilterLookup
+  AND: BlockGroupFilter
+  OR: BlockGroupFilter
+  NOT: BlockGroupFilter
+  DISTINCT: Boolean
+}
+
+input AnalogSignalFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  label: StrFilterLookup
+  session: ID = null
+  AND: AnalogSignalFilter
+  OR: AnalogSignalFilter
+  NOT: AnalogSignalFilter
+  DISTINCT: Boolean
+}
+
+type IrregularlySampledSignal implements Signal {
+  name: String!
+  segment: BlockSegment!
+  id: ID!
+  trace: Trace!
+  unit: String
+}
+
+input IrregularlySampledSignalFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  label: StrFilterLookup
+  session: ID = null
+  AND: IrregularlySampledSignalFilter
+  OR: IrregularlySampledSignalFilter
+  NOT: IrregularlySampledSignalFilter
+  DISTINCT: Boolean
+}
+
+type SpikeTrain implements Signal {
+  name: String!
+  segment: BlockSegment!
+  id: ID!
+  trace: Trace!
+}
+
+input SpikeTrainFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  label: StrFilterLookup
+  session: ID = null
+  AND: SpikeTrainFilter
+  OR: SpikeTrainFilter
+  NOT: SpikeTrainFilter
+  DISTINCT: Boolean
+}
+
+type AnalogSignalChannel {
+  id: ID!
+  label: String
+  unit: String
+  index: Int!
+  trace: Trace!
+  analogSignal: AnalogSignal!
+}
+
+input AnalogSignalChannelFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  label: StrFilterLookup
+  session: ID = null
+  AND: AnalogSignalChannelFilter
+  OR: AnalogSignalChannelFilter
+  NOT: AnalogSignalChannelFilter
+  DISTINCT: Boolean
+}
+
+input BlockSegmentFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  name: StrFilterLookup
+  description: StrFilterLookup
+  AND: BlockSegmentFilter
+  OR: BlockSegmentFilter
+  NOT: BlockSegmentFilter
+  DISTINCT: Boolean
+}
+
+input BlockFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  label: StrFilterLookup
+  trace: ID = null
+  groups: [ID!] = null
+  AND: BlockFilter
+  OR: BlockFilter
+  NOT: BlockFilter
+  DISTINCT: Boolean
 }
 
 type Experiment {
@@ -648,6 +841,9 @@ type Mutation {
   """Request credentials to access a file"""
   requestFileAccess(input: RequestFileAccessInput!): AccessCredentials!
 
+  """Create a new block"""
+  createBlock(input: CreateBlockInput!): Block!
+
   """Create an image from array-like data"""
   fromTraceLike(input: FromTraceLikeInput!): Trace!
 
@@ -790,6 +986,63 @@ input RequestFileAccessInput {
   duration: Int
 }
 
+input CreateBlockInput {
+  file: ID = null
+  name: String!
+  recordingTime: DateTime = null
+  segments: [BlockSegmentInput!]! = []
+}
+
+input BlockSegmentInput {
+  name: String = null
+  description: String = null
+  analogSignals: [AnalogSignalInput!]! = []
+  irregularlySampledSignals: [IrregularlySampledSignalInput!]! = []
+  spikeTrains: [SpikeTrainInput!]! = []
+}
+
+input AnalogSignalInput {
+  timeTrace: TraceLike!
+  name: String = null
+  description: String = null
+  samplingRate: Float!
+  tStart: Float!
+  unit: String = null
+  channels: [AnalogSignalChannelInput!]!
+}
+
+"""
+The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer
+"""
+scalar TraceLike
+
+input AnalogSignalChannelInput {
+  name: String!
+  index: Int!
+  unit: String = null
+  description: String = null
+  color: [Int!] = null
+  trace: TraceLike!
+}
+
+input IrregularlySampledSignalInput {
+  times: TraceLike!
+  trace: TraceLike!
+  name: String = null
+  unit: String = null
+  description: String = null
+}
+
+input SpikeTrainInput {
+  times: TraceLike!
+  tStart: Float!
+  tStop: Float!
+  waveforms: TraceLike = null
+  name: String = null
+  description: String = null
+  leftSweep: Float = null
+}
+
 """Input type for creating an image from an array-like object"""
 input FromTraceLikeInput {
   """The array-like object to create the image from"""
@@ -804,11 +1057,6 @@ input FromTraceLikeInput {
   """Optional list of tags to associate with the image"""
   tags: [String!] = null
 }
-
-"""
-The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer
-"""
-scalar TraceLike
 
 input PinImageInput {
   id: ID!
@@ -842,7 +1090,7 @@ input ModelConfigInput {
 }
 
 input CellInput {
-  id: String! = "dd657166-5c60-4d35-aab9-0454bc779dbe"
+  id: String! = "4b813684-4157-4934-bec8-50c49f98777d"
   biophysics: BiophysicsInput!
   topology: TopologyInput!
 }
@@ -852,7 +1100,7 @@ input BiophysicsInput {
 }
 
 input CompartmentInput {
-  id: String! = "77397cb1-285f-479b-85cf-ef21b6254f14"
+  id: String! = "af95cab6-975a-4329-86e2-c9ce9ab4263c"
   mechanisms: [String!]! = []
   sectionParams: [SectionParamMapInput!]
   globalParams: [GlobalParamMapInput!]
@@ -905,7 +1153,7 @@ input ConnectionInput {
 }
 
 input NetStimulatorInput {
-  id: ID! = "0e548bce-bcbe-4803-8cf5-e3a99258d632"
+  id: ID! = "88f119c3-8b62-4898-9866-d41153011fca"
   start: Float! = 100
   number: Int! = 1
   interval: Float = null
@@ -913,7 +1161,7 @@ input NetStimulatorInput {
 
 input NetConnectionInput {
   kind: ConnectionKind! = SYNAPSE
-  id: ID! = "dc34ce26-889e-4f43-b577-b50823da904d"
+  id: ID! = "4ac30ddd-93b7-462d-88ce-055dd99a734e"
   weight: Float = null
   threshold: Float = null
   delay: Float = null

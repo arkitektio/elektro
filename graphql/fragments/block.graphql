@@ -1,0 +1,37 @@
+fragment BlockGroup on BlockGroup {
+  id
+  name
+}
+
+fragment AnalogSignalChannel on AnalogSignalChannel {
+  id
+  index
+  trace {
+    ...Trace
+  }
+}
+
+fragment AnalogSignal on AnalogSignal {
+  id
+  unit
+  channels {
+    ...AnalogSignalChannel
+  }
+}
+
+fragment BlockSegment on BlockSegment {
+  id
+  analogSignals {
+    ...AnalogSignal
+  }
+}
+
+fragment Block on Block {
+  id
+  segments {
+    ...BlockSegment
+  }
+  groups {
+    ...BlockGroup
+  }
+}

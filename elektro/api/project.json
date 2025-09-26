@@ -118,6 +118,7 @@
             },
             "additional_config": {},
             "force_plugin_order": true,
+            "omited_document_rules": [],
             "parsers": [],
             "plugins": [
                 {
