@@ -55,7 +55,7 @@ structure_reg.register_as_structure(
 
 structure_reg.register_as_structure(
     ModelCollection,
-    identifier="@elektro/model_collection",
+    identifier="@elektro/modelcollection",
     aexpand=aget_model_collection,
     ashrink=id_shrink,
     default_widget=SearchWidget(
