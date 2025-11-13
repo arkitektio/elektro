@@ -36,6 +36,16 @@ structure_reg.register_as_structure(
 )
 
 structure_reg.register_as_structure(
+    Block,
+    identifier="@elektro/block",
+    aexpand=aget_block,
+    ashrink=id_shrink,
+    default_widget=SearchWidget(
+        query=SearchBlocksQuery.Meta.document, ward="elektro"
+    ),
+)
+
+structure_reg.register_as_structure(
     Recording,
     identifier="@elektro/recording",
     aexpand=aget_recording,

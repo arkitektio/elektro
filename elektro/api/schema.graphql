@@ -33,13 +33,15 @@ interface NetSynapse {
 }
 
 type Query {
-  blocks(filters: BlockFilter, pagination: OffsetPaginationInput): [Block!]!
+  analogSignals(filters: AnalogSignalFilter, pagination: OffsetPaginationInput): [AnalogSignal!]!
+  analogSignalChannels(filters: AnalogSignalChannelFilter, pagination: OffsetPaginationInput): [AnalogSignalChannel!]!
+  blocks(filters: BlockFilter, order: BlockOrder, pagination: OffsetPaginationInput): [Block!]!
   traces(filters: TraceFilter, order: TraceOrder, pagination: OffsetPaginationInput): [Trace!]!
   rois(filters: ROIFilter, pagination: OffsetPaginationInput): [ROI!]!
   datasets(filters: DatasetFilter, pagination: OffsetPaginationInput): [Dataset!]!
   mydatasets(filters: DatasetFilter, pagination: OffsetPaginationInput): [Dataset!]!
   experiments(filters: ExperimentFilter, pagination: OffsetPaginationInput): [Experiment!]!
-  neuronModels(filters: NeuronModelFilter, pagination: OffsetPaginationInput): [NeuronModel!]!
+  neuronModels(filters: NeuronModelFilter, order: NeuronModelOrder, pagination: OffsetPaginationInput): [NeuronModel!]!
   modelCollections(filters: ModelCollectionFilter, pagination: OffsetPaginationInput): [ModelCollection!]!
   recordings(filters: RecordingFilter, pagination: OffsetPaginationInput): [Recording!]!
   stimuli(filters: StimulusFilter, pagination: OffsetPaginationInput): [Stimulus!]!
@@ -47,12 +49,25 @@ type Query {
   simulations(filters: SimulationFilter, pagination: OffsetPaginationInput): [Simulation!]!
   myfiles(filters: FileFilter, pagination: OffsetPaginationInput): [File!]!
   randomTrace: Trace!
+  blockStats(filters: BlockFilter = null): BlockStats!
 
   """Returns a list of images"""
   stimulus(
     """The unique identifier of an object"""
     id: ID!
   ): Stimulus!
+
+  """Returns a list of images"""
+  analogSignal(
+    """The unique identifier of an object"""
+    id: ID!
+  ): AnalogSignal!
+
+  """Returns a list of images"""
+  analogSignalChannel(
+    """The unique identifier of an object"""
+    id: ID!
+  ): AnalogSignalChannel!
 
   """Returns a list of cells in a model"""
   cells(
@@ -118,6 +133,47 @@ type Query {
     """The unique identifier of an object"""
     id: ID!
   ): Dataset!
+}
+
+type AnalogSignal implements Signal {
+  name: String!
+  segment: BlockSegment!
+  id: ID!
+  samplingRate: Float!
+  unit: String
+  timeTrace: Trace!
+  channels(filters: AnalogSignalChannelFilter, pagination: OffsetPaginationInput): [AnalogSignalChannel!]!
+}
+
+"""A signal recorded during a recording session"""
+interface Signal {
+  name: String!
+  segment: BlockSegment!
+}
+
+type BlockSegment {
+  id: ID!
+  block: Block!
+  label: String!
+  description: String
+  startTime: Float!
+  endTime: Float!
+
+  """Who created this segment"""
+  creator: User
+  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
+
+  """The groups that this segment belongs to"""
+  groups(filters: BlockGroupFilter, pagination: OffsetPaginationInput): [BlockGroup!]!
+
+  """The analog signals in this group"""
+  analogSignals(filters: AnalogSignalFilter, pagination: OffsetPaginationInput): [AnalogSignal!]!
+
+  """The irregularly sampled signals in this group"""
+  irregularlySampledSignals(filters: IrregularlySampledSignalFilter, pagination: OffsetPaginationInput): [IrregularlySampledSignal!]!
+
+  """The spike trains in this group"""
+  spikeTrains(filters: SpikeTrainFilter, pagination: OffsetPaginationInput): [SpikeTrain!]!
 }
 
 type Block {
@@ -411,58 +467,6 @@ type BlockGroup {
   spikeTrains(filters: SpikeTrainFilter, pagination: OffsetPaginationInput): [SpikeTrain!]!
 }
 
-type AnalogSignal implements Signal {
-  name: String!
-  segment: BlockSegment!
-  id: ID!
-  samplingRate: Float!
-  unit: String
-  channels(filters: AnalogSignalChannelFilter, pagination: OffsetPaginationInput): [AnalogSignalChannel!]!
-}
-
-"""A signal recorded during a recording session"""
-interface Signal {
-  name: String!
-  segment: BlockSegment!
-}
-
-type BlockSegment {
-  id: ID!
-  block: Block!
-  label: String!
-  description: String
-  startTime: Float!
-  endTime: Float!
-
-  """Who created this segment"""
-  creator: User
-  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
-
-  """The groups that this segment belongs to"""
-  groups(filters: BlockGroupFilter, pagination: OffsetPaginationInput): [BlockGroup!]!
-
-  """The analog signals in this group"""
-  analogSignals(filters: AnalogSignalFilter, pagination: OffsetPaginationInput): [AnalogSignal!]!
-
-  """The irregularly sampled signals in this group"""
-  irregularlySampledSignals(filters: IrregularlySampledSignalFilter, pagination: OffsetPaginationInput): [IrregularlySampledSignal!]!
-
-  """The spike trains in this group"""
-  spikeTrains(filters: SpikeTrainFilter, pagination: OffsetPaginationInput): [SpikeTrain!]!
-}
-
-input BlockGroupFilter {
-  ids: [ID!]
-  search: String
-  id: ID
-  name: StrFilterLookup
-  description: StrFilterLookup
-  AND: BlockGroupFilter
-  OR: BlockGroupFilter
-  NOT: BlockGroupFilter
-  DISTINCT: Boolean
-}
-
 input AnalogSignalFilter {
   ids: [ID!]
   search: String
@@ -514,24 +518,15 @@ input SpikeTrainFilter {
   DISTINCT: Boolean
 }
 
-type AnalogSignalChannel {
-  id: ID!
-  label: String
-  unit: String
-  index: Int!
-  trace: Trace!
-  analogSignal: AnalogSignal!
-}
-
-input AnalogSignalChannelFilter {
+input BlockGroupFilter {
   ids: [ID!]
   search: String
   id: ID
-  label: StrFilterLookup
-  session: ID = null
-  AND: AnalogSignalChannelFilter
-  OR: AnalogSignalChannelFilter
-  NOT: AnalogSignalChannelFilter
+  name: StrFilterLookup
+  description: StrFilterLookup
+  AND: BlockGroupFilter
+  OR: BlockGroupFilter
+  NOT: BlockGroupFilter
   DISTINCT: Boolean
 }
 
@@ -547,6 +542,29 @@ input BlockSegmentFilter {
   DISTINCT: Boolean
 }
 
+type AnalogSignalChannel {
+  id: ID!
+  name: String
+  description: String
+  label: String
+  unit: String
+  index: Int!
+  trace: Trace!
+  signal: AnalogSignal!
+}
+
+input AnalogSignalChannelFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  label: StrFilterLookup
+  session: ID = null
+  AND: AnalogSignalChannelFilter
+  OR: AnalogSignalChannelFilter
+  NOT: AnalogSignalChannelFilter
+  DISTINCT: Boolean
+}
+
 input BlockFilter {
   ids: [ID!]
   search: String
@@ -558,6 +576,10 @@ input BlockFilter {
   OR: BlockFilter
   NOT: BlockFilter
   DISTINCT: Boolean
+}
+
+input BlockOrder {
+  createdAt: Ordering
 }
 
 type Experiment {
@@ -624,7 +646,7 @@ type NeuronModel {
 type ModelCollection {
   id: ID!
   name: String!
-  models(filters: NeuronModelFilter, pagination: OffsetPaginationInput): [NeuronModel!]!
+  models(filters: NeuronModelFilter, order: NeuronModelOrder, pagination: OffsetPaginationInput): [NeuronModel!]!
   description: String
 }
 
@@ -637,6 +659,10 @@ input NeuronModelFilter {
   OR: NeuronModelFilter
   NOT: NeuronModelFilter
   DISTINCT: Boolean
+}
+
+input NeuronModelOrder {
+  createdAt: Ordering
 }
 
 input ModelCollectionFilter {
@@ -822,6 +848,58 @@ type ExperimentStimulusView {
   duration: Float
 }
 
+type BlockStats {
+  """Total number of items in the selection"""
+  count: Int!
+
+  """Number of distinct values for the field"""
+  distinctCount(field: BlockField!): Int!
+
+  """Maximum"""
+  max(field: BlockField!): Float
+
+  """Minimum"""
+  min(field: BlockField!): Float
+
+  """Average"""
+  avg(field: BlockField!): Float
+
+  """Sum"""
+  sum(field: BlockField!): Float
+
+  """Time-bucketed stats over a datetime field."""
+  series(field: BlockField!, timestampField: BlockTimestampField!, by: Granularity!): [TimeBucket!]!
+}
+
+"""Numeric/aggregatable fields of Block"""
+enum BlockField {
+  CREATED_AT
+}
+
+type TimeBucket {
+  ts: DateTime!
+  count: Int!
+  distinctCount: Int!
+  max: Float
+  min: Float
+  avg: Float
+  sum: Float
+}
+
+"""Datetime fields of Block for bucketing"""
+enum BlockTimestampField {
+  CREATED_AT
+}
+
+enum Granularity {
+  HOUR
+  DAY
+  WEEK
+  MONTH
+  QUARTER
+  YEAR
+}
+
 type Mutation {
   """Request credentials to upload a new image"""
   requestUpload(input: RequestUploadInput!): Credentials!
@@ -843,6 +921,9 @@ type Mutation {
 
   """Create a new block"""
   createBlock(input: CreateBlockInput!): Block!
+
+  """Delete an existing block"""
+  deleteBlock(input: DeleteBlockInput!): ID!
 
   """Create an image from array-like data"""
   fromTraceLike(input: FromTraceLikeInput!): Trace!
@@ -1043,6 +1124,10 @@ input SpikeTrainInput {
   leftSweep: Float = null
 }
 
+input DeleteBlockInput {
+  id: ID!
+}
+
 """Input type for creating an image from an array-like object"""
 input FromTraceLikeInput {
   """The array-like object to create the image from"""
@@ -1090,7 +1175,7 @@ input ModelConfigInput {
 }
 
 input CellInput {
-  id: String! = "4b813684-4157-4934-bec8-50c49f98777d"
+  id: String! = "e37efe2d-a446-423b-bab6-0cd840fc0127"
   biophysics: BiophysicsInput!
   topology: TopologyInput!
 }
@@ -1100,7 +1185,7 @@ input BiophysicsInput {
 }
 
 input CompartmentInput {
-  id: String! = "af95cab6-975a-4329-86e2-c9ce9ab4263c"
+  id: String! = "fa31999f-e1bc-4749-9d92-e21d706477f5"
   mechanisms: [String!]! = []
   sectionParams: [SectionParamMapInput!]
   globalParams: [GlobalParamMapInput!]
@@ -1153,7 +1238,7 @@ input ConnectionInput {
 }
 
 input NetStimulatorInput {
-  id: ID! = "88f119c3-8b62-4898-9866-d41153011fca"
+  id: ID! = "87c06e92-26b7-4818-b445-970e18bf773a"
   start: Float! = 100
   number: Int! = 1
   interval: Float = null
@@ -1161,7 +1246,7 @@ input NetStimulatorInput {
 
 input NetConnectionInput {
   kind: ConnectionKind! = SYNAPSE
-  id: ID! = "4ac30ddd-93b7-462d-88ce-055dd99a734e"
+  id: ID! = "440d4a7d-c185-4754-84e8-73c4036cc35f"
   weight: Float = null
   threshold: Float = null
   delay: Float = null

@@ -80,13 +80,13 @@ def instantiate_cell(h: Any, cell: Cell):
         sec.diam = sec_def.diam
         h_sections[sec_def.id] = sec
 
-        if sec_def.coords:
+        if sec_def.coords is not None:
             print("Setting coordinates for section", sec_def.id)
             h.pt3dclear(sec=sec)
             for pt in sec_def.coords:
                 h.pt3dadd(pt.x, pt.y, pt.z, sec_def.diam, sec=sec)
 
-        elif sec_def.length:
+        elif sec_def.length is not None:
             sec.L = sec_def.length
         else:
             raise ValueError(
