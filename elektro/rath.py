@@ -9,7 +9,7 @@ from rath.links.dictinglink import DictingLink
 from rath.links.file import FileExtraction
 from rath.links.split import SplitLink
 from typing import Optional
-
+from kanne.contrib.rath.coerce_pint import CoercePintLink
 
 current_elektro_rath: contextvars.ContextVar[Optional["ElektroRath"]] = (
     contextvars.ContextVar("current_elektro_rath")
@@ -27,7 +27,10 @@ class ElektroLinkComposition(TypedComposedLink):
 
     fileextraction: FileExtraction = Field(default_factory=FileExtraction)
     """ A link that extracts files from the request and follows the graphql multipart request spec"""
+
     dicting: DictingLink = Field(default_factory=DictingLink)
+
+    coerce_pint_link: CoercePintLink = Field(default_factory=CoercePintLink)
     """ A link that converts basemodels to dicts"""
     upload: UploadLink
     """ A link that uploads supported data types like numpy arrays and parquet files to the datalayer"""

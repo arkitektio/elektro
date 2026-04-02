@@ -355,6 +355,8 @@ class TraceLike:
         self.value = value
         self.key = str(uuid.uuid4())
 
+    def __set__(self, instance, value: TraceCoercible): ...
+
     @classmethod
     def __get_validators__(cls):
         yield cls.validate

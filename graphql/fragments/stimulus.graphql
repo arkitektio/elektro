@@ -1,14 +1,15 @@
 fragment Stimulus on Stimulus {
+  id
+  label
+  cell
+  kind
+  trace {
     id
-    label
-    cell
-    kind
-    trace {
-        id
-        store {
-            ...ZarrStore
-        }
+    store {
+      ...ZarrStore
     }
+  }
+
+  position
+  location
 }
-
-

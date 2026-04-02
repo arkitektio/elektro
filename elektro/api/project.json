@@ -34,6 +34,8 @@
                 "FiveDVector": "elektro.scalars.FiveDVector",
                 "Matrix": "elektro.scalars.Matrix",
                 "Metric": "typing.Any",
+                "Milliseconds": "kanne.scalars.Millisecond",
+                "Ampere": "kanne.scalars.Ampere",
                 "ID": "rath.scalars.ID",
                 "RGBAColor": "elektro.scalars.RGBAColor"
             },
@@ -75,6 +77,9 @@
                 ],
                 "Topology": [
                     "elektro.traits.TopologyTrait"
+                ],
+                "Simulation": [
+                    "elektro.traits.SimulationTrait"
                 ],
                 "Compartment": [
                     "elektro.traits.CompartmentTrait"

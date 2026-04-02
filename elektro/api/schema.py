@@ -1,36 +1,38 @@
-from enum import Enum
-from elektro.scalars import TwoDVector, FiveDVector, TraceCoercible, TraceLike, FileLike
-from typing import (
-    AsyncIterator,
-    List,
-    Union,
-    Iterable,
-    Literal,
-    Iterator,
-    Annotated,
-    Optional,
-)
+from elektro.scalars import FileLike, FiveDVector, TraceCoercible, TraceLike, TwoDVector
 from elektro.traits import (
-    HasDownloadAccessor,
-    BiophysicsInputTrait,
-    BiophysicsTrait,
-    ExperimentTrait,
-    HasZarrStoreTrait,
-    ModelConfigInputTrait,
-    ModelConfigTrait,
-    TopologyInputTrait,
-    CompartmentTrait,
-    HasZarrStoreAccessor,
-    TopologyTrait,
-    IsVectorizableTrait,
     SectionInputTrait,
     CompartmentInputTrait,
+    TopologyTrait,
+    HasZarrStoreTrait,
+    HasDownloadAccessor,
+    CompartmentTrait,
+    ExperimentTrait,
+    BiophysicsTrait,
+    HasZarrStoreAccessor,
+    TopologyInputTrait,
+    SimulationTrait,
+    BiophysicsInputTrait,
+    IsVectorizableTrait,
+    ModelConfigTrait,
+    ModelConfigInputTrait,
 )
-from elektro.rath import ElektroRath
+from elektro.funcs import aexecute, subscribe, execute, asubscribe
+from typing import (
+    Union,
+    List,
+    Iterator,
+    AsyncIterator,
+    Iterable,
+    Optional,
+    Literal,
+    Annotated,
+)
+from kanne.scalars import Millisecond
+from enum import Enum
 from pydantic import BaseModel, Field, ConfigDict
-from rath.scalars import ID, IDCoercible
-from elektro.funcs import subscribe, asubscribe, aexecute, execute
 from datetime import datetime
+from elektro.rath import ElektroRath
+from rath.scalars import ID, IDCoercible
 
 
 class RoiKind(str, Enum):
@@ -260,6 +262,7 @@ class RequestFileUploadInput(BaseModel):
 
     key: str
     datalayer: str
+    hash: Optional[str] = None
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, use_enum_values=True
     )
@@ -380,6 +383,7 @@ class CreateNeuronModelInput(BaseModel):
 
     name: str
     parent: Optional[ID] = None
+    description: Optional[str] = None
     config: "ModelConfigInput"
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, use_enum_values=True
@@ -402,6 +406,7 @@ class ModelConfigInput(ModelConfigInputTrait, BaseModel):
     v_init: float = Field(alias="vInit")
     celsius: float
     label: Optional[str] = None
+    environments: List[str]
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, use_enum_values=True
     )
@@ -566,8 +571,8 @@ class CreateSimulationInput(BaseModel):
     recordings: List["RecordingInput"]
     stimuli: List["StimulusInput"]
     time_trace: Optional[TraceLike] = Field(alias="timeTrace", default=None)
-    duration: float
-    dt: Optional[float] = None
+    duration: Millisecond
+    dt: Optional[Millisecond] = None
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, use_enum_values=True
     )
@@ -1057,7 +1062,7 @@ class Compartment(CompartmentTrait, BaseModel):
     class Meta:
         """Meta class for Compartment"""
 
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}"
         name = "Compartment"
         type = "Compartment"
 
@@ -1083,11 +1088,13 @@ class Recording(BaseModel):
     label: str
     cell: str
     trace: RecordingTrace
+    position: float
+    location: str
 
     class Meta:
         """Meta class for Recording"""
 
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}"
         name = "Recording"
         type = "Recording"
 
@@ -1114,11 +1121,13 @@ class Stimulus(BaseModel):
     cell: str
     kind: StimulusKind
     trace: StimulusTrace
+    position: float
+    location: str
 
     class Meta:
         """Meta class for Stimulus"""
 
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}"
         name = "Stimulus"
         type = "Stimulus"
 
@@ -1198,7 +1207,7 @@ class Cell(BaseModel):
     class Meta:
         """Meta class for Cell"""
 
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
         name = "Cell"
         type = "Cell"
 
@@ -1256,7 +1265,7 @@ class Experiment(ExperimentTrait, BaseModel):
     class Meta:
         """Meta class for Experiment"""
 
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Experiment on Experiment {\n  name\n  id\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  recordingViews {\n    label\n    recording {\n      ...Recording\n      __typename\n    }\n    __typename\n  }\n  stimulusViews {\n    label\n    stimulus {\n      ...Stimulus\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Experiment on Experiment {\n  name\n  id\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  recordingViews {\n    label\n    recording {\n      ...Recording\n      __typename\n    }\n    __typename\n  }\n  stimulusViews {\n    label\n    stimulus {\n      ...Stimulus\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
         name = "Experiment"
         type = "Experiment"
 
@@ -1354,7 +1363,7 @@ class NeuronModel(BaseModel):
     class Meta:
         """Meta class for NeuronModel"""
 
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
         name = "NeuronModel"
         type = "NeuronModel"
 
@@ -1377,7 +1386,7 @@ class AnalogSignal(BaseModel):
         type = "AnalogSignal"
 
 
-class Simulation(BaseModel):
+class Simulation(SimulationTrait, BaseModel):
     """No documentation"""
 
     typename: Literal["Simulation"] = Field(
@@ -1393,7 +1402,7 @@ class Simulation(BaseModel):
     class Meta:
         """Meta class for Simulation"""
 
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}"
         name = "Simulation"
         type = "Simulation"
 
@@ -1554,7 +1563,7 @@ class CreateExperimentMutation(BaseModel):
     class Meta:
         """Meta class for CreateExperiment"""
 
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Experiment on Experiment {\n  name\n  id\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  recordingViews {\n    label\n    recording {\n      ...Recording\n      __typename\n    }\n    __typename\n  }\n  stimulusViews {\n    label\n    stimulus {\n      ...Stimulus\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nmutation CreateExperiment($input: CreateExperimentInput!) {\n  createExperiment(input: $input) {\n    ...Experiment\n    __typename\n  }\n}"
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Experiment on Experiment {\n  name\n  id\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  recordingViews {\n    label\n    recording {\n      ...Recording\n      __typename\n    }\n    __typename\n  }\n  stimulusViews {\n    label\n    stimulus {\n      ...Stimulus\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nmutation CreateExperiment($input: CreateExperimentInput!) {\n  createExperiment(input: $input) {\n    ...Experiment\n    __typename\n  }\n}"
 
 
 class From_file_likeMutation(BaseModel):
@@ -1644,7 +1653,7 @@ class CreateNeuronmodelMutation(BaseModel):
     class Meta:
         """Meta class for CreateNeuronmodel"""
 
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nmutation CreateNeuronmodel($input: CreateNeuronModelInput!) {\n  createNeuronModel(input: $input) {\n    ...NeuronModel\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nmutation CreateNeuronmodel($input: CreateNeuronModelInput!) {\n  createNeuronModel(input: $input) {\n    ...NeuronModel\n    __typename\n  }\n}"
 
 
 class CreateRoiMutation(BaseModel):
@@ -1716,7 +1725,7 @@ class CreateSimulationMutation(BaseModel):
     class Meta:
         """Meta class for CreateSimulation"""
 
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nmutation CreateSimulation($input: CreateSimulationInput!) {\n  createSimulation(input: $input) {\n    ...Simulation\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nmutation CreateSimulation($input: CreateSimulationInput!) {\n  createSimulation(input: $input) {\n    ...Simulation\n    __typename\n  }\n}"
 
 
 class FromTraceLikeMutation(BaseModel):
@@ -1849,7 +1858,7 @@ class GetExperimentQuery(BaseModel):
     class Meta:
         """Meta class for GetExperiment"""
 
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Experiment on Experiment {\n  name\n  id\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  recordingViews {\n    label\n    recording {\n      ...Recording\n      __typename\n    }\n    __typename\n  }\n  stimulusViews {\n    label\n    stimulus {\n      ...Stimulus\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetExperiment($id: ID!) {\n  experiment(id: $id) {\n    ...Experiment\n    __typename\n  }\n}"
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Experiment on Experiment {\n  name\n  id\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  recordingViews {\n    label\n    recording {\n      ...Recording\n      __typename\n    }\n    __typename\n  }\n  stimulusViews {\n    label\n    stimulus {\n      ...Stimulus\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetExperiment($id: ID!) {\n  experiment(id: $id) {\n    ...Experiment\n    __typename\n  }\n}"
 
 
 class SearchExperimentsQueryOptions(ExperimentTrait, BaseModel):
@@ -1895,7 +1904,7 @@ class ListExperimentsQuery(BaseModel):
     class Meta:
         """Meta class for ListExperiments"""
 
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Experiment on Experiment {\n  name\n  id\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  recordingViews {\n    label\n    recording {\n      ...Recording\n      __typename\n    }\n    __typename\n  }\n  stimulusViews {\n    label\n    stimulus {\n      ...Stimulus\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListExperiments($filter: ExperimentFilter, $pagination: OffsetPaginationInput) {\n  experiments(filters: $filter, pagination: $pagination) {\n    ...Experiment\n    __typename\n  }\n}"
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Experiment on Experiment {\n  name\n  id\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  recordingViews {\n    label\n    recording {\n      ...Recording\n      __typename\n    }\n    __typename\n  }\n  stimulusViews {\n    label\n    stimulus {\n      ...Stimulus\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListExperiments($filter: ExperimentFilter, $pagination: OffsetPaginationInput) {\n  experiments(filters: $filter, pagination: $pagination) {\n    ...Experiment\n    __typename\n  }\n}"
 
 
 class GetFileQuery(BaseModel):
@@ -2020,7 +2029,7 @@ class GetNeuronModelQuery(BaseModel):
     class Meta:
         """Meta class for GetNeuronModel"""
 
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetNeuronModel($id: ID!) {\n  neuronModel(id: $id) {\n    ...NeuronModel\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetNeuronModel($id: ID!) {\n  neuronModel(id: $id) {\n    ...NeuronModel\n    __typename\n  }\n}"
 
 
 class SearchNeuronModelsQueryOptions(BaseModel):
@@ -2066,7 +2075,7 @@ class ListNeuronModelsQuery(BaseModel):
     class Meta:
         """Meta class for ListNeuronModels"""
 
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListNeuronModels($filter: NeuronModelFilter, $pagination: OffsetPaginationInput) {\n  neuronModels(filters: $filter, pagination: $pagination) {\n    ...NeuronModel\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListNeuronModels($filter: NeuronModelFilter, $pagination: OffsetPaginationInput) {\n  neuronModels(filters: $filter, pagination: $pagination) {\n    ...NeuronModel\n    __typename\n  }\n}"
 
 
 class GetRecordingQuery(BaseModel):
@@ -2084,7 +2093,7 @@ class GetRecordingQuery(BaseModel):
     class Meta:
         """Meta class for GetRecording"""
 
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetRecording($id: ID!) {\n  recording(id: $id) {\n    ...Recording\n    __typename\n  }\n}"
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nquery GetRecording($id: ID!) {\n  recording(id: $id) {\n    ...Recording\n    __typename\n  }\n}"
 
 
 class SearchRecordingsQueryOptions(BaseModel):
@@ -2130,7 +2139,7 @@ class ListRecordingsQuery(BaseModel):
     class Meta:
         """Meta class for ListRecordings"""
 
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListRecordings($filter: RecordingFilter, $pagination: OffsetPaginationInput) {\n  recordings(filters: $filter, pagination: $pagination) {\n    ...Recording\n    __typename\n  }\n}"
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nquery ListRecordings($filter: RecordingFilter, $pagination: OffsetPaginationInput) {\n  recordings(filters: $filter, pagination: $pagination) {\n    ...Recording\n    __typename\n  }\n}"
 
 
 class GetRoisQuery(BaseModel):
@@ -2207,10 +2216,10 @@ class GetSimulationQuery(BaseModel):
     class Meta:
         """Meta class for GetSimulation"""
 
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery GetSimulation($id: ID!) {\n  simulation(id: $id) {\n    ...Simulation\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery GetSimulation($id: ID!) {\n  simulation(id: $id) {\n    ...Simulation\n    __typename\n  }\n}"
 
 
-class SearchSimulationsQueryOptions(BaseModel):
+class SearchSimulationsQueryOptions(SimulationTrait, BaseModel):
     """No documentation"""
 
     typename: Literal["Simulation"] = Field(
@@ -2253,7 +2262,7 @@ class ListSimulationsQuery(BaseModel):
     class Meta:
         """Meta class for ListSimulations"""
 
-        document = "fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery ListSimulations($filter: SimulationFilter, $pagination: OffsetPaginationInput) {\n  simulations(filters: $filter, pagination: $pagination) {\n    ...Simulation\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery ListSimulations($filter: SimulationFilter, $pagination: OffsetPaginationInput) {\n  simulations(filters: $filter, pagination: $pagination) {\n    ...Simulation\n    __typename\n  }\n}"
 
 
 class GetStimulusQuery(BaseModel):
@@ -2271,7 +2280,7 @@ class GetStimulusQuery(BaseModel):
     class Meta:
         """Meta class for GetStimulus"""
 
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetStimulus($id: ID!) {\n  stimulus(id: $id) {\n    ...Stimulus\n    __typename\n  }\n}"
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nquery GetStimulus($id: ID!) {\n  stimulus(id: $id) {\n    ...Stimulus\n    __typename\n  }\n}"
 
 
 class SearchStimuliQueryOptions(BaseModel):
@@ -2317,7 +2326,7 @@ class ListStimuliQuery(BaseModel):
     class Meta:
         """Meta class for ListStimuli"""
 
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListStimuli($filter: StimulusFilter, $pagination: OffsetPaginationInput) {\n  stimuli(filters: $filter, pagination: $pagination) {\n    ...Stimulus\n    __typename\n  }\n}"
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nquery ListStimuli($filter: StimulusFilter, $pagination: OffsetPaginationInput) {\n  stimuli(filters: $filter, pagination: $pagination) {\n    ...Stimulus\n    __typename\n  }\n}"
 
 
 class GetTraceQuery(BaseModel):
@@ -2828,7 +2837,10 @@ def from_file_like(
 
 
 async def arequest_file_upload(
-    key: str, datalayer: str, rath: Optional[ElektroRath] = None
+    key: str,
+    datalayer: str,
+    hash: Optional[str] = None,
+    rath: Optional[ElektroRath] = None,
 ) -> Credentials:
     """RequestFileUpload
 
@@ -2837,6 +2849,7 @@ async def arequest_file_upload(
     Args:
         key: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        hash: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
@@ -2845,14 +2858,17 @@ async def arequest_file_upload(
     return (
         await aexecute(
             RequestFileUploadMutation,
-            {"input": {"key": key, "datalayer": datalayer}},
+            {"input": {"key": key, "datalayer": datalayer, "hash": hash}},
             rath=rath,
         )
     ).request_file_upload
 
 
 def request_file_upload(
-    key: str, datalayer: str, rath: Optional[ElektroRath] = None
+    key: str,
+    datalayer: str,
+    hash: Optional[str] = None,
+    rath: Optional[ElektroRath] = None,
 ) -> Credentials:
     """RequestFileUpload
 
@@ -2861,6 +2877,7 @@ def request_file_upload(
     Args:
         key: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        hash: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
@@ -2868,7 +2885,7 @@ def request_file_upload(
     """
     return execute(
         RequestFileUploadMutation,
-        {"input": {"key": key, "datalayer": datalayer}},
+        {"input": {"key": key, "datalayer": datalayer, "hash": hash}},
         rath=rath,
     ).request_file_upload
 
@@ -2981,6 +2998,7 @@ async def acreate_neuronmodel(
     name: str,
     config: ModelConfigInput,
     parent: Optional[IDCoercible] = None,
+    description: Optional[str] = None,
     rath: Optional[ElektroRath] = None,
 ) -> NeuronModel:
     """CreateNeuronmodel
@@ -2990,6 +3008,7 @@ async def acreate_neuronmodel(
     Args:
         name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         config:  (required)
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
@@ -2999,7 +3018,14 @@ async def acreate_neuronmodel(
     return (
         await aexecute(
             CreateNeuronmodelMutation,
-            {"input": {"name": name, "parent": parent, "config": config}},
+            {
+                "input": {
+                    "name": name,
+                    "parent": parent,
+                    "description": description,
+                    "config": config,
+                }
+            },
             rath=rath,
         )
     ).create_neuron_model
@@ -3009,6 +3035,7 @@ def create_neuronmodel(
     name: str,
     config: ModelConfigInput,
     parent: Optional[IDCoercible] = None,
+    description: Optional[str] = None,
     rath: Optional[ElektroRath] = None,
 ) -> NeuronModel:
     """CreateNeuronmodel
@@ -3018,6 +3045,7 @@ def create_neuronmodel(
     Args:
         name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         config:  (required)
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
@@ -3026,7 +3054,14 @@ def create_neuronmodel(
     """
     return execute(
         CreateNeuronmodelMutation,
-        {"input": {"name": name, "parent": parent, "config": config}},
+        {
+            "input": {
+                "name": name,
+                "parent": parent,
+                "description": description,
+                "config": config,
+            }
+        },
         rath=rath,
     ).create_neuron_model
 
@@ -3191,9 +3226,9 @@ async def acreate_simulation(
     model: IDCoercible,
     recordings: Iterable[RecordingInput],
     stimuli: Iterable[StimulusInput],
-    duration: float,
+    duration: Millisecond,
     time_trace: Optional[TraceCoercible] = None,
-    dt: Optional[float] = None,
+    dt: Optional[Millisecond] = None,
     rath: Optional[ElektroRath] = None,
 ) -> Simulation:
     """CreateSimulation
@@ -3206,8 +3241,8 @@ async def acreate_simulation(
         recordings:  (required) (list) (required)
         stimuli:  (required) (list) (required)
         time_trace: The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer
-        duration: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point). (required)
-        dt: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
+        duration: The `Matrix` scalar type represents a matrix values as specified by (required)
+        dt: The `Matrix` scalar type represents a matrix values as specified by
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
@@ -3237,9 +3272,9 @@ def create_simulation(
     model: IDCoercible,
     recordings: Iterable[RecordingInput],
     stimuli: Iterable[StimulusInput],
-    duration: float,
+    duration: Millisecond,
     time_trace: Optional[TraceCoercible] = None,
-    dt: Optional[float] = None,
+    dt: Optional[Millisecond] = None,
     rath: Optional[ElektroRath] = None,
 ) -> Simulation:
     """CreateSimulation
@@ -3252,8 +3287,8 @@ def create_simulation(
         recordings:  (required) (list) (required)
         stimuli:  (required) (list) (required)
         time_trace: The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer
-        duration: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point). (required)
-        dt: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
+        duration: The `Matrix` scalar type represents a matrix values as specified by (required)
+        dt: The `Matrix` scalar type represents a matrix values as specified by
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:

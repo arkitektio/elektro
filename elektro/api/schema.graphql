@@ -40,13 +40,13 @@ type Query {
   rois(filters: ROIFilter, pagination: OffsetPaginationInput): [ROI!]!
   datasets(filters: DatasetFilter, pagination: OffsetPaginationInput): [Dataset!]!
   mydatasets(filters: DatasetFilter, pagination: OffsetPaginationInput): [Dataset!]!
-  experiments(filters: ExperimentFilter, pagination: OffsetPaginationInput): [Experiment!]!
+  experiments(filters: ExperimentFilter, order: ExperimentOrder, pagination: OffsetPaginationInput): [Experiment!]!
   neuronModels(filters: NeuronModelFilter, order: NeuronModelOrder, pagination: OffsetPaginationInput): [NeuronModel!]!
   modelCollections(filters: ModelCollectionFilter, pagination: OffsetPaginationInput): [ModelCollection!]!
-  recordings(filters: RecordingFilter, pagination: OffsetPaginationInput): [Recording!]!
-  stimuli(filters: StimulusFilter, pagination: OffsetPaginationInput): [Stimulus!]!
+  recordings(filters: RecordingFilter, order: RecordingOrder, pagination: OffsetPaginationInput): [Recording!]!
+  stimuli(filters: StimulusFilter, order: StimulusOrder, pagination: OffsetPaginationInput): [Stimulus!]!
   files(filters: FileFilter, pagination: OffsetPaginationInput): [File!]!
-  simulations(filters: SimulationFilter, pagination: OffsetPaginationInput): [Simulation!]!
+  simulations(filters: SimulationFilter, order: SimulationOrder, pagination: OffsetPaginationInput): [Simulation!]!
   myfiles(filters: FileFilter, pagination: OffsetPaginationInput): [File!]!
   randomTrace: Trace!
   blockStats(filters: BlockFilter = null): BlockStats!
@@ -587,8 +587,8 @@ type Experiment {
   name: String!
   description: String
   timeTrace: Trace!
-  recordingViews(filters: ExperimentFilter, pagination: OffsetPaginationInput): [ExperimentRecordingView!]!
-  stimulusViews(filters: ExperimentFilter, pagination: OffsetPaginationInput): [ExperimentStimulusView!]!
+  recordingViews(filters: ExperimentFilter, order: ExperimentOrder, pagination: OffsetPaginationInput): [ExperimentRecordingView!]!
+  stimulusViews(filters: ExperimentFilter, order: ExperimentOrder, pagination: OffsetPaginationInput): [ExperimentStimulusView!]!
 }
 
 type ExperimentRecordingView {
@@ -597,6 +597,7 @@ type ExperimentRecordingView {
   label: String
   offset: Float
   duration: Float
+  experiment: Experiment!
 }
 
 type Recording {
@@ -620,9 +621,11 @@ type Simulation {
   duration: Int!
   dt: Float!
   timeTrace: Trace!
-  stimuli(filters: StimulusFilter, pagination: OffsetPaginationInput): [Stimulus!]!
-  recordings(filters: RecordingFilter, pagination: OffsetPaginationInput): [Recording!]!
+  stimuli(filters: StimulusFilter, order: StimulusOrder, pagination: OffsetPaginationInput): [Stimulus!]!
+  recordings(filters: RecordingFilter, order: RecordingOrder, pagination: OffsetPaginationInput): [Recording!]!
   createdAt: DateTime!
+  recordingViews(filters: ExperimentFilter, order: ExperimentOrder, pagination: OffsetPaginationInput): [ExperimentRecordingView!]!
+  stimulusViews(filters: ExperimentFilter, order: ExperimentOrder, pagination: OffsetPaginationInput): [ExperimentStimulusView!]!
 }
 
 enum StimulusKind {
@@ -637,7 +640,7 @@ type NeuronModel {
   description: String
   creator: User
   modelCollections(filters: ModelCollectionFilter, pagination: OffsetPaginationInput): [ModelCollection!]
-  simulations(filters: SimulationFilter, pagination: OffsetPaginationInput): [Simulation!]!
+  simulations(filters: SimulationFilter, order: SimulationOrder, pagination: OffsetPaginationInput): [Simulation!]!
   config: ModelConfig!
   changes(to: ID = null): [Change!]!
   comparisons: [Comparison!]!
@@ -685,6 +688,10 @@ input SimulationFilter {
   OR: SimulationFilter
   NOT: SimulationFilter
   DISTINCT: Boolean
+}
+
+input SimulationOrder {
+  createdAt: Ordering
 }
 
 type ModelConfig {
@@ -810,6 +817,10 @@ input StimulusFilter {
   DISTINCT: Boolean
 }
 
+input StimulusOrder {
+  createdAt: Ordering
+}
+
 input RecordingFilter {
   ids: [ID!]
   search: String
@@ -821,12 +832,8 @@ input RecordingFilter {
   DISTINCT: Boolean
 }
 
-enum RecordingKind {
-  VOLTAGE
-  CURRENT
-  TIME
-  INA
-  UNKNOWN
+input RecordingOrder {
+  createdAt: Ordering
 }
 
 input ExperimentFilter {
@@ -840,12 +847,25 @@ input ExperimentFilter {
   DISTINCT: Boolean
 }
 
+input ExperimentOrder {
+  createdAt: Ordering
+}
+
 type ExperimentStimulusView {
   id: ID!
   stimulus: Stimulus!
   label: String
   offset: Float
   duration: Float
+  experiment: Experiment!
+}
+
+enum RecordingKind {
+  VOLTAGE
+  CURRENT
+  TIME
+  INA
+  UNKNOWN
 }
 
 type BlockStats {
@@ -1060,6 +1080,7 @@ input RequestMediaUploadInput {
 input RequestFileUploadInput {
   key: String!
   datalayer: String!
+  hash: String = null
 }
 
 input RequestFileAccessInput {
@@ -1161,6 +1182,7 @@ input DeleteTraceInput {
 input CreateNeuronModelInput {
   name: String!
   parent: ID
+  description: String = null
   config: ModelConfigInput!
 }
 
@@ -1172,10 +1194,11 @@ input ModelConfigInput {
   vInit: Float! = -67
   celsius: Float! = 36
   label: String = null
+  environments: [String!]! = []
 }
 
 input CellInput {
-  id: String! = "e37efe2d-a446-423b-bab6-0cd840fc0127"
+  id: String!
   biophysics: BiophysicsInput!
   topology: TopologyInput!
 }
@@ -1185,7 +1208,7 @@ input BiophysicsInput {
 }
 
 input CompartmentInput {
-  id: String! = "fa31999f-e1bc-4749-9d92-e21d706477f5"
+  id: String!
   mechanisms: [String!]! = []
   sectionParams: [SectionParamMapInput!]
   globalParams: [GlobalParamMapInput!]
@@ -1238,7 +1261,7 @@ input ConnectionInput {
 }
 
 input NetStimulatorInput {
-  id: ID! = "87c06e92-26b7-4818-b445-970e18bf773a"
+  id: ID!
   start: Float! = 100
   number: Int! = 1
   interval: Float = null
@@ -1246,7 +1269,7 @@ input NetStimulatorInput {
 
 input NetConnectionInput {
   kind: ConnectionKind! = SYNAPSE
-  id: ID! = "440d4a7d-c185-4754-84e8-73c4036cc35f"
+  id: ID!
   weight: Float = null
   threshold: Float = null
   delay: Float = null
@@ -1280,8 +1303,8 @@ input CreateSimulationInput {
   recordings: [RecordingInput!]!
   stimuli: [StimulusInput!]!
   timeTrace: TraceLike = null
-  duration: Float!
-  dt: Float = null
+  duration: Milliseconds!
+  dt: Milliseconds = null
 }
 
 input RecordingInput {
@@ -1299,6 +1322,9 @@ input StimulusInput {
   location: ID
   position: Float
 }
+
+"""The `Matrix` scalar type represents a matrix values as specified by"""
+scalar Milliseconds
 
 input FromFileLike {
   name: String!

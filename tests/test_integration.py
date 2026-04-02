@@ -7,23 +7,17 @@ import xarray as xr
 @pytest.mark.integration
 def test_write_random(deployed_app):
     x = from_trace_like(
-        xr.DataArray(data=np.random.random((1000, 1000, 10)), dims=["x", "y", "z"]),
+        np.random.random((1000,)),
         name="test_random_write",
     )
     assert x.id, "Did not get a random rep"
-    assert x.data.shape == (
-        1,
-        1,
-        10,
-        1000,
-        1000,
-    ), "Did not write data according to schema ( T, C, Z, Y, X )"
+    assert x.data.shape == (1000,), "Did not write data according to schema ( T, C, Z, Y, X )"
 
 
 @pytest.mark.integration
 def test_get_random(deployed_app):
     x = from_trace_like(
-        xr.DataArray(data=np.random.random((1000, 1000, 10)), dims=["x", "y", "z"]),
+        np.random.random((1000,)),
         name="test_random_write",
     )
     x = get_random_trace()

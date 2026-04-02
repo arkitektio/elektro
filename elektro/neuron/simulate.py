@@ -2,6 +2,7 @@
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
+import time
 import numpy as np
 import logging
 from elektro.api.schema import (
@@ -21,8 +22,9 @@ import uuid
 from typing import Any, Dict, List, Optional, Literal, Union
 from pydantic import BaseModel, Field
 
+from kanne.scalars import Ampere, Hertz, Millisecond, MillisecondCoercible
 from rath.scalars import ID
-
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -58,15 +60,30 @@ class StimulusBase(BaseModel):
     cell: str
     location: str  # Section name
     position: float = 0.5  # Between 0 and 1
-    duration: float | None = None  # Duration of the stimulus (in ms)
+    duration: Millisecond | None = None  # Duration of the stimulus (in ms)
 
 
 class CurrentClampStimulus(StimulusBase):
     """Current clamp stimulus parameters."""
 
     kind: Literal[StimulusKind.VOLTAGE] = StimulusKind.VOLTAGE  # type: ignore[assignment]
-    delay: float = 100.0  # ms
-    amp: float = 0.1  # nA
+    delay: Millisecond = Millisecond(100.0)  # ms
+    amp: Ampere = Ampere(0.1, "nanoampere")  # nA
+
+
+class WhiteNoiseStimulus(StimulusBase):
+    """Custom noise stimulus parameters."""
+
+    kind: Literal[StimulusKind.VOLTAGE] = StimulusKind.VOLTAGE  # type: ignore[assignment]
+    noise_level: Ampere = Ampere(0.05, "nanoampere")  # nA
+
+
+class SineWaveStimulus(StimulusBase):
+    """Custom sine wave stimulus parameters."""
+
+    kind: Literal[StimulusKind.VOLTAGE] = StimulusKind.VOLTAGE  # type: ignore[assignment]
+    frequency: Hertz = Hertz(10.0)  # Hz
+    amplitude: Ampere = Ampere(0.1, "nanoampere")  # nA
 
 
 def instantiate_cell(h: Any, cell: Cell):
@@ -169,8 +186,8 @@ class SimulationResults:
     recordings: List[RecordingInput]
     stimuli: List[StimulusInput]
     model: NeuronModel
-    duration: int
-    dt: int
+    duration: Millisecond
+    dt: Millisecond
     name: str
     raw_results: dict[str, Any] | None = None
     raw_stimulations: dict[str, Any] | None = None
@@ -244,117 +261,197 @@ def instantiate_model(h: Any, model: NeuronModelConfig):
 
 def run_simulation_processed(
     model: NeuronModel,
-    duration: int,
-    stims: List[Union[CurrentClampStimulus]],  # type: ignore[no-untyped-call]
-    records: List[Union[VRecord]],  # type: ignore[no-untyped-call]
+    duration: Millisecond,
+    stims: List[Union[CurrentClampStimulus, SineWaveStimulus, WhiteNoiseStimulus]],
+    records: List[Union[VRecord]],
     name: str,
-    dt: int = 1,
+    dt: Millisecond,
 ) -> SimulationResults:
-    from neuron import h  # type: ignore[import]
+    from neuron import h
+    import numpy as np
+    from collections import defaultdict
 
-    h.load_file("stdrun.hoc")  # type: ignore[no-untyped-call]
-
+    h.load_file("stdrun.hoc")
     hmodel = instantiate_model(h, model.config)
 
-    h.dt = dt
-    h.tstop = duration  # Define the stop time of the simulation
+    # 1. Validate units
+    dt_obj = Millisecond.validate(dt)
+    dt_ms = dt_obj.to("millisecond").magnitude
+
+    requested_duration = Millisecond.validate(duration).to("millisecond").magnitude
+
+    # --------------------------------------------------------
+    # 2. SNAP TO GRID (The Fix)
+    # --------------------------------------------------------
+    # We calculate the exact integer number of steps closest to the requested duration
+    print(f"Requested duration: {requested_duration} ms with dt={dt_ms} ms")
+    n_steps = int(round(requested_duration / dt_ms))
+
+    # We calculate the TRUE duration that perfectly fits these steps
+    actual_dur_ms = n_steps * dt_ms
+
+    if abs(actual_dur_ms - requested_duration) > 1e-9:
+        print(
+            f"Adjusting duration from {requested_duration} to {actual_dur_ms} ms to align with dt={dt_ms}"
+        )
+
+    # 3. Configure NEURON with the ALIGNED values
+    h.dt = dt_ms
+    h.tstop = actual_dur_ms
+    h.CVode().active(0)
+    h.steps_per_ms = 1.0 / h.dt
+
     h.v_init = model.config.v_init
     h.celsius = model.config.celsius
-    h.finitialize(model.config.v_init)  # type: ignore[no-untyped-call]
-    h.fcurrent()  # type: ignore[no-untyped-call]
-    h.setdt()  # type: ignore[no-untyped-call]
-    h.init()  # type: ignore[no-untyped-call]
+    h.finitialize(model.config.v_init)
+    h.fcurrent()
+    h.setdt()
+    h.init()
 
-    raw_stimulations: dict[str, Any] = {}
+    # 4. Create Precise Time Vector
+    # usage of linspace with n_steps + 1 guarantees exact array size matching NEURON
+    times = np.linspace(0, actual_dur_ms, n_steps + 1)
 
-    # Apply the stimulations
-    for stim_param in stims:
-        logger.debug("Adding stimulus:", stim_param)
-        if isinstance(stim_param, CurrentClampStimulus):  # type: ignore[no-untyped-call]
-            stim_sec = hmodel.cell_h_sections[stim_param.cell][stim_param.location]
-            stim = h.IClamp(stim_sec(stim_param.position))  # type: ignore[no-untyped-call]
-            stim.delay = stim_param.delay
-            stim.dur = stim_param.duration or duration
-            stim.amp = stim_param.amp
+    # NEURON Vector for playback
+    t_vec_play = h.Vector(times)
 
-            v_vec = h.Vector().record(stim._ref_i)  # type: ignore[no-untyped-call]
-            raw_stimulations[stim_param.id] = v_vec
-            print(
-                "Stimulus added:",
-                stim_param.id,
-                stim_param.amp,
-                stim_param.delay,
-                stim_param.duration,
-            )
+    # 5. Group Stimuli
+    grouped: dict[tuple[str, str, float], list] = defaultdict(list)
+    for stim in stims:
+        key = (stim.cell, stim.location, stim.position)
+        grouped[key].append(stim)
 
-        else:
-            raise ValueError(f"Unknown stimulus type: {stim_param}")
+    # 6. Build Waveforms
+    refs = []
+    input_waveforms = {}
 
-    # Prepare recordings
-    raw_results: dict[str, Any] = {}
-    t_vec = h.Vector().record(h._ref_t)  # type: ignore[no-untyped-call]
+    for key, stim_list in grouped.items():
+        cell, loc, pos = key
+        sec = hmodel.cell_h_sections[cell][loc]
 
-    for rec_param in records:
-        logger.debug("Adding recording:", rec_param)
-        sec = hmodel.cell_h_sections[rec_param.cell][rec_param.location]
+        iclamp = h.IClamp(sec(pos))
+        iclamp.delay = 0
+        iclamp.dur = 1e9
 
-        if isinstance(rec_param, VRecord):  # type: ignore[no-untyped-call]
-            v_vec = h.Vector().record(sec(rec_param.position)._ref_v)  # type: ignore[no-untyped-call]
-            raw_results[rec_param.id] = v_vec
-        else:
-            raise ValueError(f"Unknown recording type: {rec_param}")
+        # Use the aligned 'times' array here
+        combined = np.zeros_like(times, dtype=np.float64)
 
-    # Run the simulation
-    h.run()  # type: ignore[no-untyped-call]
+        for stim_param in stim_list:
+            if isinstance(stim_param, CurrentClampStimulus):
+                delay = stim_param.delay.to("millisecond").magnitude
+                # Duration handling: if not specified, use full simulation time
+                d = (
+                    stim_param.duration.to("millisecond").magnitude
+                    if stim_param.duration
+                    else actual_dur_ms
+                )
+                amp = stim_param.amp.to("nanoampere").magnitude
 
-    time_trace = np.array(t_vec)  # type: ignore[no-untyped-call]
-    recordings: list[RecordingInput] = []
+                mask = (times >= delay) & (times < (delay + d))
+                combined[mask] += amp
 
-    for rec_param in records:
-        recordings.append(
+            elif isinstance(stim_param, SineWaveStimulus):
+                A = stim_param.amplitude.to("nanoampere").magnitude
+                f = stim_param.frequency.to("hertz").magnitude
+                combined += A * np.sin(2 * np.pi * f * (times / 1000.0))
+
+            elif isinstance(stim_param, WhiteNoiseStimulus):
+                sigma = stim_param.noise_level.to("nanoampere").magnitude
+                combined += np.random.normal(0, sigma, size=len(times))
+
+        i_vec = h.Vector(combined)
+        i_vec.play(iclamp._ref_amp, t_vec_play, True)
+
+        refs.append((iclamp, i_vec, t_vec_play))
+        input_waveforms[key] = combined
+
+    # 7. Prepare Recordings
+    # We record actual time to be safe, but it should now match 'times' exactly
+    rec_t = h.Vector().record(h._ref_t)
+
+    raw_results = {}
+    for rec in records:
+        sec = hmodel.cell_h_sections[rec.cell][rec.location]
+        v_vec = h.Vector().record(sec(rec.position)._ref_v)
+        raw_results[rec.id] = v_vec
+
+    # 8. Run
+    h.run()
+
+    # 9. Process Outputs
+    time_trace = rec_t.as_numpy().copy()
+
+    recordings_out = []
+    for rec in records:
+        trace = raw_results[rec.id].as_numpy().copy()
+        recordings_out.append(
             RecordingInput(
-                cell=ID.validate(rec_param.cell),
-                location=ID.validate(rec_param.location),
-                kind=rec_param.kind,
-                position=rec_param.position,
-                trace=np.array(raw_results[rec_param.id]),  # type: ignore[no-untyped-call]
+                cell=ID.validate(rec.cell),
+                location=ID.validate(rec.location),
+                kind=rec.kind,
+                position=rec.position,
+                trace=trace,
             )
-        )  # type: ignore[no-untyped-call]
+        )
 
-    stimuli: list[StimulusInput] = []
-    for stim_param in stims:
-        stimuli.append(
+    stimuli_out = []
+    for key, waveform in input_waveforms.items():
+        cell, loc, pos = key
+
+        # Because we snapped to grid, len(waveform) should equal len(time_trace)
+        # But we keep interp as a fallback for float precision edges
+        if len(waveform) != len(time_trace):
+            final_wave = np.interp(time_trace, times, waveform)
+        else:
+            final_wave = waveform
+
+        stimuli_out.append(
             StimulusInput(
-                cell=ID.validate(stim_param.cell),
-                location=ID.validate(stim_param.location),
-                kind=stim_param.kind,
-                position=stim_param.position,
-                trace=np.array(raw_stimulations[stim_param.id]),  # type: ignore[no-untyped-call]
+                cell=ID.validate(cell),
+                location=ID.validate(loc),
+                kind=StimulusKind.CURRENT,
+                position=pos,
+                trace=final_wave,
             )
         )
 
     return SimulationResults(
-        time_trace=time_trace,  # type: ignore[no-untyped-call]
-        recordings=recordings,
-        stimuli=stimuli,
+        time_trace=time_trace,
+        recordings=recordings_out,
+        stimuli=stimuli_out,
         model=model,
-        duration=duration,
-        dt=dt,
+        duration=Millisecond(
+            actual_dur_ms, "millisecond"
+        ),  # Return the ACTUAL duration
+        dt=dt_obj,
         name=name or f"Simulation for {model.name}",
-        raw_results=raw_results,
-        raw_stimulations=raw_stimulations,
+        raw_results={},
+        raw_stimulations={},
     )
 
 
 async def asimulate(
     model: NeuronModel,
-    duration: int,
+    duration: MillisecondCoercible,
     stims: List[Union[CurrentClampStimulus]],  # type: ignore[no-untyped-call]
     records: List[Union[VRecord]],  # type: ignore[no-untyped-call]
     name: str | None = None,
-    dt: int = 1,
+    dt: MillisecondCoercible = 1,
     process_pool: ProcessPoolExecutor | None = None,
 ) -> SimulationResults:
+    """
+    Asynchronously run a simulation in a separate process and return raw SimulationResults.
+
+    Parameters
+    - model: the NeuronModel to simulate
+    - duration: total duration (milliseconds or coercible)
+    - stims: stimuli definitions
+    - records: recording definitions
+    - name: optional run name
+    - dt: simulation time-step (milliseconds). Smaller `dt` -> finer resolution.
+    """
+
+    # `dt` is the time-step (ms) that controls how small each integration step is.
     if process_pool is None:
         process_pool = ProcessPoolExecutor(max_workers=1)
 
@@ -380,13 +477,21 @@ async def asimulate(
 
 async def arun_simulation(
     model: NeuronModel,
-    duration: int,
+    duration: MillisecondCoercible,
     stims: List[Union[CurrentClampStimulus]],  # type: ignore[no-untyped-call]
     records: List[Union[VRecord]],  # type: ignore[no-untyped-call]
     name: str | None = None,
-    dt: int = 1,
+    dt: MillisecondCoercible = 0.05,
     process_pool: ProcessPoolExecutor | None = None,
 ) -> Simulation:
+    """
+    Run a simulation asynchronously and publish results as a `Simulation` API object.
+
+    - `dt` is the simulation time-step in milliseconds. Use smaller values for
+      higher temporal resolution at the cost of longer compute time.
+    """
+
+    # `dt` (ms) controls integration step size
     if process_pool is None:
         process_pool = ProcessPoolExecutor(max_workers=1)
 

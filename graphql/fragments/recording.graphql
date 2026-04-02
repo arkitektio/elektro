@@ -1,14 +1,13 @@
 fragment Recording on Recording {
+  id
+  label
+  cell
+  trace {
     id
-    label
-    cell
-    trace {
-        id
-        store {
-            ...ZarrStore
-        }
+    store {
+      ...ZarrStore
     }
+  }
+  position
+  location
 }
-
-
-

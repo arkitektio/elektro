@@ -55,7 +55,9 @@ class CompartmentInputTrait(BaseModel):
         sections = get_attributes_or_error(self, "section_params")
         x = next((section for section in sections if section.param == id), None)
         if x is None:
-            raise ValueError(f"SectionParam with id {id} not found available are: {",".join(map(lambda x: x.param, sections))}")
+            raise ValueError(
+                f"SectionParam with id {id} not found available are: {','.join(map(lambda x: x.param, sections))}"
+            )
         return x
 
 
@@ -118,40 +120,36 @@ class BiophysicsTrait:
     def compartment_ids(self) -> List[str]:
         compartments = get_attributes_or_error(self, "compartments")
         return [compartment.id for compartment in compartments]
-    
-    
-    
+
     def as_dataframe(self) -> pd.DataFrame:
         """Convert the biophysics data to a pandas DataFrame"""
         from elektro.api.schema import Compartment
-        
-        
+
         compartments: list[Compartment] = get_attributes_or_error(self, "compartments")
-        
+
         records = []
-        
+
         for compartment in compartments:
-        
             data = {
                 "id": compartment.id,
-                "mechanisms": " ".join(([mechanism for mechanism in compartment.mechanisms])),
+                "mechanisms": " ".join(
+                    ([mechanism for mechanism in compartment.mechanisms])
+                ),
                 **{param.param: param.value for param in compartment.section_params},
-                **{param.param: param.value for param in compartment.global_params}
+                **{param.param: param.value for param in compartment.global_params},
             }
-            
+
             records.append(data)
-            
+
         return pd.DataFrame.from_records(records)
-            
-      
+
+
 class TopologyTrait:
     """Mixin for Biophysics data"""
 
     def section_for_id(self, id: str) -> "Section":
         sections = get_attributes_or_error(self, "sections")
-        x = next(
-            (sec for sec in sections if sec.id == id), None
-        )
+        x = next((sec for sec in sections if sec.id == id), None)
         if x is None:
             raise ValueError(f"Compartment with id {id} not found")
         return x
@@ -160,34 +158,30 @@ class TopologyTrait:
     def section_ids(self) -> List[str]:
         compartments = get_attributes_or_error(self, "sections")
         return [compartment.id for compartment in compartments]
-    
-    
-    
+
     def as_dataframe(self) -> pd.DataFrame:
         """Convert the biophysics data to a pandas DataFrame"""
         from elektro.api.schema import Section
-        
-        
+
         compartments: list[Section] = get_attributes_or_error(self, "sections")
-        
+
         records = []
-        
+
         for sec in compartments:
-        
             data = {
                 "id": sec.id,
                 "length": sec.length,
                 "diameter": sec.diam,
                 "category": sec.category,
                 "n_segments": sec.nseg,
-                "connections": ", ".join([f"{conn.parent}({conn.location})" for conn in sec.connections]),
+                "connections": ", ".join(
+                    [f"{conn.parent}({conn.location})" for conn in sec.connections]
+                ),
             }
-            
+
             records.append(data)
-            
-        return pd.DataFrame.from_records(records)  
-        
-        
+
+        return pd.DataFrame.from_records(records)
 
 
 class CompartmentTrait:
@@ -319,6 +313,18 @@ class HasZarrStoreTrait(BaseModel):
 
 
 V = TypeVar("V")
+
+
+class SimulationTrait(BaseModel):
+    def export_csv(self, file_path: str) -> None:
+        """Export the simulation data to a zarr file
+
+        Args:
+            file_path (str): The path to the zarr file
+        """
+        from elektro.io.export import export_simulation
+
+        export_simulation(self, to_folder=file_path)
 
 
 class HasZarrStoreAccessor(BaseModel):

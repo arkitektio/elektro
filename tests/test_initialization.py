@@ -7,9 +7,8 @@ import pytest
 
 @pytest.mark.integration
 def test_create_array(deployed_app: Elektro):
-    
     l = from_trace_like(
-        xr.DataArray(np.zeros((1000, 1000, 10)), dims=["x", "y", "z"]),
+        np.zeros((1000,)),
         name="Farter 1",
     )
     assert l.data.shape == (
