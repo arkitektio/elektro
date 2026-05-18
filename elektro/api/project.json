@@ -1,6 +1,6 @@
 {
-    "schema_url": "http://jhnnsrs-lab/elektro/graphql",
-    "documents": "graphql/elektro/*/**.graphql",
+    "schema_url": "http://jhnnsrs-lab/elektro/schema",
+    "documents": "graphql/elektro/**/**.graphql",
     "extensions": {
         "turms": {
             "pydantic_version": "v2",
@@ -11,7 +11,7 @@
             "dump_schema": true,
             "schema_name": "schema.graphql",
             "generated_name": "schema.py",
-            "documents": "graphql/elektro/*/**.graphql",
+            "documents": "graphql/elektro/**/**.graphql",
             "verbose": false,
             "exit_on_error": true,
             "allow_introspection": true,
@@ -23,11 +23,17 @@
             "exclude_typenames": true,
             "scalar_definitions": {
                 "Any": "typing.Any",
+                "AnyDefault": "typing.Any",
+                "SearchQuery": "str",
+                "Arg": "typing.Any",
+                "ValidatorFunction": "str",
                 "StructureString": "str",
                 "TraceLike": "elektro.scalars.TraceLike",
                 "FileLike": "elektro.scalars.FileLike",
+                "BigFileLike": "datalayer.scalars.BigFileLike",
                 "Upload": "elektro.scalars.Upload",
                 "Vector": "elektro.scalars.Vector",
+                "ArrayLike": "datalayer.scalars.ArrayLike",
                 "TwoDVector": "elektro.scalars.TwoDVector",
                 "ThreeDVector": "elektro.scalars.ThreeDVector",
                 "FourDVector": "elektro.scalars.FourDVector",
@@ -107,9 +113,6 @@
                 ],
                 "ZarrStore": [
                     "elektro.traits.HasZarrStoreAccessor"
-                ],
-                "ParquetStore": [
-                    "elektro.traits.HasParquetStoreAccesor"
                 ],
                 "BigFileStore": [
                     "elektro.traits.HasDownloadAccessor"

@@ -1,15 +1,17 @@
+import logging
 from .elektro import Elektro
+
+logger = logging.getLogger(__name__)
+
 
 try:
     from .arkitekt import ElektroService
-except ImportError:
-    pass
+except ImportError as e:
+    raise e
 try:
     from .rekuest import structure_reg
-
-    print("Imported structure_reg")
 except ImportError as e:
-    print("Could not import structure_reg", e)
+    logger.debug("Could not import structure_reg", e)
     raise e
     pass
 

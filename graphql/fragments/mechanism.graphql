@@ -1,0 +1,8 @@
+fragment Mechanism on Mechanism {
+  id
+  name
+  parameters {
+    key 
+    kind
+  }
+}

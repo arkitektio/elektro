@@ -1,6 +1,6 @@
 from types import TracebackType
 from pydantic import Field
-from .links.upload import UploadLink
+from datalayer.links.upload import UploadLink
 from rath import rath
 import contextvars
 from rath.links.auth import AuthTokenLink
@@ -10,6 +10,7 @@ from rath.links.file import FileExtraction
 from rath.links.split import SplitLink
 from typing import Optional
 from kanne.contrib.rath.coerce_pint import CoercePintLink
+
 
 current_elektro_rath: contextvars.ContextVar[Optional["ElektroRath"]] = (
     contextvars.ContextVar("current_elektro_rath")

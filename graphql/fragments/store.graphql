@@ -5,7 +5,12 @@ fragment ZarrStore on ZarrStore {
   path
 }
 
-
+fragment ParquetStore on ParquetStore {
+  id
+  key
+  bucket
+  path
+}
 
 fragment BigFileStore on BigFileStore {
   id
@@ -13,4 +18,11 @@ fragment BigFileStore on BigFileStore {
   bucket
   path
   presignedUrl
+}
+
+fragment MediaStore on MediaStore {
+  id
+  key
+  bucket
+  path
 }

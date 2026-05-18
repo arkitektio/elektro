@@ -332,11 +332,12 @@ class HasZarrStoreAccessor(BaseModel):
 
     @property
     def zarr_store(self):
-        from elektro.io.download import open_zarr_store
+        from datalayer.io.download import open_zarr_store
+        from elektro.api.schema import arequest_zarr_access
 
         if self._openstore is None:
             id = get_attributes_or_error(self, "id")
-            self._openstore = open_zarr_store(id)
+            self._openstore = open_zarr_store(id, retriever=arequest_zarr_access)
         return self._openstore
 
 
@@ -344,20 +345,44 @@ class HasDownloadAccessor(BaseModel):
     _dataset: Any = None
 
     def download(self, file_name: str | None = None) -> "str":
-        from elektro.io.download import download_file
+        from datalayer.io.download import download_file
+        from elektro.api.schema import arequest_bigfile_access
 
-        url, key = get_attributes_or_error(self, "presigned_url", "key")
-        return download_file(url, file_name=file_name or key)
+        store_id, key = get_attributes_or_error(self, "id", "key")
+        return download_file(
+            store_id, file_name=file_name or key, retriever=arequest_bigfile_access
+        )
+
+    async def adownload(self, file_name: str | None = None) -> Awaitable[str]:
+        from datalayer.io.download import adownload_file
+        from elektro.api.schema import arequest_bigfile_access
+
+        store_id, key = get_attributes_or_error(self, "id", "key")
+        return await adownload_file(
+            store_id, file_name=file_name or key, retriever=arequest_bigfile_access
+        )
 
 
 class HasPresignedDownloadAccessor(BaseModel):
     _dataset: Any = None
 
     def download(self, file_name: str | None = None) -> str:
-        from elektro.io.download import download_file
+        from datalayer.io.download import download_file
+        from elektro.api.schema import arequest_bigfile_access
 
         url, key = get_attributes_or_error(self, "presigned_url", "key")
-        return download_file(url, file_name=file_name or key)
+        return download_file(
+            url, file_name=file_name or key, retriever=arequest_bigfile_access
+        )
+
+    async def adownload(self, file_name: str | None = None) -> Awaitable[str]:
+        from datalayer.io.download import adownload_file
+        from elektro.api.schema import arequest_bigfile_access
+
+        url, key = get_attributes_or_error(self, "presigned_url", "key")
+        return await adownload_file(
+            url, file_name=file_name or key, retriever=arequest_bigfile_access
+        )
 
 
 class Vector(Protocol):

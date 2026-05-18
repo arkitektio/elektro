@@ -1,0 +1,6 @@
+mutation CreateModEnvironment($input: CreateModEnvironmentInput!) {
+  createModEnvironment(input: $input) {
+    ...ModEnvironment
+  }
+}
+

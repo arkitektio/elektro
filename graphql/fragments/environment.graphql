@@ -1,0 +1,10 @@
+fragment ModEnvironment on ModEnvironment {
+  id
+  name
+  store {
+    ...BigFileStore
+  }
+  mechanisms {
+    ...Mechanism
+  }
+}

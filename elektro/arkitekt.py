@@ -1,17 +1,19 @@
 import json
 import os
 from elektro.elektro import Elektro
-from elektro.rath import ElektroLinkComposition, ElektroRath
+from elektro.rath import ElektroRath
 from fakts_next.contrib.rath.auth import FaktsAuthLink
 from fakts_next.models import Requirement
+from kanne.contrib.rath.coerce_pint import CoercePintLink
+from rath.links import compose
 from rath.links.split import SplitLink
 from fakts_next import Fakts
 from arkitekt_next.service_registry import BaseArkitektService, Params
 
 from fakts_next.contrib.rath.aiohttp import FaktsAIOHttpLink
 from fakts_next.contrib.rath.graphql_ws import FaktsGraphQLWSLink
-from elektro.contrib.fakts.datalayer import FaktsDataLayer
-from elektro.links.upload import UploadLink
+from datalayer.fakts.datalayer import FaktsDataLayer
+from datalayer.links.upload import UploadLink
 from graphql import OperationType
 from arkitekt_next.service_registry import (
     get_default_service_registry,
@@ -35,12 +37,15 @@ class ElektroService(BaseArkitektService):
 
         return Elektro(
             rath=ElektroRath(
-                link=ElektroLinkComposition(
-                    auth=FaktsAuthLink(fakts=fakts),
-                    upload=UploadLink(
+                link=compose(
+                    UploadLink(
                         datalayer=datalayer,
                     ),
-                    split=SplitLink(
+                    CoercePintLink(),
+                    FaktsAuthLink(
+                        fakts=fakts,
+                    ),
+                    SplitLink(
                         left=FaktsAIOHttpLink(
                             fakts_group="elektro", fakts=fakts, endpoint_url="FAKE_URL"
                         ),

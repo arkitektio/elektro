@@ -4,14 +4,3 @@ mutation FromTraceLike($input: FromTraceLikeInput!) {
   }
 }
 
-mutation RequestUpload($input: RequestUploadInput!) {
-  requestUpload(input: $input) {
-    ...Credentials
-  }
-}
-
-mutation RequestAccess($input: RequestAccessInput!) {
-  requestAccess(input: $input) {
-    ...AccessCredentials
-  }
-}

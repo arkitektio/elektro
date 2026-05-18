@@ -1,17 +1,594 @@
-type SynapticConnection implements NetConnection {
+type AnalogSignal implements Signal {
+  name: String!
+  segment: BlockSegment!
   id: ID!
-  weight: Float
-  threshold: Float
-  delay: Float
-  netStimulator: ID!
-  synapse: ID!
+  samplingRate: Float!
+  unit: String
+  timeTrace: Trace!
+  channels(filters: AnalogSignalChannelFilter, pagination: OffsetPaginationInput): [AnalogSignalChannel!]!
 }
 
-interface NetConnection {
+type AnalogSignalChannel {
   id: ID!
-  weight: Float
-  threshold: Float
-  delay: Float
+  name: String
+  description: String
+  label: String
+  unit: String
+  index: Int!
+  trace: Trace!
+  signal: AnalogSignal!
+}
+
+input AnalogSignalChannelFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  label: StrFilterLookup
+  session: ID = null
+  AND: AnalogSignalChannelFilter
+  OR: AnalogSignalChannelFilter
+  NOT: AnalogSignalChannelFilter
+  DISTINCT: Boolean
+}
+
+input AnalogSignalChannelInput {
+  name: String!
+  index: Int!
+  unit: String = null
+  description: String = null
+  color: [Int!] = null
+  trace: TraceLike!
+}
+
+input AnalogSignalFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  label: StrFilterLookup
+  session: ID = null
+  AND: AnalogSignalFilter
+  OR: AnalogSignalFilter
+  NOT: AnalogSignalFilter
+  DISTINCT: Boolean
+}
+
+input AnalogSignalInput {
+  timeTrace: TraceLike!
+  name: String = null
+  description: String = null
+  samplingRate: Float!
+  tStart: Float!
+  unit: String = null
+  channels: [AnalogSignalChannelInput!]!
+}
+
+"""The `Any` scalar any type"""
+scalar Any
+
+"""
+The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer
+"""
+scalar AnyDefault
+
+type App {
+  id: ID!
+  identifier: String!
+}
+
+"""The `Arg` scalar type represents a an Argument in a Action assignment"""
+scalar Arg
+
+type ArgPort {
+  key: String!
+  label: String
+  kind: PortKind!
+  description: String
+  identifier: Identifier
+  nullable: Boolean!
+  effects: [Effect!]
+  default: AnyDefault
+  children: [ArgPort!]
+  choices: [Choice!]
+  validators: [Validator!]
+  widget: AssignWidget
+  requires: [Requires!]
+}
+
+"Port\n\n    A Port is a single input or output of a action. It is composed of a key and a kind\n    which are used to uniquely identify the port.\n\n    If the Port is a structure, we need to define a identifier and scope,\n    Identifiers uniquely identify a specific type of model for the scopes (e.g\n    all the ports that have the identifier \"@mikro/image\" are of the same type, and\n    are hence compatible with each other). Scopes are used to define in which context\n    the identifier is valid (e.g. a port with the identifier \"@mikro/image\" and the\n    scope \"local\", can only be wired to other ports that have the same identifier and\n    are running in the same app). Global ports are ports that have the scope \"global\",\n    and can be wired to any other port that has the same identifier, as there exists a\n    mechanism to resolve and retrieve the object for each app. Please check the rekuest\n    documentation for more information on how this works.\n\n\n    "
+input ArgPortInput {
+  validators: [ValidatorInput!] = null
+  key: String!
+  label: String = null
+  kind: PortKind!
+  description: String = null
+  identifier: String = null
+  nullable: Boolean! = false
+  effects: [EffectInput!] = null
+  default: AnyDefault = null
+  children: [ArgPortInput!] = null
+  choices: [ChoiceInput!] = null
+  widget: AssignWidgetInput = null
+  requires: [RequiresInput!] = null
+}
+
+"""
+A type representing an array-like store reference, which can be either a string ID or a more complex object.
+"""
+scalar ArrayLike
+
+interface AssignWidget {
+  kind: AssignWidgetKind!
+  followValue: String
+}
+
+input AssignWidgetInput {
+  """
+  Whether to display the input as a paragraph or not. This is used for text inputs and dropdowns
+  """
+  asParagraph: Boolean = null
+  kind: AssignWidgetKind!
+  query: SearchQuery = null
+  choices: [ChoiceInput!] = null
+  min: Float = null
+  max: Float = null
+  step: Float = null
+  placeholder: String = null
+  hook: String = null
+  ward: String = null
+  fallback: AssignWidgetInput = null
+  filters: [ArgPortInput!] = null
+  dependencies: [String!] = []
+  dependency: String = null
+  targetDependency: String = null
+  targetAction: String = null
+  targetPort: String = null
+  statePath: String = null
+  stateAccessors: [StateAccessorInput!] = null
+}
+
+"""The kind of assign widget."""
+enum AssignWidgetKind {
+  SEARCH
+  CHOICE
+  SLIDER
+  CUSTOM
+  STRING
+  STATE_CHOICE
+  PROXY
+}
+
+input AssociateInput {
+  selfs: [ID!]!
+  other: ID!
+}
+
+"""Temporary S3 credentials for reading a big file."""
+type BigFileAccessGrant {
+  status: String!
+  accessKey: String!
+  secretKey: String!
+  sessionToken: String!
+  region: String!
+  bucket: String!
+  key: String!
+  path: String!
+  expiresIn: Int!
+  store: String
+}
+
+"""
+A type representing a big file store reference, which can be either a string ID or a more complex object.
+"""
+scalar BigFileLike
+
+"""
+A BigFileStore represents a large object stored behind the S3 datalayer.
+"""
+type BigFileStore {
+  id: ID!
+  path: String!
+  bucket: String!
+  key: String!
+  originalFileName: String
+  contentType: String
+
+  """Get temporary S3 read credentials for the object."""
+  accessGrant(host: String = null): BigFileAccessGrant!
+  presignedUrl: String!
+}
+
+"""Temporary S3 credentials for uploading a big file."""
+type BigFileUploadGrant {
+  status: String!
+  accessKey: String!
+  secretKey: String!
+  sessionToken: String!
+  region: String!
+  bucket: String!
+  key: String!
+  path: String!
+  expiresIn: Int!
+  store: String!
+  maxBytes: Int!
+  originalFileName: String
+  uploadFileName: String!
+  uploadContentType: String
+  uploadFormField: String!
+}
+
+type Biophysics {
+  compartments: [Compartment!]!
+}
+
+input BiophysicsInput {
+  compartments: [CompartmentInput!]! = []
+}
+
+type Block {
+  id: ID!
+  name: String!
+  description: String
+  trace: Trace!
+  acquiredAt: DateTime
+  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
+
+  """Who created this recording session"""
+  creator: User
+
+  """The groups in this recording session"""
+  groups(filters: BlockGroupFilter, pagination: OffsetPaginationInput): [BlockGroup!]!
+
+  """The segments in this recording session"""
+  segments(filters: BlockSegmentFilter, pagination: OffsetPaginationInput): [BlockSegment!]!
+}
+
+"""Numeric/aggregatable fields of Block"""
+enum BlockField {
+  CREATED_AT
+}
+
+input BlockFilter {
+  ids: [ID!]
+  search: String
+  createdBefore: DateTime
+  createdAfter: DateTime
+  id: ID
+  label: StrFilterLookup
+  trace: ID = null
+  groups: [ID!] = null
+  AND: BlockFilter
+  OR: BlockFilter
+  NOT: BlockFilter
+  DISTINCT: Boolean
+}
+
+type BlockGroup {
+  id: ID!
+  name: String!
+  block: Block!
+  description: String
+
+  """The analog signals in this group"""
+  analogSignals(filters: AnalogSignalFilter, pagination: OffsetPaginationInput): [AnalogSignal!]!
+
+  """The irregularly sampled signals in this group"""
+  irregularlySampledSignals(filters: IrregularlySampledSignalFilter, pagination: OffsetPaginationInput): [IrregularlySampledSignal!]!
+
+  """The spike trains in this group"""
+  spikeTrains(filters: SpikeTrainFilter, pagination: OffsetPaginationInput): [SpikeTrain!]!
+}
+
+input BlockGroupFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  name: StrFilterLookup
+  description: StrFilterLookup
+  AND: BlockGroupFilter
+  OR: BlockGroupFilter
+  NOT: BlockGroupFilter
+  DISTINCT: Boolean
+}
+
+input BlockOrder {
+  createdAt: Ordering
+}
+
+type BlockSegment {
+  id: ID!
+  block: Block!
+  label: String!
+  description: String
+  startTime: Float!
+  endTime: Float!
+
+  """Who created this segment"""
+  creator: User
+  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
+
+  """The groups that this segment belongs to"""
+  groups(filters: BlockGroupFilter, pagination: OffsetPaginationInput): [BlockGroup!]!
+
+  """The analog signals in this group"""
+  analogSignals(filters: AnalogSignalFilter, pagination: OffsetPaginationInput): [AnalogSignal!]!
+
+  """The irregularly sampled signals in this group"""
+  irregularlySampledSignals(filters: IrregularlySampledSignalFilter, pagination: OffsetPaginationInput): [IrregularlySampledSignal!]!
+
+  """The spike trains in this group"""
+  spikeTrains(filters: SpikeTrainFilter, pagination: OffsetPaginationInput): [SpikeTrain!]!
+}
+
+input BlockSegmentFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  name: StrFilterLookup
+  description: StrFilterLookup
+  AND: BlockSegmentFilter
+  OR: BlockSegmentFilter
+  NOT: BlockSegmentFilter
+  DISTINCT: Boolean
+}
+
+input BlockSegmentInput {
+  name: String = null
+  description: String = null
+  analogSignals: [AnalogSignalInput!]! = []
+  irregularlySampledSignals: [IrregularlySampledSignalInput!]! = []
+  spikeTrains: [SpikeTrainInput!]! = []
+}
+
+type BlockStats {
+  """Total number of items in the selection"""
+  count: Int!
+
+  """Number of distinct values for the field"""
+  distinctCount(field: BlockField!): Int!
+
+  """Maximum"""
+  max(field: BlockField!): Float
+
+  """Minimum"""
+  min(field: BlockField!): Float
+
+  """Average"""
+  avg(field: BlockField!): Float
+
+  """Sum"""
+  sum(field: BlockField!): Float
+
+  """Time-bucketed stats over a datetime field."""
+  series(field: BlockField!, timestampField: BlockTimestampField!, by: Granularity!): [TimeBucket!]!
+}
+
+"""Datetime fields of Block for bucketing"""
+enum BlockTimestampField {
+  CREATED_AT
+}
+
+type Cell {
+  id: String!
+  biophysics: Biophysics!
+  topology: Topology!
+}
+
+input CellInput {
+  id: String!
+  biophysics: BiophysicsInput!
+  topology: TopologyInput!
+}
+
+type Change {
+  type: ChangeType!
+  path: [String!]!
+  valueA: Any
+  valueB: Any
+}
+
+input ChangeDatasetInput {
+  name: String!
+  id: ID!
+}
+
+enum ChangeType {
+  REMOVED
+  ADDED
+  CHANGED
+}
+
+type Choice {
+  label: String!
+  value: String!
+  image: String
+  description: String
+}
+
+"\nA choice is a value that can be selected in a dropdown.\n\nIt is composed of a value, a label, and a description. The value is the\nvalue that is returned when the choice is selected. The label is the\ntext that is displayed in the dropdown. The description is the text\nthat is displayed when the user hovers over the choice.\n\n    "
+input ChoiceInput {
+  value: AnyDefault!
+  label: String!
+  image: String = null
+  description: String = null
+}
+
+type Client {
+  id: ID!
+  release: Release
+  clientId: String!
+  name: String!
+}
+
+type Comparison {
+  collection: ModelCollection!
+  changes: [Change!]!
+}
+
+type Compartment {
+  id: String!
+  mechanisms: [String!]!
+  sectionParams: [SectionParamMap!]!
+  globalParams: [GlobalParamMap!]!
+}
+
+input CompartmentInput {
+  id: String!
+  mechanisms: [String!]! = []
+  sectionParams: [SectionParamMapInput!]
+  globalParams: [GlobalParamMapInput!]
+}
+
+type Connection {
+  parent: String!
+  location: Float!
+}
+
+input ConnectionInput {
+  parent: String!
+  location: Float! = 1
+}
+
+enum ConnectionKind {
+  SYNAPSE
+}
+
+type Coord {
+  x: Float!
+  y: Float!
+  z: Float!
+}
+
+input CoordInput {
+  x: Float!
+  y: Float!
+  z: Float!
+}
+
+input CreateBlockInput {
+  file: ID = null
+  name: String!
+  recordingTime: DateTime = null
+  segments: [BlockSegmentInput!]! = []
+}
+
+input CreateDatasetInput {
+  name: String!
+}
+
+input CreateExperimentInput {
+  name: String!
+  timeTrace: ID = null
+  stimulusViews: [StimulusViewInput!]!
+  recordingViews: [RecordingViewInput!]!
+  description: String = null
+}
+
+"""Input for creating a mod environment"""
+input CreateModEnvironmentInput {
+  name: String!
+  description: String = null
+  zipFile: BigFileLike!
+  mechanisms: [MechanismInput!]!
+}
+
+input CreateModelCollectionInput {
+  name: String!
+  models: [ID!]!
+  description: String = null
+}
+
+input CreateNeuronModelInput {
+  name: String!
+  environment: ID
+  parent: ID
+  description: String = null
+  config: ModelConfigInput!
+}
+
+input CreateSimulationInput {
+  name: String!
+  model: ID!
+  recordings: [RecordingInput!]!
+  stimuli: [StimulusInput!]!
+  timeTrace: ArrayLike = null
+  duration: Milliseconds!
+  dt: Milliseconds = null
+}
+
+type Dataset {
+  id: ID!
+  images(filters: TraceFilter, order: TraceOrder, pagination: OffsetPaginationInput): [Trace!]!
+  files(filters: FileFilter, pagination: OffsetPaginationInput): [File!]!
+  children(filters: DatasetFilter, pagination: OffsetPaginationInput): [Dataset!]!
+  description: String
+  name: String!
+  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
+  isDefault: Boolean!
+  createdAt: DateTime!
+  creator: User
+  pinned: Boolean!
+  tags: [String!]!
+}
+
+input DatasetFilter {
+  id: ID
+  name: StrFilterLookup
+  AND: DatasetFilter
+  OR: DatasetFilter
+  NOT: DatasetFilter
+  DISTINCT: Boolean
+}
+
+"""Date with time (isoformat)"""
+scalar DateTime
+
+input DeleteBlockInput {
+  id: ID!
+}
+
+input DeleteDatasetInput {
+  id: ID!
+}
+
+input DeleteFileInput {
+  id: ID!
+}
+
+input DeleteRoiInput {
+  id: ID!
+}
+
+input DeleteTraceInput {
+  id: ID!
+}
+
+input DesociateInput {
+  selfs: [ID!]!
+  other: ID!
+}
+
+interface Effect {
+  kind: EffectKind!
+  function: ValidatorFunction!
+  dependencies: [String!]!
+}
+
+"\n                 An effect is a way to modify a port based on a condition. For example,\n    you could have an effect that sets a port to null if another port is null.\n\n    Or, you could have an effect that hides the port if another port meets a condition.\n    E.g when the user selects a certain option in a dropdown, another port is hidden.\n\n\n    "
+input EffectInput {
+  function: ValidatorFunction!
+  dependencies: [String!] = []
+  message: String = null
+  kind: EffectKind!
+  fade: Boolean = true
+  hook: String = null
+  ward: String = null
+}
+
+"""The kind of effect."""
+enum EffectKind {
+  MESSAGE
+  HIDE
+  CUSTOM
 }
 
 type Exp2Synapse implements NetSynapse {
@@ -25,6 +602,503 @@ type Exp2Synapse implements NetSynapse {
   delay: Float!
 }
 
+type Experiment {
+  id: ID!
+  name: String!
+  description: String
+  timeTrace: Trace!
+  createdAt: DateTime!
+  recordingViews(filters: ExperimentFilter, order: ExperimentOrder, pagination: OffsetPaginationInput): [ExperimentRecordingView!]!
+  stimulusViews(filters: ExperimentFilter, order: ExperimentOrder, pagination: OffsetPaginationInput): [ExperimentStimulusView!]!
+}
+
+input ExperimentFilter {
+  ids: [ID!]
+  search: String
+  createdBefore: DateTime
+  createdAfter: DateTime
+  id: ID
+  name: StrFilterLookup
+  AND: ExperimentFilter
+  OR: ExperimentFilter
+  NOT: ExperimentFilter
+  DISTINCT: Boolean
+}
+
+input ExperimentOrder {
+  createdAt: Ordering
+}
+
+type ExperimentRecordingView {
+  id: ID!
+  recording: Recording!
+  label: String
+  offset: Float
+  duration: Float
+  experiment: Experiment!
+}
+
+type ExperimentStimulusView {
+  id: ID!
+  stimulus: Stimulus!
+  label: String
+  offset: Float
+  duration: Float
+  experiment: Experiment!
+}
+
+type File {
+  id: ID!
+  name: String!
+  origins(filters: TraceFilter, order: TraceOrder, pagination: OffsetPaginationInput): [Trace!]!
+  store: BigFileStore!
+}
+
+type FileEvent {
+  create: File
+  delete: ID
+  update: File
+  moved: File
+}
+
+input FileFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  name: StrFilterLookup
+  AND: FileFilter
+  OR: FileFilter
+  NOT: FileFilter
+  DISTINCT: Boolean
+}
+
+"""
+The `FileLike` scalar type represents a reference to a big file storage previously created by the user n a datalayer
+"""
+scalar FileLike
+
+input FinishBigFileUploadInput {
+  storeId: String!
+  valid: Boolean! = true
+}
+
+input FinishMediaUploadInput {
+  storeId: String!
+  valid: Boolean! = true
+}
+
+input FinishParquetUploadInput {
+  storeId: String!
+  valid: Boolean! = true
+}
+
+input FinishZarrUploadInput {
+  storeId: String!
+  valid: Boolean! = true
+}
+
+"""The `Vector` scalar type represents a matrix values as specified by"""
+scalar FiveDVector
+
+input FromFileLike {
+  name: String!
+  file: FileLike!
+  origins: [ID!] = null
+  dataset: ID = null
+}
+
+"""Input type for creating an image from an array-like object"""
+input FromTraceLikeInput {
+  """The array-like object to create the image from"""
+  array: ArrayLike!
+
+  """The name of the image"""
+  name: String!
+
+  """Optional dataset ID to associate the image with"""
+  dataset: ID = null
+
+  """Optional list of tags to associate with the image"""
+  tags: [String!] = null
+}
+
+"""Temporary S3 credentials for reading a media object."""
+type GeneralMediaAccessGrant {
+  path: String!
+  store: String
+  status: String!
+  accessKey: String!
+  secretKey: String!
+  sessionToken: String!
+  region: String!
+  bucket: String!
+  expiresIn: Int!
+}
+
+type GlobalParamMap {
+  param: String!
+  value: Float!
+  description: String
+}
+
+input GlobalParamMapInput {
+  param: String!
+  value: Float!
+  description: String = null
+}
+
+enum Granularity {
+  HOUR
+  DAY
+  WEEK
+  MONTH
+  QUARTER
+  YEAR
+}
+
+"""The type of change that was made."""
+enum HistoryKind {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+"""
+The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer
+"""
+scalar Identifier
+
+type IrregularlySampledSignal implements Signal {
+  name: String!
+  segment: BlockSegment!
+  id: ID!
+  trace: Trace!
+  unit: String
+}
+
+input IrregularlySampledSignalFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  label: StrFilterLookup
+  session: ID = null
+  AND: IrregularlySampledSignalFilter
+  OR: IrregularlySampledSignalFilter
+  NOT: IrregularlySampledSignalFilter
+  DISTINCT: Boolean
+}
+
+input IrregularlySampledSignalInput {
+  times: TraceLike!
+  trace: TraceLike!
+  name: String = null
+  unit: String = null
+  description: String = null
+}
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](https://ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf).
+"""
+scalar JSON @specifiedBy(url: "https://ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf")
+
+type Mechanism {
+  id: ID!
+  name: String!
+  description: String
+
+  """The parameter ports of the mechanism"""
+  parameters: [ArgPort!]!
+}
+
+input MechanismFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  name: StrFilterLookup
+  description: StrFilterLookup
+  AND: MechanismFilter
+  OR: MechanismFilter
+  NOT: MechanismFilter
+  DISTINCT: Boolean
+}
+
+"""Input for creating a mechanism"""
+input MechanismInput {
+  name: String!
+  description: String = null
+  parameters: [ArgPortInput!]!
+}
+
+"""Temporary S3 credentials for reading a media object."""
+type MediaAccessGrant {
+  status: String!
+  accessKey: String!
+  secretKey: String!
+  sessionToken: String!
+  region: String!
+  bucket: String!
+  key: String!
+  path: String!
+  expiresIn: Int!
+  store: String
+}
+
+type MediaStore {
+  id: ID!
+  path: String!
+  bucket: String!
+  key: String!
+  originalFileName: String
+  contentType: String
+
+  """Get temporary S3 read credentials for the media object."""
+  accessGrant(host: String = null): MediaAccessGrant!
+
+  """Compatibility field returning the canonical S3 object path."""
+  presignedUrl(host: String = null): String!
+}
+
+"""A presigned PUT grant for uploading a media object."""
+type MediaUploadGrant {
+  status: String!
+  accessKey: String!
+  secretKey: String!
+  sessionToken: String!
+  region: String!
+  bucket: String!
+  key: String!
+  path: String!
+  expiresIn: Int!
+  store: String!
+  maxBytes: Int!
+  originalFileName: String
+  uploadFileName: String!
+  uploadContentType: String
+  uploadFormField: String!
+}
+
+"""The `Matrix` scalar type represents a matrix values as specified by"""
+scalar Milliseconds
+
+type ModEnvironment {
+  id: ID!
+  name: String!
+  description: String
+  store: BigFileStore!
+  mechanisms(filters: MechanismFilter, pagination: OffsetPaginationInput): [Mechanism!]!
+}
+
+"""A change made to a model."""
+type ModelChange {
+  """The field that was changed."""
+  field: String!
+
+  """The old value of the field."""
+  oldValue: String
+
+  """The new value of the field."""
+  newValue: String
+}
+
+type ModelCollection {
+  id: ID!
+  name: String!
+  models(filters: NeuronModelFilter, order: NeuronModelOrder, pagination: OffsetPaginationInput): [NeuronModel!]!
+  description: String
+}
+
+input ModelCollectionFilter {
+  ids: [ID!]
+  search: String
+  createdBefore: DateTime
+  createdAfter: DateTime
+  id: ID
+  name: StrFilterLookup
+  AND: ModelCollectionFilter
+  OR: ModelCollectionFilter
+  NOT: ModelCollectionFilter
+  DISTINCT: Boolean
+}
+
+type ModelConfig {
+  cells: [Cell!]!
+  netStimulators: [NetStimulator!]
+  netConnections: [NetConnection!]
+  netSynapses: [NetSynapse!]
+  vInit: Float!
+  celsius: Float!
+  label: String
+}
+
+input ModelConfigInput {
+  cells: [CellInput!]! = []
+  netStimulators: [NetStimulatorInput!] = []
+  netConnections: [NetConnectionInput!] = []
+  netSynapses: [NetSynapseInput!] = []
+  vInit: Float! = -67
+  celsius: Float! = 36
+  label: String = null
+  environments: [String!]! = []
+}
+
+type Mutation {
+  """Create a new block"""
+  createBlock(input: CreateBlockInput!): Block!
+
+  """Delete an existing block"""
+  deleteBlock(input: DeleteBlockInput!): ID!
+
+  """Upload media and return a URL for access"""
+  requestMediaUpload(input: RequestMediaUploadInput!): MediaUploadGrant!
+
+  """Finalize a media upload after the client has written the object"""
+  finishMediaUpload(input: FinishMediaUploadInput!): MediaStore!
+
+  """Request temporary S3 read credentials for a media file"""
+  requestMediaAccess(input: RequestMediaAccessInput!): MediaAccessGrant!
+
+  """
+  Request temporary S3 read credentials for media files in the organization
+  """
+  requestGeneralMediaAccess(input: RequestGeneralMediaAccessInput!): GeneralMediaAccessGrant!
+
+  """Request an upload grant for a big file store"""
+  requestBigfileUpload(input: RequestBigFileUploadInput!): BigFileUploadGrant!
+
+  """Finalize a big file upload after the client has written the object"""
+  finishBigfileUpload(input: FinishBigFileUploadInput!): BigFileStore!
+
+  """Request temporary S3 read credentials for a big file"""
+  requestBigfileAccess(input: RequestBigFileAccessInput!): BigFileAccessGrant!
+
+  """Request an upload grant for a Zarr store"""
+  requestZarrUpload(input: RequestZarrUploadInput!): ZarrUploadGrant!
+
+  """Finalize a Zarr upload after the client has written the object"""
+  finishZarrUpload(input: FinishZarrUploadInput!): ZarrStore!
+
+  """Request temporary S3 read credentials for a Zarr store"""
+  requestZarrAccess(input: RequestZarrAccessInput!): ZarrAccessGrant!
+
+  """Request an upload grant for a Parquet store"""
+  requestParquetUpload(input: RequestParquetUploadInput!): ParquetUploadGrant!
+
+  """Finalize a Parquet upload after the client has written the object"""
+  finishParquetUpload(input: FinishParquetUploadInput!): ParquetStore!
+
+  """Request temporary S3 read credentials for a Parquet file"""
+  requestParquetAccess(input: RequestParquetAccessInput!): ParquetAccessGrant!
+
+  """Create an image from array-like data"""
+  fromTraceLike(input: FromTraceLikeInput!): Trace!
+
+  """Create a mechanism from a mod file"""
+  createModEnvironment(input: CreateModEnvironmentInput!): ModEnvironment!
+
+  """Pin an image for quick access"""
+  pinImage(input: PinImageInput!): Trace!
+
+  """Update an existing image's metadata"""
+  updateImage(input: UpdateTraceInput!): Trace!
+
+  """Delete an existing image"""
+  deleteImage(input: DeleteTraceInput!): ID!
+
+  """Create a new neuron model"""
+  createNeuronModel(input: CreateNeuronModelInput!): NeuronModel!
+
+  """Create a new simulsation"""
+  createSimulation(input: CreateSimulationInput!): Simulation!
+
+  """Create a file from file-like data"""
+  fromFileLike(input: FromFileLike!): File!
+
+  """Delete an existing file"""
+  deleteFile(input: DeleteFileInput!): ID!
+
+  """Create a new model collection"""
+  createModelCollection(input: CreateModelCollectionInput!): ModelCollection!
+
+  """Create a new dataset to organize data"""
+  createDataset(input: CreateDatasetInput!): Dataset!
+
+  """Update dataset metadata"""
+  updateDataset(input: ChangeDatasetInput!): Dataset!
+
+  """Revert dataset to a previous version"""
+  revertDataset(input: RevertInput!): Dataset!
+
+  """Pin a dataset for quick access"""
+  pinDataset(input: PinDatasetInput!): Dataset!
+
+  """Delete an existing dataset"""
+  deleteDataset(input: DeleteDatasetInput!): ID!
+
+  """Add datasets as children of another dataset"""
+  putDatasetsInDataset(input: AssociateInput!): Dataset!
+
+  """Remove datasets from being children of another dataset"""
+  releaseDatasetsFromDataset(input: DesociateInput!): Dataset!
+
+  """Add images to a dataset"""
+  putImagesInDataset(input: AssociateInput!): Dataset!
+
+  """Remove images from a dataset"""
+  releaseImagesFromDataset(input: DesociateInput!): Dataset!
+
+  """Add files to a dataset"""
+  putFilesInDataset(input: AssociateInput!): Dataset!
+
+  """Remove files from a dataset"""
+  releaseFilesFromDataset(input: DesociateInput!): Dataset!
+
+  """Create a new experiment"""
+  createExperiment(input: CreateExperimentInput!): Experiment!
+
+  """Create a new region of interest"""
+  createRoi(input: RoiInput!): ROI!
+
+  """Update an existing region of interest"""
+  updateRoi(input: UpdateRoiInput!): ROI!
+
+  """Pin a region of interest for quick access"""
+  pinRoi(input: PinROIInput!): ROI!
+
+  """Delete an existing region of interest"""
+  deleteRoi(input: DeleteRoiInput!): ID!
+}
+
+interface NetConnection {
+  id: ID!
+  weight: Float
+  threshold: Float
+  delay: Float
+}
+
+input NetConnectionInput {
+  kind: ConnectionKind! = SYNAPSE
+  id: ID!
+  weight: Float = null
+  threshold: Float = null
+  delay: Float = null
+  netStimulator: ID!
+  synapse: ID!
+}
+
+type NetStimulator {
+  id: ID!
+  start: Float!
+  number: Int!
+  interval: Float
+}
+
+input NetStimulatorInput {
+  id: ID!
+  start: Float! = 100
+  number: Int! = 1
+  interval: Float = null
+}
+
 interface NetSynapse {
   id: ID!
   cell: String!
@@ -32,7 +1106,181 @@ interface NetSynapse {
   position: Float!
 }
 
+input NetSynapseInput {
+  id: ID!
+  kind: SynapseKind! = EXP2SYN
+  e: Float!
+  tau2: Float!
+  tau1: Float!
+  cell: ID!
+  location: ID!
+  position: Float! = 0.5
+}
+
+type NeuronModel {
+  id: ID!
+  name: String!
+  description: String
+  creator: User
+  environment: ModEnvironment!
+  modelCollections(filters: ModelCollectionFilter, pagination: OffsetPaginationInput): [ModelCollection!]
+  simulations(filters: SimulationFilter, order: SimulationOrder, pagination: OffsetPaginationInput): [Simulation!]!
+  config: ModelConfig!
+  changes(to: ID = null): [Change!]!
+  comparisons: [Comparison!]!
+}
+
+input NeuronModelFilter {
+  ids: [ID!]
+  search: String
+  createdBefore: DateTime
+  createdAfter: DateTime
+  id: ID
+  name: StrFilterLookup
+  AND: NeuronModelFilter
+  OR: NeuronModelFilter
+  NOT: NeuronModelFilter
+  DISTINCT: Boolean
+}
+
+input NeuronModelOrder {
+  createdAt: Ordering
+}
+
+input OffsetPaginationInput {
+  offset: Int! = 0
+  limit: Int
+}
+
+enum OptionKey {
+  LABEL
+  DESCRIPTION
+  LOGO
+  VALUE
+}
+
+enum Ordering {
+  ASC
+  ASC_NULLS_FIRST
+  ASC_NULLS_LAST
+  DESC
+  DESC_NULLS_FIRST
+  DESC_NULLS_LAST
+}
+
+type Organization {
+  id: ID!
+  slug: String!
+}
+
+"""Temporary S3 credentials for reading a parquet object."""
+type ParquetAccessGrant {
+  status: String!
+  accessKey: String!
+  secretKey: String!
+  sessionToken: String!
+  region: String!
+  bucket: String!
+  key: String!
+  path: String!
+  expiresIn: Int!
+  store: String
+}
+
+type ParquetStore {
+  id: ID!
+  path: String!
+  bucket: String!
+  key: String!
+  originalFileName: String
+  contentType: String
+
+  """Get temporary S3 read credentials for the parquet object."""
+  accessGrant(host: String = null): ParquetAccessGrant!
+
+  """Compatibility field returning the canonical S3 object path."""
+  presignedUrl(host: String = null): String!
+}
+
+"""Temporary S3 credentials for uploading a parquet store."""
+type ParquetUploadGrant {
+  action: String!
+  status: String!
+  accessKey: String!
+  secretKey: String!
+  sessionToken: String!
+  bucket: String!
+  key: String!
+  path: String!
+  expiresIn: Int!
+  store: String!
+  maxBytes: Int!
+  originalFileName: String
+  uploadFileName: String!
+  uploadContentType: String
+  uploadFormField: String!
+}
+
+input PinDatasetInput {
+  id: ID!
+  pin: Boolean!
+}
+
+input PinImageInput {
+  id: ID!
+  pin: Boolean!
+}
+
+input PinROIInput {
+  id: ID!
+  pin: Boolean!
+}
+
+"""The kind of port."""
+enum PortKind {
+  INT
+  STRING
+  STRUCTURE
+  LIST
+  BOOL
+  DICT
+  FLOAT
+  DATE
+  UNION
+  ENUM
+  MODEL
+  MEMORY_STRUCTURE
+  INTERFACE
+}
+
+"""A provenance event for a model."""
+type ProvenanceEntry {
+  client: Client
+
+  """User who made the change."""
+  user: User
+
+  """The type of change that was made."""
+  kind: HistoryKind!
+
+  """The date of the change."""
+  date: DateTime!
+
+  """
+  The assignation ID during which the change occurred. If it was happening outside of an assignation, it will be None.
+  """
+  during: String
+
+  """The ID of the history entry."""
+  id: ID!
+
+  """The effective changes made to the model."""
+  effectiveChanges: [ModelChange!]!
+}
+
 type Query {
+  _entities(representations: [_Any!]!): [_Entity]!
+  _service: _Service!
   analogSignals(filters: AnalogSignalFilter, pagination: OffsetPaginationInput): [AnalogSignal!]!
   analogSignalChannels(filters: AnalogSignalChannelFilter, pagination: OffsetPaginationInput): [AnalogSignalChannel!]!
   blocks(filters: BlockFilter, order: BlockOrder, pagination: OffsetPaginationInput): [Block!]!
@@ -135,14 +1383,260 @@ type Query {
   ): Dataset!
 }
 
-type AnalogSignal implements Signal {
-  name: String!
-  segment: BlockSegment!
+type ROI {
   id: ID!
-  samplingRate: Float!
-  unit: String
-  timeTrace: Trace!
-  channels(filters: AnalogSignalChannelFilter, pagination: OffsetPaginationInput): [AnalogSignalChannel!]!
+  trace: Trace!
+  kind: RoiKind!
+  vectors: [FiveDVector!]!
+  createdAt: DateTime!
+  creator: User
+  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
+  pinned: Boolean!
+  name: String!
+  label: String
+}
+
+input ROIFilter {
+  ids: [ID!]
+  search: String
+  createdBefore: DateTime
+  createdAfter: DateTime
+  id: ID
+  kind: RoiKindChoices
+  trace: ID = null
+  AND: ROIFilter
+  OR: ROIFilter
+  NOT: ROIFilter
+  DISTINCT: Boolean
+}
+
+type Recording {
+  id: ID!
+  simulation: Simulation!
+  kind: RecordingKind!
+  trace: Trace!
+  location: String!
+  position: Float!
+  cell: String!
+  label: String!
+}
+
+input RecordingFilter {
+  ids: [ID!]
+  search: String
+  createdBefore: DateTime
+  createdAfter: DateTime
+  id: ID
+  name: StrFilterLookup
+  AND: RecordingFilter
+  OR: RecordingFilter
+  NOT: RecordingFilter
+  DISTINCT: Boolean
+}
+
+input RecordingInput {
+  trace: ArrayLike!
+  kind: RecordingKind!
+  cell: ID
+  location: ID
+  position: Float
+}
+
+enum RecordingKind {
+  VOLTAGE
+  CURRENT
+  TIME
+  INA
+  UNKNOWN
+}
+
+input RecordingOrder {
+  createdAt: Ordering
+}
+
+input RecordingViewInput {
+  recording: ID!
+  offset: Float = null
+  duration: Float = null
+  label: String = null
+}
+
+type Release {
+  id: ID!
+  app: App!
+  version: String!
+}
+
+input RequestBigFileAccessInput {
+  storeId: String!
+}
+
+input RequestBigFileUploadInput {
+  originalFileName: String!
+  fileSize: Int = null
+  contentType: String = null
+  host: String = null
+  port: Int = null
+}
+
+input RequestGeneralMediaAccessInput {
+  expiresIn: Int = null
+}
+
+input RequestMediaAccessInput {
+  storeId: String!
+}
+
+input RequestMediaUploadInput {
+  originalFileName: String!
+  fileSize: Int = null
+  contentType: String = null
+}
+
+input RequestParquetAccessInput {
+  storeId: String!
+}
+
+input RequestParquetUploadInput {
+  originalFileName: String!
+  contentType: String = null
+  datalayer: String! = "s3"
+  host: String = null
+  port: Int = null
+  protocol: String! = "https"
+}
+
+input RequestZarrAccessInput {
+  storeId: String!
+}
+
+input RequestZarrUploadInput {
+  shape: [Int!] = null
+  chunks: [Int!] = null
+  version: String = null
+  datalayer: String! = "s3"
+  host: String = null
+  port: Int = null
+  protocol: String! = "https"
+}
+
+type Requires {
+  key: String!
+  operator: RequiresOperator!
+  value: Arg!
+}
+
+input RequiresInput {
+  key: String!
+  operator: RequiresOperator!
+  value: Arg!
+}
+
+"""The operator for matching descriptors."""
+enum RequiresOperator {
+  MATCHES
+  EXISTS
+  LTE
+  GTE
+  EQUALS
+  CONTAINS
+  NOT_EQUALS
+  IN
+  NOT_IN
+}
+
+input RevertInput {
+  id: ID!
+  historyId: ID!
+}
+
+type RoiEvent {
+  create: ROI
+  delete: ID
+  update: ROI
+}
+
+input RoiInput {
+  """The image this ROI belongs to"""
+  trace: ID!
+
+  """The vector coordinates defining the as XY"""
+  vectors: [TwoDVector!]!
+
+  """The type/kind of ROI"""
+  kind: RoiKind!
+
+  """The label of the ROI"""
+  label: String = null
+}
+
+enum RoiKind {
+  LINE
+  POINT
+  SPIKE
+  SLICE
+}
+
+enum RoiKindChoices {
+  LINE
+  POINT
+  SPIKE
+  SLICE
+}
+
+"""
+The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer
+"""
+scalar SearchQuery
+
+type Section {
+  id: String!
+  category: String!
+  nseg: Int!
+  diam: Float!
+
+  """Length of the section. Required if coords is not provided."""
+  length: Float
+  coords: [Coord!]
+  connections: [Connection!]!
+}
+
+input SectionInput {
+  id: String!
+  category: String
+  nseg: Int! = 1
+  diam: Float! = 1
+
+  """Length of the section. Required if coords is not provided."""
+  length: Float = null
+  coords: [CoordInput!] = null
+  connections: [ConnectionInput!] = []
+}
+
+type SectionParamMap {
+  param: String!
+
+  """The governing mechanism"""
+  mechanism: String!
+
+  """The value of the parameter"""
+  value: Float!
+
+  """Description of the parameter"""
+  description: String
+}
+
+input SectionParamMapInput {
+  param: String!
+
+  """The governing mechanism"""
+  mechanism: String!
+
+  """The value of the parameter"""
+  value: Float!
+
+  """Description of the parameter"""
+  description: String
 }
 
 """A signal recorded during a recording session"""
@@ -151,47 +1645,184 @@ interface Signal {
   segment: BlockSegment!
 }
 
-type BlockSegment {
-  id: ID!
-  block: Block!
-  label: String!
-  description: String
-  startTime: Float!
-  endTime: Float!
-
-  """Who created this segment"""
-  creator: User
-  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
-
-  """The groups that this segment belongs to"""
-  groups(filters: BlockGroupFilter, pagination: OffsetPaginationInput): [BlockGroup!]!
-
-  """The analog signals in this group"""
-  analogSignals(filters: AnalogSignalFilter, pagination: OffsetPaginationInput): [AnalogSignal!]!
-
-  """The irregularly sampled signals in this group"""
-  irregularlySampledSignals(filters: IrregularlySampledSignalFilter, pagination: OffsetPaginationInput): [IrregularlySampledSignal!]!
-
-  """The spike trains in this group"""
-  spikeTrains(filters: SpikeTrainFilter, pagination: OffsetPaginationInput): [SpikeTrain!]!
-}
-
-type Block {
+type Simulation {
   id: ID!
   name: String!
   description: String
-  trace: Trace!
-  acquiredAt: DateTime
-  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
-
-  """Who created this recording session"""
+  kind: StimulusKind!
   creator: User
+  model: NeuronModel!
+  duration: Int!
+  dt: Float!
+  timeTrace: Trace!
+  stimuli(filters: StimulusFilter, order: StimulusOrder, pagination: OffsetPaginationInput): [Stimulus!]!
+  recordings(filters: RecordingFilter, order: RecordingOrder, pagination: OffsetPaginationInput): [Recording!]!
+  createdAt: DateTime!
+  recordingViews(filters: ExperimentFilter, order: ExperimentOrder, pagination: OffsetPaginationInput): [ExperimentRecordingView!]!
+  stimulusViews(filters: ExperimentFilter, order: ExperimentOrder, pagination: OffsetPaginationInput): [ExperimentStimulusView!]!
+}
 
-  """The groups in this recording session"""
-  groups(filters: BlockGroupFilter, pagination: OffsetPaginationInput): [BlockGroup!]!
+input SimulationFilter {
+  ids: [ID!]
+  search: String
+  createdBefore: DateTime
+  createdAfter: DateTime
+  id: ID
+  name: StrFilterLookup
+  AND: SimulationFilter
+  OR: SimulationFilter
+  NOT: SimulationFilter
+  DISTINCT: Boolean
+}
 
-  """The segments in this recording session"""
-  segments(filters: BlockSegmentFilter, pagination: OffsetPaginationInput): [BlockSegment!]!
+input SimulationOrder {
+  createdAt: Ordering
+}
+
+type SpikeTrain implements Signal {
+  name: String!
+  segment: BlockSegment!
+  id: ID!
+  trace: Trace!
+}
+
+input SpikeTrainFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  label: StrFilterLookup
+  session: ID = null
+  AND: SpikeTrainFilter
+  OR: SpikeTrainFilter
+  NOT: SpikeTrainFilter
+  DISTINCT: Boolean
+}
+
+input SpikeTrainInput {
+  times: TraceLike!
+  tStart: Float!
+  tStop: Float!
+  waveforms: TraceLike = null
+  name: String = null
+  description: String = null
+  leftSweep: Float = null
+}
+
+input StateAccessorInput {
+  optionKey: OptionKey!
+  subPath: String = null
+}
+
+type Stimulus {
+  id: ID!
+  simulation: Simulation!
+  kind: StimulusKind!
+  trace: Trace!
+  location: String!
+  position: Float!
+  cell: String!
+  label: String!
+}
+
+input StimulusFilter {
+  ids: [ID!]
+  search: String
+  createdBefore: DateTime
+  createdAfter: DateTime
+  id: ID
+  name: StrFilterLookup
+  AND: StimulusFilter
+  OR: StimulusFilter
+  NOT: StimulusFilter
+  DISTINCT: Boolean
+}
+
+input StimulusInput {
+  trace: ArrayLike!
+  kind: StimulusKind!
+  cell: ID
+  location: ID
+  position: Float
+}
+
+enum StimulusKind {
+  VOLTAGE
+  CURRENT
+  UNKNOWN
+}
+
+input StimulusOrder {
+  createdAt: Ordering
+}
+
+input StimulusViewInput {
+  stimulus: ID!
+  offset: Float = null
+  duration: Float = null
+  label: String = null
+}
+
+input StrFilterLookup {
+  exact: String
+  iExact: String
+  contains: String
+  iContains: String
+  inList: [String!]
+  gt: String
+  gte: String
+  lt: String
+  lte: String
+  startsWith: String
+  iStartsWith: String
+  endsWith: String
+  iEndsWith: String
+  range: [String!]
+  isNull: Boolean
+  regex: String
+  iRegex: String
+}
+
+type Subscription {
+  """Subscribe to real-time ROI updates"""
+  rois(trace: ID!): RoiEvent!
+
+  """Subscribe to real-time image updates"""
+  traces(dataset: ID = null): TraceEvent!
+
+  """Subscribe to real-time file updates"""
+  files(dataset: ID = null): FileEvent!
+}
+
+enum SynapseKind {
+  EXP2SYN
+  GABAA
+}
+
+type SynapticConnection implements NetConnection {
+  id: ID!
+  weight: Float
+  threshold: Float
+  delay: Float
+  netStimulator: ID!
+  synapse: ID!
+}
+
+type TimeBucket {
+  ts: DateTime!
+  count: Int!
+  distinctCount: Int!
+  max: Float
+  min: Float
+  avg: Float
+  sum: Float
+}
+
+type Topology {
+  sections: [Section!]!
+}
+
+input TopologyInput {
+  sections: [SectionInput!]!
 }
 
 type Trace {
@@ -221,44 +1852,10 @@ type Trace {
   events(filters: ROIFilter): [ROI!]!
 }
 
-type ZarrStore {
-  id: ID!
-
-  """The path to the data. Relative to the bucket."""
-  path: String
-
-  """The shape of the data."""
-  shape: [Int!]
-
-  """The dtype of the data."""
-  dtype: String
-
-  """The bucket where the data is stored."""
-  bucket: String!
-
-  """The key where the data is stored."""
-  key: String!
-
-  """The chunks of the data."""
-  chunks: [Int!]
-
-  """Whether the zarr store was populated (e.g. was a dataset created)."""
-  populated: Boolean!
-}
-
-type Dataset {
-  id: ID!
-  images(filters: TraceFilter, order: TraceOrder, pagination: OffsetPaginationInput): [Trace!]!
-  files(filters: FileFilter, pagination: OffsetPaginationInput): [File!]!
-  children(filters: DatasetFilter, pagination: OffsetPaginationInput): [Dataset!]!
-  description: String
-  name: String!
-  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
-  isDefault: Boolean!
-  createdAt: DateTime!
-  creator: User
-  pinned: Boolean!
-  tags: [String!]!
+type TraceEvent {
+  create: Trace
+  update: Trace
+  delete: ID
 }
 
 input TraceFilter {
@@ -273,1148 +1870,13 @@ input TraceFilter {
   DISTINCT: Boolean
 }
 
-input StrFilterLookup {
-  exact: String
-  iExact: String
-  contains: String
-  iContains: String
-  inList: [String!]
-  gt: String
-  gte: String
-  lt: String
-  lte: String
-  startsWith: String
-  iStartsWith: String
-  endsWith: String
-  iEndsWith: String
-  range: [String!]
-  isNull: Boolean
-  regex: String
-  iRegex: String
-}
-
-input DatasetFilter {
-  id: ID
-  name: StrFilterLookup
-  AND: DatasetFilter
-  OR: DatasetFilter
-  NOT: DatasetFilter
-  DISTINCT: Boolean
-}
-
-input TraceOrder {
-  createdAt: Ordering
-}
-
-enum Ordering {
-  ASC
-  ASC_NULLS_FIRST
-  ASC_NULLS_LAST
-  DESC
-  DESC_NULLS_FIRST
-  DESC_NULLS_LAST
-}
-
-input OffsetPaginationInput {
-  offset: Int! = 0
-  limit: Int
-}
-
-type File {
-  id: ID!
-  name: String!
-  origins(filters: TraceFilter, order: TraceOrder, pagination: OffsetPaginationInput): [Trace!]!
-  store: BigFileStore!
-}
-
-type BigFileStore {
-  id: ID!
-  path: String!
-  bucket: String!
-  key: String!
-  presignedUrl: String!
-}
-
-input FileFilter {
-  ids: [ID!]
-  search: String
-  id: ID
-  name: StrFilterLookup
-  AND: FileFilter
-  OR: FileFilter
-  NOT: FileFilter
-  DISTINCT: Boolean
-}
-
-"""A provenance event for a model."""
-type ProvenanceEntry {
-  client: Client
-
-  """User who made the change."""
-  user: User
-
-  """The type of change that was made."""
-  kind: HistoryKind!
-
-  """The date of the change."""
-  date: DateTime!
-
-  """
-  The assignation ID during which the change occurred. If it was happening outside of an assignation, it will be None.
-  """
-  during: String
-
-  """The ID of the history entry."""
-  id: ID!
-
-  """The effective changes made to the model."""
-  effectiveChanges: [ModelChange!]!
-}
-
-type Client {
-  clientId: String!
-  name: String!
-}
-
-type User {
-  sub: String!
-  preferredUsername: String!
-  activeOrganization: Organization
-}
-
-type Organization {
-  id: String!
-  slug: String!
-}
-
-"""The type of change that was made."""
-enum HistoryKind {
-  CREATE
-  UPDATE
-  DELETE
-}
-
-"""Date with time (isoformat)"""
-scalar DateTime
-
-"""A change made to a model."""
-type ModelChange {
-  """The field that was changed."""
-  field: String!
-
-  """The old value of the field."""
-  oldValue: String
-
-  """The new value of the field."""
-  newValue: String
-}
-
-type ROI {
-  id: ID!
-  trace: Trace!
-  kind: RoiKind!
-  vectors: [FiveDVector!]!
-  createdAt: DateTime!
-  creator: User
-  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
-  pinned: Boolean!
-  name: String!
-  label: String
-}
-
-enum RoiKind {
-  LINE
-  POINT
-  SPIKE
-  SLICE
-}
-
-"""The `Vector` scalar type represents a matrix values as specified by"""
-scalar FiveDVector
-
-input ROIFilter {
-  ids: [ID!]
-  id: ID
-  kind: RoiKindChoices
-  trace: ID = null
-  search: String
-  AND: ROIFilter
-  OR: ROIFilter
-  NOT: ROIFilter
-  DISTINCT: Boolean
-}
-
-enum RoiKindChoices {
-  LINE
-  POINT
-  SPIKE
-  SLICE
-}
-
-type BlockGroup {
-  id: ID!
-  name: String!
-  block: Block!
-  description: String
-
-  """The analog signals in this group"""
-  analogSignals(filters: AnalogSignalFilter, pagination: OffsetPaginationInput): [AnalogSignal!]!
-
-  """The irregularly sampled signals in this group"""
-  irregularlySampledSignals(filters: IrregularlySampledSignalFilter, pagination: OffsetPaginationInput): [IrregularlySampledSignal!]!
-
-  """The spike trains in this group"""
-  spikeTrains(filters: SpikeTrainFilter, pagination: OffsetPaginationInput): [SpikeTrain!]!
-}
-
-input AnalogSignalFilter {
-  ids: [ID!]
-  search: String
-  id: ID
-  label: StrFilterLookup
-  session: ID = null
-  AND: AnalogSignalFilter
-  OR: AnalogSignalFilter
-  NOT: AnalogSignalFilter
-  DISTINCT: Boolean
-}
-
-type IrregularlySampledSignal implements Signal {
-  name: String!
-  segment: BlockSegment!
-  id: ID!
-  trace: Trace!
-  unit: String
-}
-
-input IrregularlySampledSignalFilter {
-  ids: [ID!]
-  search: String
-  id: ID
-  label: StrFilterLookup
-  session: ID = null
-  AND: IrregularlySampledSignalFilter
-  OR: IrregularlySampledSignalFilter
-  NOT: IrregularlySampledSignalFilter
-  DISTINCT: Boolean
-}
-
-type SpikeTrain implements Signal {
-  name: String!
-  segment: BlockSegment!
-  id: ID!
-  trace: Trace!
-}
-
-input SpikeTrainFilter {
-  ids: [ID!]
-  search: String
-  id: ID
-  label: StrFilterLookup
-  session: ID = null
-  AND: SpikeTrainFilter
-  OR: SpikeTrainFilter
-  NOT: SpikeTrainFilter
-  DISTINCT: Boolean
-}
-
-input BlockGroupFilter {
-  ids: [ID!]
-  search: String
-  id: ID
-  name: StrFilterLookup
-  description: StrFilterLookup
-  AND: BlockGroupFilter
-  OR: BlockGroupFilter
-  NOT: BlockGroupFilter
-  DISTINCT: Boolean
-}
-
-input BlockSegmentFilter {
-  ids: [ID!]
-  search: String
-  id: ID
-  name: StrFilterLookup
-  description: StrFilterLookup
-  AND: BlockSegmentFilter
-  OR: BlockSegmentFilter
-  NOT: BlockSegmentFilter
-  DISTINCT: Boolean
-}
-
-type AnalogSignalChannel {
-  id: ID!
-  name: String
-  description: String
-  label: String
-  unit: String
-  index: Int!
-  trace: Trace!
-  signal: AnalogSignal!
-}
-
-input AnalogSignalChannelFilter {
-  ids: [ID!]
-  search: String
-  id: ID
-  label: StrFilterLookup
-  session: ID = null
-  AND: AnalogSignalChannelFilter
-  OR: AnalogSignalChannelFilter
-  NOT: AnalogSignalChannelFilter
-  DISTINCT: Boolean
-}
-
-input BlockFilter {
-  ids: [ID!]
-  search: String
-  id: ID
-  label: StrFilterLookup
-  trace: ID = null
-  groups: [ID!] = null
-  AND: BlockFilter
-  OR: BlockFilter
-  NOT: BlockFilter
-  DISTINCT: Boolean
-}
-
-input BlockOrder {
-  createdAt: Ordering
-}
-
-type Experiment {
-  id: ID!
-  name: String!
-  description: String
-  timeTrace: Trace!
-  recordingViews(filters: ExperimentFilter, order: ExperimentOrder, pagination: OffsetPaginationInput): [ExperimentRecordingView!]!
-  stimulusViews(filters: ExperimentFilter, order: ExperimentOrder, pagination: OffsetPaginationInput): [ExperimentStimulusView!]!
-}
-
-type ExperimentRecordingView {
-  id: ID!
-  recording: Recording!
-  label: String
-  offset: Float
-  duration: Float
-  experiment: Experiment!
-}
-
-type Recording {
-  id: ID!
-  simulation: Simulation!
-  kind: RecordingKind!
-  trace: Trace!
-  location: String!
-  position: Float!
-  cell: String!
-  label: String!
-}
-
-type Simulation {
-  id: ID!
-  name: String!
-  description: String
-  kind: StimulusKind!
-  creator: User
-  model: NeuronModel!
-  duration: Int!
-  dt: Float!
-  timeTrace: Trace!
-  stimuli(filters: StimulusFilter, order: StimulusOrder, pagination: OffsetPaginationInput): [Stimulus!]!
-  recordings(filters: RecordingFilter, order: RecordingOrder, pagination: OffsetPaginationInput): [Recording!]!
-  createdAt: DateTime!
-  recordingViews(filters: ExperimentFilter, order: ExperimentOrder, pagination: OffsetPaginationInput): [ExperimentRecordingView!]!
-  stimulusViews(filters: ExperimentFilter, order: ExperimentOrder, pagination: OffsetPaginationInput): [ExperimentStimulusView!]!
-}
-
-enum StimulusKind {
-  VOLTAGE
-  CURRENT
-  UNKNOWN
-}
-
-type NeuronModel {
-  id: ID!
-  name: String!
-  description: String
-  creator: User
-  modelCollections(filters: ModelCollectionFilter, pagination: OffsetPaginationInput): [ModelCollection!]
-  simulations(filters: SimulationFilter, order: SimulationOrder, pagination: OffsetPaginationInput): [Simulation!]!
-  config: ModelConfig!
-  changes(to: ID = null): [Change!]!
-  comparisons: [Comparison!]!
-}
-
-type ModelCollection {
-  id: ID!
-  name: String!
-  models(filters: NeuronModelFilter, order: NeuronModelOrder, pagination: OffsetPaginationInput): [NeuronModel!]!
-  description: String
-}
-
-input NeuronModelFilter {
-  ids: [ID!]
-  search: String
-  id: ID
-  name: StrFilterLookup
-  AND: NeuronModelFilter
-  OR: NeuronModelFilter
-  NOT: NeuronModelFilter
-  DISTINCT: Boolean
-}
-
-input NeuronModelOrder {
-  createdAt: Ordering
-}
-
-input ModelCollectionFilter {
-  ids: [ID!]
-  search: String
-  id: ID
-  name: StrFilterLookup
-  AND: ModelCollectionFilter
-  OR: ModelCollectionFilter
-  NOT: ModelCollectionFilter
-  DISTINCT: Boolean
-}
-
-input SimulationFilter {
-  ids: [ID!]
-  search: String
-  id: ID
-  name: StrFilterLookup
-  AND: SimulationFilter
-  OR: SimulationFilter
-  NOT: SimulationFilter
-  DISTINCT: Boolean
-}
-
-input SimulationOrder {
-  createdAt: Ordering
-}
-
-type ModelConfig {
-  cells: [Cell!]!
-  netStimulators: [NetStimulator!]
-  netConnections: [NetConnection!]
-  netSynapses: [NetSynapse!]
-  vInit: Float!
-  celsius: Float!
-  label: String
-}
-
-type Cell {
-  id: String!
-  biophysics: Biophysics!
-  topology: Topology!
-}
-
-type Biophysics {
-  compartments: [Compartment!]!
-}
-
-type Compartment {
-  id: String!
-  mechanisms: [String!]!
-  sectionParams: [SectionParamMap!]!
-  globalParams: [GlobalParamMap!]!
-}
-
-type SectionParamMap {
-  param: String!
-
-  """The governing mechanism"""
-  mechanism: String!
-
-  """The value of the parameter"""
-  value: Float!
-
-  """Description of the parameter"""
-  description: String
-}
-
-type GlobalParamMap {
-  param: String!
-  value: Float!
-  description: String
-}
-
-type Topology {
-  sections: [Section!]!
-}
-
-type Section {
-  id: String!
-  category: String!
-  nseg: Int!
-  diam: Float!
-
-  """Length of the section. Required if coords is not provided."""
-  length: Float
-  coords: [Coord!]
-  connections: [Connection!]!
-}
-
-type Coord {
-  x: Float!
-  y: Float!
-  z: Float!
-}
-
-type Connection {
-  parent: String!
-  location: Float!
-}
-
-type NetStimulator {
-  id: ID!
-  start: Float!
-  number: Int!
-  interval: Float
-}
-
-type Change {
-  type: ChangeType!
-  path: [String!]!
-  valueA: Any
-  valueB: Any
-}
-
-enum ChangeType {
-  REMOVED
-  ADDED
-  CHANGED
-}
-
-"""The `Any` scalar any type"""
-scalar Any
-
-type Comparison {
-  collection: ModelCollection!
-  changes: [Change!]!
-}
-
-type Stimulus {
-  id: ID!
-  simulation: Simulation!
-  kind: StimulusKind!
-  trace: Trace!
-  location: String!
-  position: Float!
-  cell: String!
-  label: String!
-}
-
-input StimulusFilter {
-  ids: [ID!]
-  search: String
-  id: ID
-  name: StrFilterLookup
-  AND: StimulusFilter
-  OR: StimulusFilter
-  NOT: StimulusFilter
-  DISTINCT: Boolean
-}
-
-input StimulusOrder {
-  createdAt: Ordering
-}
-
-input RecordingFilter {
-  ids: [ID!]
-  search: String
-  id: ID
-  name: StrFilterLookup
-  AND: RecordingFilter
-  OR: RecordingFilter
-  NOT: RecordingFilter
-  DISTINCT: Boolean
-}
-
-input RecordingOrder {
-  createdAt: Ordering
-}
-
-input ExperimentFilter {
-  ids: [ID!]
-  search: String
-  id: ID
-  name: StrFilterLookup
-  AND: ExperimentFilter
-  OR: ExperimentFilter
-  NOT: ExperimentFilter
-  DISTINCT: Boolean
-}
-
-input ExperimentOrder {
-  createdAt: Ordering
-}
-
-type ExperimentStimulusView {
-  id: ID!
-  stimulus: Stimulus!
-  label: String
-  offset: Float
-  duration: Float
-  experiment: Experiment!
-}
-
-enum RecordingKind {
-  VOLTAGE
-  CURRENT
-  TIME
-  INA
-  UNKNOWN
-}
-
-type BlockStats {
-  """Total number of items in the selection"""
-  count: Int!
-
-  """Number of distinct values for the field"""
-  distinctCount(field: BlockField!): Int!
-
-  """Maximum"""
-  max(field: BlockField!): Float
-
-  """Minimum"""
-  min(field: BlockField!): Float
-
-  """Average"""
-  avg(field: BlockField!): Float
-
-  """Sum"""
-  sum(field: BlockField!): Float
-
-  """Time-bucketed stats over a datetime field."""
-  series(field: BlockField!, timestampField: BlockTimestampField!, by: Granularity!): [TimeBucket!]!
-}
-
-"""Numeric/aggregatable fields of Block"""
-enum BlockField {
-  CREATED_AT
-}
-
-type TimeBucket {
-  ts: DateTime!
-  count: Int!
-  distinctCount: Int!
-  max: Float
-  min: Float
-  avg: Float
-  sum: Float
-}
-
-"""Datetime fields of Block for bucketing"""
-enum BlockTimestampField {
-  CREATED_AT
-}
-
-enum Granularity {
-  HOUR
-  DAY
-  WEEK
-  MONTH
-  QUARTER
-  YEAR
-}
-
-type Mutation {
-  """Request credentials to upload a new image"""
-  requestUpload(input: RequestUploadInput!): Credentials!
-
-  """Request credentials to access an image"""
-  requestAccess(input: RequestAccessInput!): AccessCredentials!
-
-  """Request credentials for media file upload"""
-  requestMediaUpload(input: RequestMediaUploadInput!): PresignedPostCredentials!
-
-  """Request credentials to upload a new file"""
-  requestFileUpload(input: RequestFileUploadInput!): Credentials!
-
-  """Request presigned credentials for file upload"""
-  requestFileUploadPresigned(input: RequestFileUploadInput!): PresignedPostCredentials!
-
-  """Request credentials to access a file"""
-  requestFileAccess(input: RequestFileAccessInput!): AccessCredentials!
-
-  """Create a new block"""
-  createBlock(input: CreateBlockInput!): Block!
-
-  """Delete an existing block"""
-  deleteBlock(input: DeleteBlockInput!): ID!
-
-  """Create an image from array-like data"""
-  fromTraceLike(input: FromTraceLikeInput!): Trace!
-
-  """Pin an image for quick access"""
-  pinImage(input: PinImageInput!): Trace!
-
-  """Update an existing image's metadata"""
-  updateImage(input: UpdateTraceInput!): Trace!
-
-  """Delete an existing image"""
-  deleteImage(input: DeleteTraceInput!): ID!
-
-  """Create a new neuron model"""
-  createNeuronModel(input: CreateNeuronModelInput!): NeuronModel!
-
-  """Create a new simulsation"""
-  createSimulation(input: CreateSimulationInput!): Simulation!
-
-  """Create a file from file-like data"""
-  fromFileLike(input: FromFileLike!): File!
-
-  """Delete an existing file"""
-  deleteFile(input: DeleteFileInput!): ID!
-
-  """Create a new model collection"""
-  createModelCollection(input: CreateModelCollectionInput!): ModelCollection!
-
-  """Create a new dataset to organize data"""
-  createDataset(input: CreateDatasetInput!): Dataset!
-
-  """Update dataset metadata"""
-  updateDataset(input: ChangeDatasetInput!): Dataset!
-
-  """Revert dataset to a previous version"""
-  revertDataset(input: RevertInput!): Dataset!
-
-  """Pin a dataset for quick access"""
-  pinDataset(input: PinDatasetInput!): Dataset!
-
-  """Delete an existing dataset"""
-  deleteDataset(input: DeleteDatasetInput!): ID!
-
-  """Add datasets as children of another dataset"""
-  putDatasetsInDataset(input: AssociateInput!): Dataset!
-
-  """Remove datasets from being children of another dataset"""
-  releaseDatasetsFromDataset(input: DesociateInput!): Dataset!
-
-  """Add images to a dataset"""
-  putImagesInDataset(input: AssociateInput!): Dataset!
-
-  """Remove images from a dataset"""
-  releaseImagesFromDataset(input: DesociateInput!): Dataset!
-
-  """Add files to a dataset"""
-  putFilesInDataset(input: AssociateInput!): Dataset!
-
-  """Remove files from a dataset"""
-  releaseFilesFromDataset(input: DesociateInput!): Dataset!
-
-  """Create a new experiment"""
-  createExperiment(input: CreateExperimentInput!): Experiment!
-
-  """Create a new region of interest"""
-  createRoi(input: RoiInput!): ROI!
-
-  """Update an existing region of interest"""
-  updateRoi(input: UpdateRoiInput!): ROI!
-
-  """Pin a region of interest for quick access"""
-  pinRoi(input: PinROIInput!): ROI!
-
-  """Delete an existing region of interest"""
-  deleteRoi(input: DeleteRoiInput!): ID!
-}
-
-"""
-Temporary Credentials for a file upload that can be used by a Client (e.g. in a python datalayer)
-"""
-type Credentials {
-  status: String!
-  accessKey: String!
-  secretKey: String!
-  sessionToken: String!
-  datalayer: String!
-  bucket: String!
-  key: String!
-  store: String!
-}
-
-input RequestUploadInput {
-  key: String!
-  datalayer: String!
-}
-
-"""
-Temporary Credentials for a file download that can be used by a Client (e.g. in a python datalayer)
-"""
-type AccessCredentials {
-  accessKey: String!
-  secretKey: String!
-  sessionToken: String!
-  bucket: String!
-  key: String!
-  path: String!
-}
-
-input RequestAccessInput {
-  store: ID!
-  duration: Int = null
-}
-
-"""
-Temporary Credentials for a file upload that can be used by a Client (e.g. in a python datalayer)
-"""
-type PresignedPostCredentials {
-  key: String!
-  xAmzAlgorithm: String!
-  xAmzCredential: String!
-  xAmzDate: String!
-  xAmzSignature: String!
-  policy: String!
-  datalayer: String!
-  bucket: String!
-  store: String!
-}
-
-input RequestMediaUploadInput {
-  key: String!
-  datalayer: String!
-}
-
-input RequestFileUploadInput {
-  key: String!
-  datalayer: String!
-  hash: String = null
-}
-
-input RequestFileAccessInput {
-  store: ID!
-  duration: Int
-}
-
-input CreateBlockInput {
-  file: ID = null
-  name: String!
-  recordingTime: DateTime = null
-  segments: [BlockSegmentInput!]! = []
-}
-
-input BlockSegmentInput {
-  name: String = null
-  description: String = null
-  analogSignals: [AnalogSignalInput!]! = []
-  irregularlySampledSignals: [IrregularlySampledSignalInput!]! = []
-  spikeTrains: [SpikeTrainInput!]! = []
-}
-
-input AnalogSignalInput {
-  timeTrace: TraceLike!
-  name: String = null
-  description: String = null
-  samplingRate: Float!
-  tStart: Float!
-  unit: String = null
-  channels: [AnalogSignalChannelInput!]!
-}
-
 """
 The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer
 """
 scalar TraceLike
 
-input AnalogSignalChannelInput {
-  name: String!
-  index: Int!
-  unit: String = null
-  description: String = null
-  color: [Int!] = null
-  trace: TraceLike!
-}
-
-input IrregularlySampledSignalInput {
-  times: TraceLike!
-  trace: TraceLike!
-  name: String = null
-  unit: String = null
-  description: String = null
-}
-
-input SpikeTrainInput {
-  times: TraceLike!
-  tStart: Float!
-  tStop: Float!
-  waveforms: TraceLike = null
-  name: String = null
-  description: String = null
-  leftSweep: Float = null
-}
-
-input DeleteBlockInput {
-  id: ID!
-}
-
-"""Input type for creating an image from an array-like object"""
-input FromTraceLikeInput {
-  """The array-like object to create the image from"""
-  array: TraceLike!
-
-  """The name of the image"""
-  name: String!
-
-  """Optional dataset ID to associate the image with"""
-  dataset: ID = null
-
-  """Optional list of tags to associate with the image"""
-  tags: [String!] = null
-}
-
-input PinImageInput {
-  id: ID!
-  pin: Boolean!
-}
-
-input UpdateTraceInput {
-  id: ID!
-  tags: [String!] = null
-  name: String = null
-}
-
-input DeleteTraceInput {
-  id: ID!
-}
-
-input CreateNeuronModelInput {
-  name: String!
-  parent: ID
-  description: String = null
-  config: ModelConfigInput!
-}
-
-input ModelConfigInput {
-  cells: [CellInput!]! = []
-  netStimulators: [NetStimulatorInput!] = []
-  netConnections: [NetConnectionInput!] = []
-  netSynapses: [NetSynapseInput!] = []
-  vInit: Float! = -67
-  celsius: Float! = 36
-  label: String = null
-  environments: [String!]! = []
-}
-
-input CellInput {
-  id: String!
-  biophysics: BiophysicsInput!
-  topology: TopologyInput!
-}
-
-input BiophysicsInput {
-  compartments: [CompartmentInput!]! = []
-}
-
-input CompartmentInput {
-  id: String!
-  mechanisms: [String!]! = []
-  sectionParams: [SectionParamMapInput!]
-  globalParams: [GlobalParamMapInput!]
-}
-
-input SectionParamMapInput {
-  param: String!
-
-  """The governing mechanism"""
-  mechanism: String!
-
-  """The value of the parameter"""
-  value: Float!
-
-  """Description of the parameter"""
-  description: String
-}
-
-input GlobalParamMapInput {
-  param: String!
-  value: Float!
-  description: String = null
-}
-
-input TopologyInput {
-  sections: [SectionInput!]!
-}
-
-input SectionInput {
-  id: String!
-  category: String
-  nseg: Int! = 1
-  diam: Float! = 1
-
-  """Length of the section. Required if coords is not provided."""
-  length: Float = null
-  coords: [CoordInput!] = null
-  connections: [ConnectionInput!] = []
-}
-
-input CoordInput {
-  x: Float!
-  y: Float!
-  z: Float!
-}
-
-input ConnectionInput {
-  parent: String!
-  location: Float! = 1
-}
-
-input NetStimulatorInput {
-  id: ID!
-  start: Float! = 100
-  number: Int! = 1
-  interval: Float = null
-}
-
-input NetConnectionInput {
-  kind: ConnectionKind! = SYNAPSE
-  id: ID!
-  weight: Float = null
-  threshold: Float = null
-  delay: Float = null
-  netStimulator: ID!
-  synapse: ID!
-}
-
-enum ConnectionKind {
-  SYNAPSE
-}
-
-input NetSynapseInput {
-  id: ID!
-  kind: SynapseKind! = EXP2SYN
-  e: Float!
-  tau2: Float!
-  tau1: Float!
-  cell: ID!
-  location: ID!
-  position: Float! = 0.5
-}
-
-enum SynapseKind {
-  EXP2SYN
-  GABAA
-}
-
-input CreateSimulationInput {
-  name: String!
-  model: ID!
-  recordings: [RecordingInput!]!
-  stimuli: [StimulusInput!]!
-  timeTrace: TraceLike = null
-  duration: Milliseconds!
-  dt: Milliseconds = null
-}
-
-input RecordingInput {
-  trace: TraceLike!
-  kind: RecordingKind!
-  cell: ID
-  location: ID
-  position: Float
-}
-
-input StimulusInput {
-  trace: TraceLike!
-  kind: StimulusKind!
-  cell: ID
-  location: ID
-  position: Float
-}
-
-"""The `Matrix` scalar type represents a matrix values as specified by"""
-scalar Milliseconds
-
-input FromFileLike {
-  name: String!
-  file: FileLike!
-  origins: [ID!] = null
-  dataset: ID = null
-}
-
-"""
-The `FileLike` scalar type represents a reference to a big file storage previously created by the user n a datalayer
-"""
-scalar FileLike
-
-input DeleteFileInput {
-  id: ID!
-}
-
-input CreateModelCollectionInput {
-  name: String!
-  models: [ID!]!
-  description: String = null
-}
-
-input CreateDatasetInput {
-  name: String!
-}
-
-input ChangeDatasetInput {
-  name: String!
-  id: ID!
-}
-
-input RevertInput {
-  id: ID!
-  historyId: ID!
-}
-
-input PinDatasetInput {
-  id: ID!
-  pin: Boolean!
-}
-
-input DeleteDatasetInput {
-  id: ID!
-}
-
-input AssociateInput {
-  selfs: [ID!]!
-  other: ID!
-}
-
-input DesociateInput {
-  selfs: [ID!]!
-  other: ID!
-}
-
-input CreateExperimentInput {
-  name: String!
-  timeTrace: ID = null
-  stimulusViews: [StimulusViewInput!]!
-  recordingViews: [RecordingViewInput!]!
-  description: String = null
-}
-
-input StimulusViewInput {
-  stimulus: ID!
-  offset: Float = null
-  duration: Float = null
-  label: String = null
-}
-
-input RecordingViewInput {
-  recording: ID!
-  offset: Float = null
-  duration: Float = null
-  label: String = null
-}
-
-input RoiInput {
-  """The image this ROI belongs to"""
-  trace: ID!
-
-  """The vector coordinates defining the as XY"""
-  vectors: [TwoDVector!]!
-
-  """The type/kind of ROI"""
-  kind: RoiKind!
-
-  """The label of the ROI"""
-  label: String = null
+input TraceOrder {
+  createdAt: Ordering
 }
 
 """The `Vector` scalar type represents a matrix values as specified by"""
@@ -1427,41 +1889,94 @@ input UpdateRoiInput {
   kind: RoiKind = null
 }
 
-input PinROIInput {
+input UpdateTraceInput {
   id: ID!
-  pin: Boolean!
+  tags: [String!] = null
+  name: String = null
 }
 
-input DeleteRoiInput {
+type User {
   id: ID!
+  sub: String!
+  preferredUsername: String!
+  activeOrganization: Organization
 }
 
-type Subscription {
-  """Subscribe to real-time ROI updates"""
-  rois(trace: ID!): RoiEvent!
-
-  """Subscribe to real-time image updates"""
-  traces(dataset: ID = null): TraceEvent!
-
-  """Subscribe to real-time file updates"""
-  files(dataset: ID = null): FileEvent!
+type Validator {
+  function: ValidatorFunction!
+  dependencies: [String!]
+  label: String
+  errorMessage: String
 }
 
-type RoiEvent {
-  create: ROI
-  delete: ID
-  update: ROI
+"\n    The `Validator` scalar represents a javascript function that should execute on the client side (inside a shadow realm)\n      to validate a value (or a set of values) before it is sent to the server.  The function has two parameters (value, otherValues) and should return a string if the value is invalid and undefined if the value is valid.\n        The otherValues parameter is an object with the other values in the form {fieldName: value}."
+scalar ValidatorFunction
+
+" \nA validating function for a port. Can specify a function that will run when validating values of the port.\nIf outside dependencies are needed they need to be specified in the dependencies field. With the .. syntax\nwhen transversing the tree of ports. \n\n"
+input ValidatorInput {
+  function: ValidatorFunction!
+  dependencies: [String!] = []
+  label: String = null
+  errorMessage: String = null
 }
 
-type TraceEvent {
-  create: Trace
-  update: Trace
-  delete: ID
+"""Temporary S3 credentials for reading a Zarr store."""
+type ZarrAccessGrant {
+  status: String!
+  accessKey: String!
+  secretKey: String!
+  sessionToken: String!
+  region: String!
+  bucket: String!
+  key: String!
+  path: String!
+  expiresIn: Int!
+  store: String
 }
 
-type FileEvent {
-  create: File
-  delete: ID
-  update: File
-  moved: File
+type ZarrStore {
+  id: ID!
+  path: String!
+  bucket: String!
+  key: String!
+  shape: [Int!]!
+  chunks: [Int!]!
+  version: String
+  dtype: String
+  dimensionNames: [String]
+  fillValue: JSON!
+  attributes: JSON
+  storageTransformers: JSON
+  chunkKeyEncoding: JSON
+  codecs: JSON
+
+  """Get temporary S3 read credentials for the Zarr object."""
+  accessGrant(host: String = null): ZarrAccessGrant!
+}
+
+"""Temporary S3 credentials for uploading a Zarr store."""
+type ZarrUploadGrant {
+  action: String!
+  status: String!
+  accessKey: String!
+  secretKey: String!
+  sessionToken: String!
+  bucket: String!
+  key: String!
+  path: String!
+  expiresIn: Int!
+  store: String!
+  maxBytes: Int!
+  originalFileName: String
+  uploadFileName: String!
+  uploadContentType: String
+  uploadFormField: String!
+}
+
+scalar _Any
+
+union _Entity = App | BigFileStore | Client | MediaStore | ModEnvironment | Organization | ParquetStore | Release | User | ZarrStore
+
+type _Service {
+  sdl: String!
 }

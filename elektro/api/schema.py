@@ -1,38 +1,118 @@
-from elektro.scalars import FileLike, FiveDVector, TraceCoercible, TraceLike, TwoDVector
+from rath.scalars import IDCoercible, ID
+from elektro.rath import ElektroRath
+from datalayer.scalars import ArrayLike, BigFileLike
 from elektro.traits import (
     SectionInputTrait,
-    CompartmentInputTrait,
     TopologyTrait,
-    HasZarrStoreTrait,
+    ModelConfigTrait,
     HasDownloadAccessor,
-    CompartmentTrait,
-    ExperimentTrait,
-    BiophysicsTrait,
-    HasZarrStoreAccessor,
+    ModelConfigInputTrait,
     TopologyInputTrait,
     SimulationTrait,
+    HasPresignedDownloadAccessor,
+    CompartmentTrait,
+    ExperimentTrait,
+    HasZarrStoreTrait,
+    BiophysicsTrait,
     BiophysicsInputTrait,
+    HasZarrStoreAccessor,
     IsVectorizableTrait,
-    ModelConfigTrait,
-    ModelConfigInputTrait,
+    CompartmentInputTrait,
 )
-from elektro.funcs import aexecute, subscribe, execute, asubscribe
+from elektro.scalars import FileLike, TraceLike, TwoDVector, FiveDVector
 from typing import (
     Union,
+    Annotated,
+    Any,
     List,
+    Iterable,
+    Literal,
     Iterator,
     AsyncIterator,
-    Iterable,
     Optional,
-    Literal,
-    Annotated,
 )
+from elektro.funcs import aexecute, subscribe, execute, asubscribe
 from kanne.scalars import Millisecond
 from enum import Enum
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import Field, ConfigDict, BaseModel
 from datetime import datetime
-from elektro.rath import ElektroRath
-from rath.scalars import ID, IDCoercible
+
+
+class AssignWidgetKind(str, Enum):
+    """The kind of assign widget."""
+
+    SEARCH = "SEARCH"
+    CHOICE = "CHOICE"
+    SLIDER = "SLIDER"
+    CUSTOM = "CUSTOM"
+    STRING = "STRING"
+    STATE_CHOICE = "STATE_CHOICE"
+    PROXY = "PROXY"
+
+
+class ConnectionKind(str, Enum):
+    """No documentation"""
+
+    SYNAPSE = "SYNAPSE"
+
+
+class EffectKind(str, Enum):
+    """The kind of effect."""
+
+    MESSAGE = "MESSAGE"
+    HIDE = "HIDE"
+    CUSTOM = "CUSTOM"
+
+
+class OptionKey(str, Enum):
+    """No documentation"""
+
+    LABEL = "LABEL"
+    DESCRIPTION = "DESCRIPTION"
+    LOGO = "LOGO"
+    VALUE = "VALUE"
+
+
+class PortKind(str, Enum):
+    """The kind of port."""
+
+    INT = "INT"
+    STRING = "STRING"
+    STRUCTURE = "STRUCTURE"
+    LIST = "LIST"
+    BOOL = "BOOL"
+    DICT = "DICT"
+    FLOAT = "FLOAT"
+    DATE = "DATE"
+    UNION = "UNION"
+    ENUM = "ENUM"
+    MODEL = "MODEL"
+    MEMORY_STRUCTURE = "MEMORY_STRUCTURE"
+    INTERFACE = "INTERFACE"
+
+
+class RecordingKind(str, Enum):
+    """No documentation"""
+
+    VOLTAGE = "VOLTAGE"
+    CURRENT = "CURRENT"
+    TIME = "TIME"
+    INA = "INA"
+    UNKNOWN = "UNKNOWN"
+
+
+class RequiresOperator(str, Enum):
+    """The operator for matching descriptors."""
+
+    MATCHES = "MATCHES"
+    EXISTS = "EXISTS"
+    LTE = "LTE"
+    GTE = "GTE"
+    EQUALS = "EQUALS"
+    CONTAINS = "CONTAINS"
+    NOT_EQUALS = "NOT_EQUALS"
+    IN = "IN"
+    NOT_IN = "NOT_IN"
 
 
 class RoiKind(str, Enum):
@@ -52,22 +132,6 @@ class StimulusKind(str, Enum):
     UNKNOWN = "UNKNOWN"
 
 
-class RecordingKind(str, Enum):
-    """No documentation"""
-
-    VOLTAGE = "VOLTAGE"
-    CURRENT = "CURRENT"
-    TIME = "TIME"
-    INA = "INA"
-    UNKNOWN = "UNKNOWN"
-
-
-class ConnectionKind(str, Enum):
-    """No documentation"""
-
-    SYNAPSE = "SYNAPSE"
-
-
 class SynapseKind(str, Enum):
     """No documentation"""
 
@@ -75,18 +139,849 @@ class SynapseKind(str, Enum):
     GABAA = "GABAA"
 
 
-class TraceFilter(BaseModel):
+class AnalogSignalChannelInput(BaseModel):
     """No documentation"""
 
+    name: str
+    index: int
+    unit: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[List[int]] = None
+    trace: TraceLike
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class AnalogSignalInput(BaseModel):
+    """No documentation"""
+
+    time_trace: TraceLike = Field(alias="timeTrace")
+    name: Optional[str] = None
+    description: Optional[str] = None
+    sampling_rate: float = Field(alias="samplingRate")
+    t_start: float = Field(alias="tStart")
+    unit: Optional[str] = None
+    channels: List[AnalogSignalChannelInput]
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class ArgPortInput(BaseModel):
+    """Port
+
+    A Port is a single input or output of a action. It is composed of a key and a kind
+    which are used to uniquely identify the port.
+
+    If the Port is a structure, we need to define a identifier and scope,
+    Identifiers uniquely identify a specific type of model for the scopes (e.g
+    all the ports that have the identifier "@mikro/image" are of the same type, and
+    are hence compatible with each other). Scopes are used to define in which context
+    the identifier is valid (e.g. a port with the identifier "@mikro/image" and the
+    scope "local", can only be wired to other ports that have the same identifier and
+    are running in the same app). Global ports are ports that have the scope "global",
+    and can be wired to any other port that has the same identifier, as there exists a
+    mechanism to resolve and retrieve the object for each app. Please check the rekuest
+    documentation for more information on how this works.
+
+
+    """
+
+    validators: Optional[List["ValidatorInput"]] = None
+    key: str
+    label: Optional[str] = None
+    kind: PortKind
+    description: Optional[str] = None
+    identifier: Optional[str] = None
+    nullable: bool
+    effects: Optional[List["EffectInput"]] = None
+    default: Optional[Any] = None
+    children: Optional[List["ArgPortInput"]] = None
+    choices: Optional[List["ChoiceInput"]] = None
+    widget: Optional["AssignWidgetInput"] = None
+    requires: Optional[List["RequiresInput"]] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class AssignWidgetInput(BaseModel):
+    """No documentation"""
+
+    as_paragraph: Optional[bool] = Field(alias="asParagraph", default=None)
+    "Whether to display the input as a paragraph or not. This is used for text inputs and dropdowns"
+    kind: AssignWidgetKind
+    query: Optional[str] = None
+    choices: Optional[List["ChoiceInput"]] = None
+    min: Optional[float] = None
+    max: Optional[float] = None
+    step: Optional[float] = None
+    placeholder: Optional[str] = None
+    hook: Optional[str] = None
+    ward: Optional[str] = None
+    fallback: Optional["AssignWidgetInput"] = None
+    filters: Optional[List[ArgPortInput]] = None
+    dependencies: Optional[List[str]] = None
+    dependency: Optional[str] = None
+    target_dependency: Optional[str] = Field(alias="targetDependency", default=None)
+    target_action: Optional[str] = Field(alias="targetAction", default=None)
+    target_port: Optional[str] = Field(alias="targetPort", default=None)
+    state_path: Optional[str] = Field(alias="statePath", default=None)
+    state_accessors: Optional[List["StateAccessorInput"]] = Field(
+        alias="stateAccessors", default=None
+    )
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class BiophysicsInput(BiophysicsInputTrait, BaseModel):
+    """No documentation"""
+
+    compartments: List["CompartmentInput"]
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class BlockSegmentInput(BaseModel):
+    """No documentation"""
+
+    name: Optional[str] = None
+    description: Optional[str] = None
+    analog_signals: List[AnalogSignalInput] = Field(alias="analogSignals")
+    irregularly_sampled_signals: List["IrregularlySampledSignalInput"] = Field(
+        alias="irregularlySampledSignals"
+    )
+    spike_trains: List["SpikeTrainInput"] = Field(alias="spikeTrains")
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class CellInput(BaseModel):
+    """No documentation"""
+
+    id: str
+    biophysics: BiophysicsInput
+    topology: "TopologyInput"
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class ChangeDatasetInput(BaseModel):
+    """No documentation"""
+
+    name: str
+    id: ID
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class ChoiceInput(BaseModel):
+    """
+    A choice is a value that can be selected in a dropdown.
+
+    It is composed of a value, a label, and a description. The value is the
+    value that is returned when the choice is selected. The label is the
+    text that is displayed in the dropdown. The description is the text
+    that is displayed when the user hovers over the choice.
+
+    """
+
+    value: Any
+    label: str
+    image: Optional[str] = None
+    description: Optional[str] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class CompartmentInput(CompartmentInputTrait, BaseModel):
+    """No documentation"""
+
+    id: str
+    mechanisms: List[str]
+    section_params: Optional[List["SectionParamMapInput"]] = Field(
+        alias="sectionParams", default=None
+    )
+    global_params: Optional[List["GlobalParamMapInput"]] = Field(
+        alias="globalParams", default=None
+    )
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class ConnectionInput(BaseModel):
+    """No documentation"""
+
+    parent: str
+    location: float
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class CoordInput(BaseModel):
+    """No documentation"""
+
+    x: float
+    y: float
+    z: float
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class CreateBlockInput(BaseModel):
+    """No documentation"""
+
+    file: Optional[ID] = None
+    name: str
+    recording_time: Optional[datetime] = Field(alias="recordingTime", default=None)
+    segments: List[BlockSegmentInput]
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class CreateDatasetInput(BaseModel):
+    """No documentation"""
+
+    name: str
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class CreateExperimentInput(BaseModel):
+    """No documentation"""
+
+    name: str
+    time_trace: Optional[ID] = Field(alias="timeTrace", default=None)
+    stimulus_views: List["StimulusViewInput"] = Field(alias="stimulusViews")
+    recording_views: List["RecordingViewInput"] = Field(alias="recordingViews")
+    description: Optional[str] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class CreateModEnvironmentInput(BaseModel):
+    """Input for creating a mod environment"""
+
+    name: str
+    description: Optional[str] = None
+    zip_file: BigFileLike = Field(alias="zipFile")
+    mechanisms: List["MechanismInput"]
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class CreateModelCollectionInput(BaseModel):
+    """No documentation"""
+
+    name: str
+    models: List[ID]
+    description: Optional[str] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class CreateNeuronModelInput(BaseModel):
+    """No documentation"""
+
+    name: str
+    environment: Optional[ID] = None
+    parent: Optional[ID] = None
+    description: Optional[str] = None
+    config: "ModelConfigInput"
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class CreateSimulationInput(BaseModel):
+    """No documentation"""
+
+    name: str
+    model: ID
+    recordings: List["RecordingInput"]
+    stimuli: List["StimulusInput"]
+    time_trace: Optional[ArrayLike] = Field(alias="timeTrace", default=None)
+    duration: Millisecond
+    dt: Optional[Millisecond] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class DatasetFilter(BaseModel):
+    """No documentation"""
+
+    id: Optional[ID] = None
     name: Optional["StrFilterLookup"] = None
-    ids: Optional[List[ID]] = None
-    dataset: Optional["DatasetFilter"] = None
-    not_derived: Optional[bool] = Field(alias="notDerived", default=None)
-    search: Optional[str] = None
-    and_: Optional["TraceFilter"] = Field(alias="AND", default=None)
-    or_: Optional["TraceFilter"] = Field(alias="OR", default=None)
-    not_: Optional["TraceFilter"] = Field(alias="NOT", default=None)
+    and_: Optional["DatasetFilter"] = Field(alias="AND", default=None)
+    or_: Optional["DatasetFilter"] = Field(alias="OR", default=None)
+    not_: Optional["DatasetFilter"] = Field(alias="NOT", default=None)
     distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class DeleteRoiInput(BaseModel):
+    """No documentation"""
+
+    id: ID
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class EffectInput(BaseModel):
+    """
+                 An effect is a way to modify a port based on a condition. For example,
+    you could have an effect that sets a port to null if another port is null.
+
+    Or, you could have an effect that hides the port if another port meets a condition.
+    E.g when the user selects a certain option in a dropdown, another port is hidden.
+
+
+    """
+
+    function: str
+    dependencies: Optional[List[str]] = None
+    message: Optional[str] = None
+    kind: EffectKind
+    fade: Optional[bool] = None
+    hook: Optional[str] = None
+    ward: Optional[str] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class ExperimentFilter(BaseModel):
+    """No documentation"""
+
+    ids: Optional[List[ID]] = None
+    search: Optional[str] = None
+    created_before: Optional[datetime] = Field(alias="createdBefore", default=None)
+    created_after: Optional[datetime] = Field(alias="createdAfter", default=None)
+    id: Optional[ID] = None
+    name: Optional["StrFilterLookup"] = None
+    and_: Optional["ExperimentFilter"] = Field(alias="AND", default=None)
+    or_: Optional["ExperimentFilter"] = Field(alias="OR", default=None)
+    not_: Optional["ExperimentFilter"] = Field(alias="NOT", default=None)
+    distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class FinishBigFileUploadInput(BaseModel):
+    """No documentation"""
+
+    store_id: str = Field(alias="storeId")
+    valid: bool
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class FinishMediaUploadInput(BaseModel):
+    """No documentation"""
+
+    store_id: str = Field(alias="storeId")
+    valid: bool
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class FinishParquetUploadInput(BaseModel):
+    """No documentation"""
+
+    store_id: str = Field(alias="storeId")
+    valid: bool
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class FinishZarrUploadInput(BaseModel):
+    """No documentation"""
+
+    store_id: str = Field(alias="storeId")
+    valid: bool
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class FromFileLike(BaseModel):
+    """No documentation"""
+
+    name: str
+    file: FileLike
+    origins: Optional[List[ID]] = None
+    dataset: Optional[ID] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class FromTraceLikeInput(BaseModel):
+    """Input type for creating an image from an array-like object"""
+
+    array: ArrayLike
+    "The array-like object to create the image from"
+    name: str
+    "The name of the image"
+    dataset: Optional[ID] = None
+    "Optional dataset ID to associate the image with"
+    tags: Optional[List[str]] = None
+    "Optional list of tags to associate with the image"
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class GlobalParamMapInput(BaseModel):
+    """No documentation"""
+
+    param: str
+    value: float
+    description: Optional[str] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class IrregularlySampledSignalInput(BaseModel):
+    """No documentation"""
+
+    times: TraceLike
+    trace: TraceLike
+    name: Optional[str] = None
+    unit: Optional[str] = None
+    description: Optional[str] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class MechanismInput(BaseModel):
+    """Input for creating a mechanism"""
+
+    name: str
+    description: Optional[str] = None
+    parameters: List[ArgPortInput]
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class ModelCollectionFilter(BaseModel):
+    """No documentation"""
+
+    ids: Optional[List[ID]] = None
+    search: Optional[str] = None
+    created_before: Optional[datetime] = Field(alias="createdBefore", default=None)
+    created_after: Optional[datetime] = Field(alias="createdAfter", default=None)
+    id: Optional[ID] = None
+    name: Optional["StrFilterLookup"] = None
+    and_: Optional["ModelCollectionFilter"] = Field(alias="AND", default=None)
+    or_: Optional["ModelCollectionFilter"] = Field(alias="OR", default=None)
+    not_: Optional["ModelCollectionFilter"] = Field(alias="NOT", default=None)
+    distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class ModelConfigInput(ModelConfigInputTrait, BaseModel):
+    """No documentation"""
+
+    cells: List[CellInput]
+    net_stimulators: Optional[List["NetStimulatorInput"]] = Field(
+        alias="netStimulators", default=None
+    )
+    net_connections: Optional[List["NetConnectionInput"]] = Field(
+        alias="netConnections", default=None
+    )
+    net_synapses: Optional[List["NetSynapseInput"]] = Field(
+        alias="netSynapses", default=None
+    )
+    v_init: float = Field(alias="vInit")
+    celsius: float
+    label: Optional[str] = None
+    environments: List[str]
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class NetConnectionInput(BaseModel):
+    """No documentation"""
+
+    kind: ConnectionKind
+    id: ID
+    weight: Optional[float] = None
+    threshold: Optional[float] = None
+    delay: Optional[float] = None
+    net_stimulator: ID = Field(alias="netStimulator")
+    synapse: ID
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class NetStimulatorInput(BaseModel):
+    """No documentation"""
+
+    id: ID
+    start: float
+    number: int
+    interval: Optional[float] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class NetSynapseInput(BaseModel):
+    """No documentation"""
+
+    id: ID
+    kind: SynapseKind
+    e: float
+    tau2: float
+    tau1: float
+    cell: ID
+    location: ID
+    position: float
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class NeuronModelFilter(BaseModel):
+    """No documentation"""
+
+    ids: Optional[List[ID]] = None
+    search: Optional[str] = None
+    created_before: Optional[datetime] = Field(alias="createdBefore", default=None)
+    created_after: Optional[datetime] = Field(alias="createdAfter", default=None)
+    id: Optional[ID] = None
+    name: Optional["StrFilterLookup"] = None
+    and_: Optional["NeuronModelFilter"] = Field(alias="AND", default=None)
+    or_: Optional["NeuronModelFilter"] = Field(alias="OR", default=None)
+    not_: Optional["NeuronModelFilter"] = Field(alias="NOT", default=None)
+    distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class OffsetPaginationInput(BaseModel):
+    """No documentation"""
+
+    offset: int
+    limit: Optional[int] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class RecordingFilter(BaseModel):
+    """No documentation"""
+
+    ids: Optional[List[ID]] = None
+    search: Optional[str] = None
+    created_before: Optional[datetime] = Field(alias="createdBefore", default=None)
+    created_after: Optional[datetime] = Field(alias="createdAfter", default=None)
+    id: Optional[ID] = None
+    name: Optional["StrFilterLookup"] = None
+    and_: Optional["RecordingFilter"] = Field(alias="AND", default=None)
+    or_: Optional["RecordingFilter"] = Field(alias="OR", default=None)
+    not_: Optional["RecordingFilter"] = Field(alias="NOT", default=None)
+    distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class RecordingInput(BaseModel):
+    """No documentation"""
+
+    trace: ArrayLike
+    kind: RecordingKind
+    cell: Optional[ID] = None
+    location: Optional[ID] = None
+    position: Optional[float] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class RecordingViewInput(BaseModel):
+    """No documentation"""
+
+    recording: ID
+    offset: Optional[float] = None
+    duration: Optional[float] = None
+    label: Optional[str] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class RequestBigFileAccessInput(BaseModel):
+    """No documentation"""
+
+    store_id: str = Field(alias="storeId")
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class RequestBigFileUploadInput(BaseModel):
+    """No documentation"""
+
+    original_file_name: str = Field(alias="originalFileName")
+    file_size: Optional[int] = Field(alias="fileSize", default=None)
+    content_type: Optional[str] = Field(alias="contentType", default=None)
+    host: Optional[str] = None
+    port: Optional[int] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class RequestMediaAccessInput(BaseModel):
+    """No documentation"""
+
+    store_id: str = Field(alias="storeId")
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class RequestMediaUploadInput(BaseModel):
+    """No documentation"""
+
+    original_file_name: str = Field(alias="originalFileName")
+    file_size: Optional[int] = Field(alias="fileSize", default=None)
+    content_type: Optional[str] = Field(alias="contentType", default=None)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class RequestParquetAccessInput(BaseModel):
+    """No documentation"""
+
+    store_id: str = Field(alias="storeId")
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class RequestParquetUploadInput(BaseModel):
+    """No documentation"""
+
+    original_file_name: str = Field(alias="originalFileName")
+    content_type: Optional[str] = Field(alias="contentType", default=None)
+    datalayer: str
+    host: Optional[str] = None
+    port: Optional[int] = None
+    protocol: str
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class RequestZarrAccessInput(BaseModel):
+    """No documentation"""
+
+    store_id: str = Field(alias="storeId")
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class RequestZarrUploadInput(BaseModel):
+    """No documentation"""
+
+    shape: Optional[List[int]] = None
+    chunks: Optional[List[int]] = None
+    version: Optional[str] = None
+    datalayer: str
+    host: Optional[str] = None
+    port: Optional[int] = None
+    protocol: str
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class RequiresInput(BaseModel):
+    """No documentation"""
+
+    key: str
+    operator: RequiresOperator
+    value: Any
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class RevertInput(BaseModel):
+    """No documentation"""
+
+    id: ID
+    history_id: ID = Field(alias="historyId")
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class RoiInput(BaseModel):
+    """No documentation"""
+
+    trace: ID
+    "The image this ROI belongs to"
+    vectors: List[TwoDVector]
+    "The vector coordinates defining the as XY"
+    kind: RoiKind
+    "The type/kind of ROI"
+    label: Optional[str] = None
+    "The label of the ROI"
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class SectionInput(SectionInputTrait, BaseModel):
+    """No documentation"""
+
+    id: str
+    category: Optional[str] = None
+    nseg: int
+    diam: float
+    length: Optional[float] = None
+    "Length of the section. Required if coords is not provided."
+    coords: Optional[List[CoordInput]] = None
+    connections: Optional[List[ConnectionInput]] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class SectionParamMapInput(BaseModel):
+    """No documentation"""
+
+    param: str
+    mechanism: str
+    "The governing mechanism"
+    value: float
+    "The value of the parameter"
+    description: Optional[str] = None
+    "Description of the parameter"
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class SimulationFilter(BaseModel):
+    """No documentation"""
+
+    ids: Optional[List[ID]] = None
+    search: Optional[str] = None
+    created_before: Optional[datetime] = Field(alias="createdBefore", default=None)
+    created_after: Optional[datetime] = Field(alias="createdAfter", default=None)
+    id: Optional[ID] = None
+    name: Optional["StrFilterLookup"] = None
+    and_: Optional["SimulationFilter"] = Field(alias="AND", default=None)
+    or_: Optional["SimulationFilter"] = Field(alias="OR", default=None)
+    not_: Optional["SimulationFilter"] = Field(alias="NOT", default=None)
+    distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class SpikeTrainInput(BaseModel):
+    """No documentation"""
+
+    times: TraceLike
+    t_start: float = Field(alias="tStart")
+    t_stop: float = Field(alias="tStop")
+    waveforms: Optional[TraceLike] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    left_sweep: Optional[float] = Field(alias="leftSweep", default=None)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class StateAccessorInput(BaseModel):
+    """No documentation"""
+
+    option_key: OptionKey = Field(alias="optionKey")
+    sub_path: Optional[str] = Field(alias="subPath", default=None)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class StimulusFilter(BaseModel):
+    """No documentation"""
+
+    ids: Optional[List[ID]] = None
+    search: Optional[str] = None
+    created_before: Optional[datetime] = Field(alias="createdBefore", default=None)
+    created_after: Optional[datetime] = Field(alias="createdAfter", default=None)
+    id: Optional[ID] = None
+    name: Optional["StrFilterLookup"] = None
+    and_: Optional["StimulusFilter"] = Field(alias="AND", default=None)
+    or_: Optional["StimulusFilter"] = Field(alias="OR", default=None)
+    not_: Optional["StimulusFilter"] = Field(alias="NOT", default=None)
+    distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class StimulusInput(BaseModel):
+    """No documentation"""
+
+    trace: ArrayLike
+    kind: StimulusKind
+    cell: Optional[ID] = None
+    location: Optional[ID] = None
+    position: Optional[float] = None
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, use_enum_values=True
+    )
+
+
+class StimulusViewInput(BaseModel):
+    """No documentation"""
+
+    stimulus: ID
+    offset: Optional[float] = None
+    duration: Optional[float] = None
+    label: Optional[str] = None
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, use_enum_values=True
     )
@@ -117,593 +1012,27 @@ class StrFilterLookup(BaseModel):
     )
 
 
-class DatasetFilter(BaseModel):
-    """No documentation"""
-
-    id: Optional[ID] = None
-    name: Optional[StrFilterLookup] = None
-    and_: Optional["DatasetFilter"] = Field(alias="AND", default=None)
-    or_: Optional["DatasetFilter"] = Field(alias="OR", default=None)
-    not_: Optional["DatasetFilter"] = Field(alias="NOT", default=None)
-    distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class OffsetPaginationInput(BaseModel):
-    """No documentation"""
-
-    offset: int
-    limit: Optional[int] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class NeuronModelFilter(BaseModel):
-    """No documentation"""
-
-    ids: Optional[List[ID]] = None
-    search: Optional[str] = None
-    id: Optional[ID] = None
-    name: Optional[StrFilterLookup] = None
-    and_: Optional["NeuronModelFilter"] = Field(alias="AND", default=None)
-    or_: Optional["NeuronModelFilter"] = Field(alias="OR", default=None)
-    not_: Optional["NeuronModelFilter"] = Field(alias="NOT", default=None)
-    distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class ModelCollectionFilter(BaseModel):
-    """No documentation"""
-
-    ids: Optional[List[ID]] = None
-    search: Optional[str] = None
-    id: Optional[ID] = None
-    name: Optional[StrFilterLookup] = None
-    and_: Optional["ModelCollectionFilter"] = Field(alias="AND", default=None)
-    or_: Optional["ModelCollectionFilter"] = Field(alias="OR", default=None)
-    not_: Optional["ModelCollectionFilter"] = Field(alias="NOT", default=None)
-    distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class SimulationFilter(BaseModel):
-    """No documentation"""
-
-    ids: Optional[List[ID]] = None
-    search: Optional[str] = None
-    id: Optional[ID] = None
-    name: Optional[StrFilterLookup] = None
-    and_: Optional["SimulationFilter"] = Field(alias="AND", default=None)
-    or_: Optional["SimulationFilter"] = Field(alias="OR", default=None)
-    not_: Optional["SimulationFilter"] = Field(alias="NOT", default=None)
-    distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class StimulusFilter(BaseModel):
-    """No documentation"""
-
-    ids: Optional[List[ID]] = None
-    search: Optional[str] = None
-    id: Optional[ID] = None
-    name: Optional[StrFilterLookup] = None
-    and_: Optional["StimulusFilter"] = Field(alias="AND", default=None)
-    or_: Optional["StimulusFilter"] = Field(alias="OR", default=None)
-    not_: Optional["StimulusFilter"] = Field(alias="NOT", default=None)
-    distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class RecordingFilter(BaseModel):
-    """No documentation"""
-
-    ids: Optional[List[ID]] = None
-    search: Optional[str] = None
-    id: Optional[ID] = None
-    name: Optional[StrFilterLookup] = None
-    and_: Optional["RecordingFilter"] = Field(alias="AND", default=None)
-    or_: Optional["RecordingFilter"] = Field(alias="OR", default=None)
-    not_: Optional["RecordingFilter"] = Field(alias="NOT", default=None)
-    distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class ExperimentFilter(BaseModel):
-    """No documentation"""
-
-    ids: Optional[List[ID]] = None
-    search: Optional[str] = None
-    id: Optional[ID] = None
-    name: Optional[StrFilterLookup] = None
-    and_: Optional["ExperimentFilter"] = Field(alias="AND", default=None)
-    or_: Optional["ExperimentFilter"] = Field(alias="OR", default=None)
-    not_: Optional["ExperimentFilter"] = Field(alias="NOT", default=None)
-    distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class RequestUploadInput(BaseModel):
-    """No documentation"""
-
-    key: str
-    datalayer: str
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class RequestAccessInput(BaseModel):
-    """No documentation"""
-
-    store: ID
-    duration: Optional[int] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class RequestFileUploadInput(BaseModel):
-    """No documentation"""
-
-    key: str
-    datalayer: str
-    hash: Optional[str] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class RequestFileAccessInput(BaseModel):
-    """No documentation"""
-
-    store: ID
-    duration: Optional[int] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class CreateBlockInput(BaseModel):
-    """No documentation"""
-
-    file: Optional[ID] = None
-    name: str
-    recording_time: Optional[datetime] = Field(alias="recordingTime", default=None)
-    segments: List["BlockSegmentInput"]
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class BlockSegmentInput(BaseModel):
-    """No documentation"""
-
-    name: Optional[str] = None
-    description: Optional[str] = None
-    analog_signals: List["AnalogSignalInput"] = Field(alias="analogSignals")
-    irregularly_sampled_signals: List["IrregularlySampledSignalInput"] = Field(
-        alias="irregularlySampledSignals"
-    )
-    spike_trains: List["SpikeTrainInput"] = Field(alias="spikeTrains")
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class AnalogSignalInput(BaseModel):
-    """No documentation"""
-
-    time_trace: TraceLike = Field(alias="timeTrace")
-    name: Optional[str] = None
-    description: Optional[str] = None
-    sampling_rate: float = Field(alias="samplingRate")
-    t_start: float = Field(alias="tStart")
-    unit: Optional[str] = None
-    channels: List["AnalogSignalChannelInput"]
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class AnalogSignalChannelInput(BaseModel):
-    """No documentation"""
-
-    name: str
-    index: int
-    unit: Optional[str] = None
-    description: Optional[str] = None
-    color: Optional[List[int]] = None
-    trace: TraceLike
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class IrregularlySampledSignalInput(BaseModel):
-    """No documentation"""
-
-    times: TraceLike
-    trace: TraceLike
-    name: Optional[str] = None
-    unit: Optional[str] = None
-    description: Optional[str] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class SpikeTrainInput(BaseModel):
-    """No documentation"""
-
-    times: TraceLike
-    t_start: float = Field(alias="tStart")
-    t_stop: float = Field(alias="tStop")
-    waveforms: Optional[TraceLike] = None
-    name: Optional[str] = None
-    description: Optional[str] = None
-    left_sweep: Optional[float] = Field(alias="leftSweep", default=None)
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class FromTraceLikeInput(BaseModel):
-    """Input type for creating an image from an array-like object"""
-
-    array: TraceLike
-    "The array-like object to create the image from"
-    name: str
-    "The name of the image"
-    dataset: Optional[ID] = None
-    "Optional dataset ID to associate the image with"
-    tags: Optional[List[str]] = None
-    "Optional list of tags to associate with the image"
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class CreateNeuronModelInput(BaseModel):
-    """No documentation"""
-
-    name: str
-    parent: Optional[ID] = None
-    description: Optional[str] = None
-    config: "ModelConfigInput"
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class ModelConfigInput(ModelConfigInputTrait, BaseModel):
-    """No documentation"""
-
-    cells: List["CellInput"]
-    net_stimulators: Optional[List["NetStimulatorInput"]] = Field(
-        alias="netStimulators", default=None
-    )
-    net_connections: Optional[List["NetConnectionInput"]] = Field(
-        alias="netConnections", default=None
-    )
-    net_synapses: Optional[List["NetSynapseInput"]] = Field(
-        alias="netSynapses", default=None
-    )
-    v_init: float = Field(alias="vInit")
-    celsius: float
-    label: Optional[str] = None
-    environments: List[str]
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class CellInput(BaseModel):
-    """No documentation"""
-
-    id: str
-    biophysics: "BiophysicsInput"
-    topology: "TopologyInput"
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class BiophysicsInput(BiophysicsInputTrait, BaseModel):
-    """No documentation"""
-
-    compartments: List["CompartmentInput"]
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class CompartmentInput(CompartmentInputTrait, BaseModel):
-    """No documentation"""
-
-    id: str
-    mechanisms: List[str]
-    section_params: Optional[List["SectionParamMapInput"]] = Field(
-        alias="sectionParams", default=None
-    )
-    global_params: Optional[List["GlobalParamMapInput"]] = Field(
-        alias="globalParams", default=None
-    )
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class SectionParamMapInput(BaseModel):
-    """No documentation"""
-
-    param: str
-    mechanism: str
-    "The governing mechanism"
-    value: float
-    "The value of the parameter"
-    description: Optional[str] = None
-    "Description of the parameter"
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class GlobalParamMapInput(BaseModel):
-    """No documentation"""
-
-    param: str
-    value: float
-    description: Optional[str] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
 class TopologyInput(TopologyInputTrait, BaseModel):
     """No documentation"""
 
-    sections: List["SectionInput"]
+    sections: List[SectionInput]
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, use_enum_values=True
     )
 
 
-class SectionInput(SectionInputTrait, BaseModel):
+class TraceFilter(BaseModel):
     """No documentation"""
 
-    id: str
-    category: Optional[str] = None
-    nseg: int
-    diam: float
-    length: Optional[float] = None
-    "Length of the section. Required if coords is not provided."
-    coords: Optional[List["CoordInput"]] = None
-    connections: Optional[List["ConnectionInput"]] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class CoordInput(BaseModel):
-    """No documentation"""
-
-    x: float
-    y: float
-    z: float
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class ConnectionInput(BaseModel):
-    """No documentation"""
-
-    parent: str
-    location: float
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class NetStimulatorInput(BaseModel):
-    """No documentation"""
-
-    id: ID
-    start: float
-    number: int
-    interval: Optional[float] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class NetConnectionInput(BaseModel):
-    """No documentation"""
-
-    kind: ConnectionKind
-    id: ID
-    weight: Optional[float] = None
-    threshold: Optional[float] = None
-    delay: Optional[float] = None
-    net_stimulator: ID = Field(alias="netStimulator")
-    synapse: ID
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class NetSynapseInput(BaseModel):
-    """No documentation"""
-
-    id: ID
-    kind: SynapseKind
-    e: float
-    tau2: float
-    tau1: float
-    cell: ID
-    location: ID
-    position: float
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class CreateSimulationInput(BaseModel):
-    """No documentation"""
-
-    name: str
-    model: ID
-    recordings: List["RecordingInput"]
-    stimuli: List["StimulusInput"]
-    time_trace: Optional[TraceLike] = Field(alias="timeTrace", default=None)
-    duration: Millisecond
-    dt: Optional[Millisecond] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class RecordingInput(BaseModel):
-    """No documentation"""
-
-    trace: TraceLike
-    kind: RecordingKind
-    cell: Optional[ID] = None
-    location: Optional[ID] = None
-    position: Optional[float] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class StimulusInput(BaseModel):
-    """No documentation"""
-
-    trace: TraceLike
-    kind: StimulusKind
-    cell: Optional[ID] = None
-    location: Optional[ID] = None
-    position: Optional[float] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class FromFileLike(BaseModel):
-    """No documentation"""
-
-    name: str
-    file: FileLike
-    origins: Optional[List[ID]] = None
-    dataset: Optional[ID] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class CreateModelCollectionInput(BaseModel):
-    """No documentation"""
-
-    name: str
-    models: List[ID]
-    description: Optional[str] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class CreateDatasetInput(BaseModel):
-    """No documentation"""
-
-    name: str
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class ChangeDatasetInput(BaseModel):
-    """No documentation"""
-
-    name: str
-    id: ID
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class RevertInput(BaseModel):
-    """No documentation"""
-
-    id: ID
-    history_id: ID = Field(alias="historyId")
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class CreateExperimentInput(BaseModel):
-    """No documentation"""
-
-    name: str
-    time_trace: Optional[ID] = Field(alias="timeTrace", default=None)
-    stimulus_views: List["StimulusViewInput"] = Field(alias="stimulusViews")
-    recording_views: List["RecordingViewInput"] = Field(alias="recordingViews")
-    description: Optional[str] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class StimulusViewInput(BaseModel):
-    """No documentation"""
-
-    stimulus: ID
-    offset: Optional[float] = None
-    duration: Optional[float] = None
-    label: Optional[str] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class RecordingViewInput(BaseModel):
-    """No documentation"""
-
-    recording: ID
-    offset: Optional[float] = None
-    duration: Optional[float] = None
-    label: Optional[str] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class RoiInput(BaseModel):
-    """No documentation"""
-
-    trace: ID
-    "The image this ROI belongs to"
-    vectors: List[TwoDVector]
-    "The vector coordinates defining the as XY"
-    kind: RoiKind
-    "The type/kind of ROI"
-    label: Optional[str] = None
-    "The label of the ROI"
+    name: Optional[StrFilterLookup] = None
+    ids: Optional[List[ID]] = None
+    dataset: Optional[DatasetFilter] = None
+    not_derived: Optional[bool] = Field(alias="notDerived", default=None)
+    search: Optional[str] = None
+    and_: Optional["TraceFilter"] = Field(alias="AND", default=None)
+    or_: Optional["TraceFilter"] = Field(alias="OR", default=None)
+    not_: Optional["TraceFilter"] = Field(alias="NOT", default=None)
+    distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, use_enum_values=True
     )
@@ -721,10 +1050,18 @@ class UpdateRoiInput(BaseModel):
     )
 
 
-class DeleteRoiInput(BaseModel):
-    """No documentation"""
+class ValidatorInput(BaseModel):
+    """
+    A validating function for a port. Can specify a function that will run when validating values of the port.
+    If outside dependencies are needed they need to be specified in the dependencies field. With the .. syntax
+    when transversing the tree of ports.
 
-    id: ID
+    """
+
+    function: str
+    dependencies: Optional[List[str]] = None
+    label: Optional[str] = None
+    error_message: Optional[str] = Field(alias="errorMessage", default=None)
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, use_enum_values=True
     )
@@ -747,47 +1084,187 @@ class BlockGroup(BaseModel):
         type = "BlockGroup"
 
 
-class Credentials(BaseModel):
-    """Temporary Credentials for a file upload that can be used by a Client (e.g. in a python datalayer)"""
+class BigFileUploadGrant(BaseModel):
+    """Temporary S3 credentials for uploading a big file."""
 
-    typename: Literal["Credentials"] = Field(
-        alias="__typename", default="Credentials", exclude=True
+    typename: Literal["BigFileUploadGrant"] = Field(
+        alias="__typename", default="BigFileUploadGrant", exclude=True
     )
     access_key: str = Field(alias="accessKey")
-    status: str
     secret_key: str = Field(alias="secretKey")
-    bucket: str
-    key: str
     session_token: str = Field(alias="sessionToken")
+    path: str
+    key: str
+    bucket: str
+    expires_in: int = Field(alias="expiresIn")
     store: str
 
     class Meta:
-        """Meta class for Credentials"""
+        """Meta class for BigFileUploadGrant"""
 
-        document = "fragment Credentials on Credentials {\n  accessKey\n  status\n  secretKey\n  bucket\n  key\n  sessionToken\n  store\n  __typename\n}"
-        name = "Credentials"
-        type = "Credentials"
+        document = "fragment BigFileUploadGrant on BigFileUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  expiresIn\n  store\n  __typename\n}"
+        name = "BigFileUploadGrant"
+        type = "BigFileUploadGrant"
 
 
-class AccessCredentials(BaseModel):
-    """Temporary Credentials for a file download that can be used by a Client (e.g. in a python datalayer)"""
+class MediaUploadGrant(BaseModel):
+    """A presigned PUT grant for uploading a media object."""
 
-    typename: Literal["AccessCredentials"] = Field(
-        alias="__typename", default="AccessCredentials", exclude=True
+    typename: Literal["MediaUploadGrant"] = Field(
+        alias="__typename", default="MediaUploadGrant", exclude=True
     )
     access_key: str = Field(alias="accessKey")
     secret_key: str = Field(alias="secretKey")
-    bucket: str
-    key: str
     session_token: str = Field(alias="sessionToken")
     path: str
+    key: str
+    bucket: str
+    expires_in: int = Field(alias="expiresIn")
+    max_bytes: int = Field(alias="maxBytes")
+    store: str
 
     class Meta:
-        """Meta class for AccessCredentials"""
+        """Meta class for MediaUploadGrant"""
 
-        document = "fragment AccessCredentials on AccessCredentials {\n  accessKey\n  secretKey\n  bucket\n  key\n  sessionToken\n  path\n  __typename\n}"
-        name = "AccessCredentials"
-        type = "AccessCredentials"
+        document = "fragment MediaUploadGrant on MediaUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  expiresIn\n  maxBytes\n  store\n  __typename\n}"
+        name = "MediaUploadGrant"
+        type = "MediaUploadGrant"
+
+
+class ZarrUploadGrant(BaseModel):
+    """Temporary S3 credentials for uploading a Zarr store."""
+
+    typename: Literal["ZarrUploadGrant"] = Field(
+        alias="__typename", default="ZarrUploadGrant", exclude=True
+    )
+    access_key: str = Field(alias="accessKey")
+    secret_key: str = Field(alias="secretKey")
+    session_token: str = Field(alias="sessionToken")
+    path: str
+    key: str
+    bucket: str
+    expires_in: int = Field(alias="expiresIn")
+    max_bytes: int = Field(alias="maxBytes")
+    store: str
+
+    class Meta:
+        """Meta class for ZarrUploadGrant"""
+
+        document = "fragment ZarrUploadGrant on ZarrUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  expiresIn\n  maxBytes\n  store\n  __typename\n}"
+        name = "ZarrUploadGrant"
+        type = "ZarrUploadGrant"
+
+
+class ParquetUploadGrant(BaseModel):
+    """Temporary S3 credentials for uploading a parquet store."""
+
+    typename: Literal["ParquetUploadGrant"] = Field(
+        alias="__typename", default="ParquetUploadGrant", exclude=True
+    )
+    access_key: str = Field(alias="accessKey")
+    secret_key: str = Field(alias="secretKey")
+    session_token: str = Field(alias="sessionToken")
+    path: str
+    key: str
+    bucket: str
+    expires_in: int = Field(alias="expiresIn")
+    max_bytes: int = Field(alias="maxBytes")
+    store: str
+
+    class Meta:
+        """Meta class for ParquetUploadGrant"""
+
+        document = "fragment ParquetUploadGrant on ParquetUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  expiresIn\n  maxBytes\n  store\n  __typename\n}"
+        name = "ParquetUploadGrant"
+        type = "ParquetUploadGrant"
+
+
+class BigFileAccessGrant(BaseModel):
+    """Temporary S3 credentials for reading a big file."""
+
+    typename: Literal["BigFileAccessGrant"] = Field(
+        alias="__typename", default="BigFileAccessGrant", exclude=True
+    )
+    access_key: str = Field(alias="accessKey")
+    secret_key: str = Field(alias="secretKey")
+    session_token: str = Field(alias="sessionToken")
+    expires_in: int = Field(alias="expiresIn")
+    path: str
+    key: str
+    bucket: str
+
+    class Meta:
+        """Meta class for BigFileAccessGrant"""
+
+        document = "fragment BigFileAccessGrant on BigFileAccessGrant {\n  accessKey\n  secretKey\n  sessionToken\n  expiresIn\n  path\n  key\n  bucket\n  __typename\n}"
+        name = "BigFileAccessGrant"
+        type = "BigFileAccessGrant"
+
+
+class MediaAccessGrant(BaseModel):
+    """Temporary S3 credentials for reading a media object."""
+
+    typename: Literal["MediaAccessGrant"] = Field(
+        alias="__typename", default="MediaAccessGrant", exclude=True
+    )
+    access_key: str = Field(alias="accessKey")
+    secret_key: str = Field(alias="secretKey")
+    session_token: str = Field(alias="sessionToken")
+    expires_in: int = Field(alias="expiresIn")
+    path: str
+    key: str
+    bucket: str
+
+    class Meta:
+        """Meta class for MediaAccessGrant"""
+
+        document = "fragment MediaAccessGrant on MediaAccessGrant {\n  accessKey\n  secretKey\n  sessionToken\n  expiresIn\n  path\n  key\n  bucket\n  __typename\n}"
+        name = "MediaAccessGrant"
+        type = "MediaAccessGrant"
+
+
+class ZarrAccessGrant(BaseModel):
+    """Temporary S3 credentials for reading a Zarr store."""
+
+    typename: Literal["ZarrAccessGrant"] = Field(
+        alias="__typename", default="ZarrAccessGrant", exclude=True
+    )
+    access_key: str = Field(alias="accessKey")
+    secret_key: str = Field(alias="secretKey")
+    session_token: str = Field(alias="sessionToken")
+    expires_in: int = Field(alias="expiresIn")
+    path: str
+    key: str
+    bucket: str
+
+    class Meta:
+        """Meta class for ZarrAccessGrant"""
+
+        document = "fragment ZarrAccessGrant on ZarrAccessGrant {\n  accessKey\n  secretKey\n  sessionToken\n  expiresIn\n  path\n  key\n  bucket\n  __typename\n}"
+        name = "ZarrAccessGrant"
+        type = "ZarrAccessGrant"
+
+
+class ParquetAccessGrant(BaseModel):
+    """Temporary S3 credentials for reading a parquet object."""
+
+    typename: Literal["ParquetAccessGrant"] = Field(
+        alias="__typename", default="ParquetAccessGrant", exclude=True
+    )
+    access_key: str = Field(alias="accessKey")
+    secret_key: str = Field(alias="secretKey")
+    session_token: str = Field(alias="sessionToken")
+    expires_in: int = Field(alias="expiresIn")
+    path: str
+    key: str
+    bucket: str
+
+    class Meta:
+        """Meta class for ParquetAccessGrant"""
+
+        document = "fragment ParquetAccessGrant on ParquetAccessGrant {\n  accessKey\n  secretKey\n  sessionToken\n  expiresIn\n  path\n  key\n  bucket\n  __typename\n}"
+        name = "ParquetAccessGrant"
+        type = "ParquetAccessGrant"
 
 
 class Dataset(BaseModel):
@@ -807,6 +1284,35 @@ class Dataset(BaseModel):
         )
         name = "Dataset"
         type = "Dataset"
+
+
+class MechanismParameters(BaseModel):
+    """No documentation"""
+
+    typename: Literal["ArgPort"] = Field(
+        alias="__typename", default="ArgPort", exclude=True
+    )
+    key: str
+    kind: PortKind
+
+
+class Mechanism(BaseModel):
+    """No documentation"""
+
+    typename: Literal["Mechanism"] = Field(
+        alias="__typename", default="Mechanism", exclude=True
+    )
+    id: ID
+    name: str
+    parameters: List[MechanismParameters]
+    "The parameter ports of the mechanism"
+
+    class Meta:
+        """Meta class for Mechanism"""
+
+        document = "fragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}"
+        name = "Mechanism"
+        type = "Mechanism"
 
 
 class ModelCollectionModels(BaseModel):
@@ -1014,11 +1520,8 @@ class ZarrStore(HasZarrStoreAccessor, BaseModel):
     )
     id: ID
     key: str
-    "The key where the data is stored."
     bucket: str
-    "The bucket where the data is stored."
-    path: Optional[str] = Field(default=None)
-    "The path to the data. Relative to the bucket."
+    path: str
 
     class Meta:
         """Meta class for ZarrStore"""
@@ -1028,8 +1531,27 @@ class ZarrStore(HasZarrStoreAccessor, BaseModel):
         type = "ZarrStore"
 
 
-class BigFileStore(HasDownloadAccessor, BaseModel):
+class ParquetStore(BaseModel):
     """No documentation"""
+
+    typename: Literal["ParquetStore"] = Field(
+        alias="__typename", default="ParquetStore", exclude=True
+    )
+    id: ID
+    key: str
+    bucket: str
+    path: str
+
+    class Meta:
+        """Meta class for ParquetStore"""
+
+        document = "fragment ParquetStore on ParquetStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}"
+        name = "ParquetStore"
+        type = "ParquetStore"
+
+
+class BigFileStore(HasDownloadAccessor, BaseModel):
+    """A BigFileStore represents a large object stored behind the S3 datalayer."""
 
     typename: Literal["BigFileStore"] = Field(
         alias="__typename", default="BigFileStore", exclude=True
@@ -1046,6 +1568,25 @@ class BigFileStore(HasDownloadAccessor, BaseModel):
         document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}"
         name = "BigFileStore"
         type = "BigFileStore"
+
+
+class MediaStore(HasPresignedDownloadAccessor, BaseModel):
+    """No documentation"""
+
+    typename: Literal["MediaStore"] = Field(
+        alias="__typename", default="MediaStore", exclude=True
+    )
+    id: ID
+    key: str
+    bucket: str
+    path: str
+
+    class Meta:
+        """Meta class for MediaStore"""
+
+        document = "fragment MediaStore on MediaStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}"
+        name = "MediaStore"
+        type = "MediaStore"
 
 
 class Compartment(CompartmentTrait, BaseModel):
@@ -1150,6 +1691,25 @@ class Trace(HasZarrStoreTrait, BaseModel):
         document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}"
         name = "Trace"
         type = "Trace"
+
+
+class ModEnvironment(BaseModel):
+    """No documentation"""
+
+    typename: Literal["ModEnvironment"] = Field(
+        alias="__typename", default="ModEnvironment", exclude=True
+    )
+    id: ID
+    name: str
+    store: BigFileStore
+    mechanisms: List[Mechanism]
+
+    class Meta:
+        """Meta class for ModEnvironment"""
+
+        document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}"
+        name = "ModEnvironment"
+        type = "ModEnvironment"
 
 
 class FileOrigins(HasZarrStoreTrait, BaseModel):
@@ -1358,12 +1918,13 @@ class NeuronModel(BaseModel):
     )
     id: ID
     name: str
+    environment: ModEnvironment
     config: NeuronModelConfig
 
     class Meta:
         """Meta class for NeuronModel"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
         name = "NeuronModel"
         type = "NeuronModel"
 
@@ -1402,7 +1963,7 @@ class Simulation(SimulationTrait, BaseModel):
     class Meta:
         """Meta class for Simulation"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}"
         name = "Simulation"
         type = "Simulation"
 
@@ -1461,6 +2022,222 @@ class CreateBlockMutation(BaseModel):
         """Meta class for CreateBlock"""
 
         document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment AnalogSignalChannel on AnalogSignalChannel {\n  id\n  index\n  trace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment AnalogSignal on AnalogSignal {\n  id\n  unit\n  channels {\n    ...AnalogSignalChannel\n    __typename\n  }\n  __typename\n}\n\nfragment BlockGroup on BlockGroup {\n  id\n  name\n  __typename\n}\n\nfragment BlockSegment on BlockSegment {\n  id\n  analogSignals {\n    ...AnalogSignal\n    __typename\n  }\n  __typename\n}\n\nfragment Block on Block {\n  id\n  segments {\n    ...BlockSegment\n    __typename\n  }\n  groups {\n    ...BlockGroup\n    __typename\n  }\n  __typename\n}\n\nmutation CreateBlock($input: CreateBlockInput!) {\n  createBlock(input: $input) {\n    ...Block\n    __typename\n  }\n}"
+
+
+class RequestBigfileUploadMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    request_bigfile_upload: BigFileUploadGrant = Field(alias="requestBigfileUpload")
+    "Request an upload grant for a big file store"
+
+    class Arguments(BaseModel):
+        """Arguments for RequestBigfileUpload"""
+
+        input: RequestBigFileUploadInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for RequestBigfileUpload"""
+
+        document = "fragment BigFileUploadGrant on BigFileUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  expiresIn\n  store\n  __typename\n}\n\nmutation RequestBigfileUpload($input: RequestBigFileUploadInput!) {\n  requestBigfileUpload(input: $input) {\n    ...BigFileUploadGrant\n    __typename\n  }\n}"
+
+
+class FinishBigfileUploadMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    finish_bigfile_upload: BigFileStore = Field(alias="finishBigfileUpload")
+    "Finalize a big file upload after the client has written the object"
+
+    class Arguments(BaseModel):
+        """Arguments for FinishBigfileUpload"""
+
+        input: FinishBigFileUploadInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for FinishBigfileUpload"""
+
+        document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nmutation FinishBigfileUpload($input: FinishBigFileUploadInput!) {\n  finishBigfileUpload(input: $input) {\n    ...BigFileStore\n    __typename\n  }\n}"
+
+
+class RequestBigfileAccessMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    request_bigfile_access: BigFileAccessGrant = Field(alias="requestBigfileAccess")
+    "Request temporary S3 read credentials for a big file"
+
+    class Arguments(BaseModel):
+        """Arguments for RequestBigfileAccess"""
+
+        input: RequestBigFileAccessInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for RequestBigfileAccess"""
+
+        document = "fragment BigFileAccessGrant on BigFileAccessGrant {\n  accessKey\n  secretKey\n  sessionToken\n  expiresIn\n  path\n  key\n  bucket\n  __typename\n}\n\nmutation RequestBigfileAccess($input: RequestBigFileAccessInput!) {\n  requestBigfileAccess(input: $input) {\n    ...BigFileAccessGrant\n    __typename\n  }\n}"
+
+
+class RequestMediaUploadMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    request_media_upload: MediaUploadGrant = Field(alias="requestMediaUpload")
+    "Upload media and return a URL for access"
+
+    class Arguments(BaseModel):
+        """Arguments for RequestMediaUpload"""
+
+        input: RequestMediaUploadInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for RequestMediaUpload"""
+
+        document = "fragment MediaUploadGrant on MediaUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  expiresIn\n  maxBytes\n  store\n  __typename\n}\n\nmutation RequestMediaUpload($input: RequestMediaUploadInput!) {\n  requestMediaUpload(input: $input) {\n    ...MediaUploadGrant\n    __typename\n  }\n}"
+
+
+class FinishMediaUploadMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    finish_media_upload: MediaStore = Field(alias="finishMediaUpload")
+    "Finalize a media upload after the client has written the object"
+
+    class Arguments(BaseModel):
+        """Arguments for FinishMediaUpload"""
+
+        input: FinishMediaUploadInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for FinishMediaUpload"""
+
+        document = "fragment MediaStore on MediaStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nmutation FinishMediaUpload($input: FinishMediaUploadInput!) {\n  finishMediaUpload(input: $input) {\n    ...MediaStore\n    __typename\n  }\n}"
+
+
+class RequestMediaAccessMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    request_media_access: MediaAccessGrant = Field(alias="requestMediaAccess")
+    "Request temporary S3 read credentials for a media file"
+
+    class Arguments(BaseModel):
+        """Arguments for RequestMediaAccess"""
+
+        input: RequestMediaAccessInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for RequestMediaAccess"""
+
+        document = "fragment MediaAccessGrant on MediaAccessGrant {\n  accessKey\n  secretKey\n  sessionToken\n  expiresIn\n  path\n  key\n  bucket\n  __typename\n}\n\nmutation RequestMediaAccess($input: RequestMediaAccessInput!) {\n  requestMediaAccess(input: $input) {\n    ...MediaAccessGrant\n    __typename\n  }\n}"
+
+
+class RequestParquetUploadMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    request_parquet_upload: ParquetUploadGrant = Field(alias="requestParquetUpload")
+    "Request an upload grant for a Parquet store"
+
+    class Arguments(BaseModel):
+        """Arguments for RequestParquetUpload"""
+
+        input: RequestParquetUploadInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for RequestParquetUpload"""
+
+        document = "fragment ParquetUploadGrant on ParquetUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  expiresIn\n  maxBytes\n  store\n  __typename\n}\n\nmutation RequestParquetUpload($input: RequestParquetUploadInput!) {\n  requestParquetUpload(input: $input) {\n    ...ParquetUploadGrant\n    __typename\n  }\n}"
+
+
+class FinishParquetUploadMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    finish_parquet_upload: ParquetStore = Field(alias="finishParquetUpload")
+    "Finalize a Parquet upload after the client has written the object"
+
+    class Arguments(BaseModel):
+        """Arguments for FinishParquetUpload"""
+
+        input: FinishParquetUploadInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for FinishParquetUpload"""
+
+        document = "fragment ParquetStore on ParquetStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nmutation FinishParquetUpload($input: FinishParquetUploadInput!) {\n  finishParquetUpload(input: $input) {\n    ...ParquetStore\n    __typename\n  }\n}"
+
+
+class RequestParquetAccessMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    request_parquet_access: ParquetAccessGrant = Field(alias="requestParquetAccess")
+    "Request temporary S3 read credentials for a Parquet file"
+
+    class Arguments(BaseModel):
+        """Arguments for RequestParquetAccess"""
+
+        input: RequestParquetAccessInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for RequestParquetAccess"""
+
+        document = "fragment ParquetAccessGrant on ParquetAccessGrant {\n  accessKey\n  secretKey\n  sessionToken\n  expiresIn\n  path\n  key\n  bucket\n  __typename\n}\n\nmutation RequestParquetAccess($input: RequestParquetAccessInput!) {\n  requestParquetAccess(input: $input) {\n    ...ParquetAccessGrant\n    __typename\n  }\n}"
+
+
+class RequestZarrUploadMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    request_zarr_upload: ZarrUploadGrant = Field(alias="requestZarrUpload")
+    "Request an upload grant for a Zarr store"
+
+    class Arguments(BaseModel):
+        """Arguments for RequestZarrUpload"""
+
+        input: RequestZarrUploadInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for RequestZarrUpload"""
+
+        document = "fragment ZarrUploadGrant on ZarrUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  expiresIn\n  maxBytes\n  store\n  __typename\n}\n\nmutation RequestZarrUpload($input: RequestZarrUploadInput!) {\n  requestZarrUpload(input: $input) {\n    ...ZarrUploadGrant\n    __typename\n  }\n}"
+
+
+class FinishZarrUploadMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    finish_zarr_upload: ZarrStore = Field(alias="finishZarrUpload")
+    "Finalize a Zarr upload after the client has written the object"
+
+    class Arguments(BaseModel):
+        """Arguments for FinishZarrUpload"""
+
+        input: FinishZarrUploadInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for FinishZarrUpload"""
+
+        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nmutation FinishZarrUpload($input: FinishZarrUploadInput!) {\n  finishZarrUpload(input: $input) {\n    ...ZarrStore\n    __typename\n  }\n}"
+
+
+class RequestZarrAccessMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    request_zarr_access: ZarrAccessGrant = Field(alias="requestZarrAccess")
+    "Request temporary S3 read credentials for a Zarr store"
+
+    class Arguments(BaseModel):
+        """Arguments for RequestZarrAccess"""
+
+        input: RequestZarrAccessInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for RequestZarrAccess"""
+
+        document = "fragment ZarrAccessGrant on ZarrAccessGrant {\n  accessKey\n  secretKey\n  sessionToken\n  expiresIn\n  path\n  key\n  bucket\n  __typename\n}\n\nmutation RequestZarrAccess($input: RequestZarrAccessInput!) {\n  requestZarrAccess(input: $input) {\n    ...ZarrAccessGrant\n    __typename\n  }\n}"
 
 
 class CreateDatasetMutationCreatedataset(BaseModel):
@@ -1548,6 +2325,24 @@ class RevertDatasetMutation(BaseModel):
         document = "mutation RevertDataset($input: RevertInput!) {\n  revertDataset(input: $input) {\n    id\n    name\n    description\n    __typename\n  }\n}"
 
 
+class CreateModEnvironmentMutation(BaseModel):
+    """No documentation found for this operation."""
+
+    create_mod_environment: ModEnvironment = Field(alias="createModEnvironment")
+    "Create a mechanism from a mod file"
+
+    class Arguments(BaseModel):
+        """Arguments for CreateModEnvironment"""
+
+        input: CreateModEnvironmentInput
+        model_config = ConfigDict(populate_by_name=True)
+
+    class Meta:
+        """Meta class for CreateModEnvironment"""
+
+        document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nmutation CreateModEnvironment($input: CreateModEnvironmentInput!) {\n  createModEnvironment(input: $input) {\n    ...ModEnvironment\n    __typename\n  }\n}"
+
+
 class CreateExperimentMutation(BaseModel):
     """No documentation found for this operation."""
 
@@ -1584,42 +2379,6 @@ class From_file_likeMutation(BaseModel):
         document = "fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment File on File {\n  origins {\n    id\n    __typename\n  }\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}\n\nmutation from_file_like($input: FromFileLike!) {\n  fromFileLike(input: $input) {\n    ...File\n    __typename\n  }\n}"
 
 
-class RequestFileUploadMutation(BaseModel):
-    """No documentation found for this operation."""
-
-    request_file_upload: Credentials = Field(alias="requestFileUpload")
-    "Request credentials to upload a new file"
-
-    class Arguments(BaseModel):
-        """Arguments for RequestFileUpload"""
-
-        input: RequestFileUploadInput
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for RequestFileUpload"""
-
-        document = "fragment Credentials on Credentials {\n  accessKey\n  status\n  secretKey\n  bucket\n  key\n  sessionToken\n  store\n  __typename\n}\n\nmutation RequestFileUpload($input: RequestFileUploadInput!) {\n  requestFileUpload(input: $input) {\n    ...Credentials\n    __typename\n  }\n}"
-
-
-class RequestFileAccessMutation(BaseModel):
-    """No documentation found for this operation."""
-
-    request_file_access: AccessCredentials = Field(alias="requestFileAccess")
-    "Request credentials to access a file"
-
-    class Arguments(BaseModel):
-        """Arguments for RequestFileAccess"""
-
-        input: RequestFileAccessInput
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for RequestFileAccess"""
-
-        document = "fragment AccessCredentials on AccessCredentials {\n  accessKey\n  secretKey\n  bucket\n  key\n  sessionToken\n  path\n  __typename\n}\n\nmutation RequestFileAccess($input: RequestFileAccessInput!) {\n  requestFileAccess(input: $input) {\n    ...AccessCredentials\n    __typename\n  }\n}"
-
-
 class CreateModelCollectionMutation(BaseModel):
     """No documentation found for this operation."""
 
@@ -1653,7 +2412,7 @@ class CreateNeuronmodelMutation(BaseModel):
     class Meta:
         """Meta class for CreateNeuronmodel"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nmutation CreateNeuronmodel($input: CreateNeuronModelInput!) {\n  createNeuronModel(input: $input) {\n    ...NeuronModel\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nmutation CreateNeuronmodel($input: CreateNeuronModelInput!) {\n  createNeuronModel(input: $input) {\n    ...NeuronModel\n    __typename\n  }\n}"
 
 
 class CreateRoiMutation(BaseModel):
@@ -1725,7 +2484,7 @@ class CreateSimulationMutation(BaseModel):
     class Meta:
         """Meta class for CreateSimulation"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nmutation CreateSimulation($input: CreateSimulationInput!) {\n  createSimulation(input: $input) {\n    ...Simulation\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nmutation CreateSimulation($input: CreateSimulationInput!) {\n  createSimulation(input: $input) {\n    ...Simulation\n    __typename\n  }\n}"
 
 
 class FromTraceLikeMutation(BaseModel):
@@ -1744,42 +2503,6 @@ class FromTraceLikeMutation(BaseModel):
         """Meta class for FromTraceLike"""
 
         document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nmutation FromTraceLike($input: FromTraceLikeInput!) {\n  fromTraceLike(input: $input) {\n    ...Trace\n    __typename\n  }\n}"
-
-
-class RequestUploadMutation(BaseModel):
-    """No documentation found for this operation."""
-
-    request_upload: Credentials = Field(alias="requestUpload")
-    "Request credentials to upload a new image"
-
-    class Arguments(BaseModel):
-        """Arguments for RequestUpload"""
-
-        input: RequestUploadInput
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for RequestUpload"""
-
-        document = "fragment Credentials on Credentials {\n  accessKey\n  status\n  secretKey\n  bucket\n  key\n  sessionToken\n  store\n  __typename\n}\n\nmutation RequestUpload($input: RequestUploadInput!) {\n  requestUpload(input: $input) {\n    ...Credentials\n    __typename\n  }\n}"
-
-
-class RequestAccessMutation(BaseModel):
-    """No documentation found for this operation."""
-
-    request_access: AccessCredentials = Field(alias="requestAccess")
-    "Request credentials to access an image"
-
-    class Arguments(BaseModel):
-        """Arguments for RequestAccess"""
-
-        input: RequestAccessInput
-        model_config = ConfigDict(populate_by_name=True)
-
-    class Meta:
-        """Meta class for RequestAccess"""
-
-        document = "fragment AccessCredentials on AccessCredentials {\n  accessKey\n  secretKey\n  bucket\n  key\n  sessionToken\n  path\n  __typename\n}\n\nmutation RequestAccess($input: RequestAccessInput!) {\n  requestAccess(input: $input) {\n    ...AccessCredentials\n    __typename\n  }\n}"
 
 
 class GetBlockQuery(BaseModel):
@@ -2029,7 +2752,7 @@ class GetNeuronModelQuery(BaseModel):
     class Meta:
         """Meta class for GetNeuronModel"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetNeuronModel($id: ID!) {\n  neuronModel(id: $id) {\n    ...NeuronModel\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetNeuronModel($id: ID!) {\n  neuronModel(id: $id) {\n    ...NeuronModel\n    __typename\n  }\n}"
 
 
 class SearchNeuronModelsQueryOptions(BaseModel):
@@ -2075,7 +2798,7 @@ class ListNeuronModelsQuery(BaseModel):
     class Meta:
         """Meta class for ListNeuronModels"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListNeuronModels($filter: NeuronModelFilter, $pagination: OffsetPaginationInput) {\n  neuronModels(filters: $filter, pagination: $pagination) {\n    ...NeuronModel\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListNeuronModels($filter: NeuronModelFilter, $pagination: OffsetPaginationInput) {\n  neuronModels(filters: $filter, pagination: $pagination) {\n    ...NeuronModel\n    __typename\n  }\n}"
 
 
 class GetRecordingQuery(BaseModel):
@@ -2216,7 +2939,7 @@ class GetSimulationQuery(BaseModel):
     class Meta:
         """Meta class for GetSimulation"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery GetSimulation($id: ID!) {\n  simulation(id: $id) {\n    ...Simulation\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery GetSimulation($id: ID!) {\n  simulation(id: $id) {\n    ...Simulation\n    __typename\n  }\n}"
 
 
 class SearchSimulationsQueryOptions(SimulationTrait, BaseModel):
@@ -2262,7 +2985,7 @@ class ListSimulationsQuery(BaseModel):
     class Meta:
         """Meta class for ListSimulations"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery ListSimulations($filter: SimulationFilter, $pagination: OffsetPaginationInput) {\n  simulations(filters: $filter, pagination: $pagination) {\n    ...Simulation\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery ListSimulations($filter: SimulationFilter, $pagination: OffsetPaginationInput) {\n  simulations(filters: $filter, pagination: $pagination) {\n    ...Simulation\n    __typename\n  }\n}"
 
 
 class GetStimulusQuery(BaseModel):
@@ -2569,6 +3292,668 @@ def create_block(
     ).create_block
 
 
+async def arequest_bigfile_upload(
+    original_file_name: str,
+    file_size: Optional[int] = None,
+    content_type: Optional[str] = None,
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    rath: Optional[ElektroRath] = None,
+) -> BigFileUploadGrant:
+    """RequestBigfileUpload
+
+    Request an upload grant for a big file store
+
+    Args:
+        original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        file_size: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+        content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        BigFileUploadGrant
+    """
+    return (
+        await aexecute(
+            RequestBigfileUploadMutation,
+            {
+                "input": {
+                    "originalFileName": original_file_name,
+                    "fileSize": file_size,
+                    "contentType": content_type,
+                    "host": host,
+                    "port": port,
+                }
+            },
+            rath=rath,
+        )
+    ).request_bigfile_upload
+
+
+def request_bigfile_upload(
+    original_file_name: str,
+    file_size: Optional[int] = None,
+    content_type: Optional[str] = None,
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    rath: Optional[ElektroRath] = None,
+) -> BigFileUploadGrant:
+    """RequestBigfileUpload
+
+    Request an upload grant for a big file store
+
+    Args:
+        original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        file_size: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+        content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        BigFileUploadGrant
+    """
+    return execute(
+        RequestBigfileUploadMutation,
+        {
+            "input": {
+                "originalFileName": original_file_name,
+                "fileSize": file_size,
+                "contentType": content_type,
+                "host": host,
+                "port": port,
+            }
+        },
+        rath=rath,
+    ).request_bigfile_upload
+
+
+async def afinish_bigfile_upload(
+    store_id: str, valid: bool, rath: Optional[ElektroRath] = None
+) -> BigFileStore:
+    """FinishBigfileUpload
+
+    Finalize a big file upload after the client has written the object
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        valid: The `Boolean` scalar type represents `true` or `false`. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        BigFileStore
+    """
+    return (
+        await aexecute(
+            FinishBigfileUploadMutation,
+            {"input": {"storeId": store_id, "valid": valid}},
+            rath=rath,
+        )
+    ).finish_bigfile_upload
+
+
+def finish_bigfile_upload(
+    store_id: str, valid: bool, rath: Optional[ElektroRath] = None
+) -> BigFileStore:
+    """FinishBigfileUpload
+
+    Finalize a big file upload after the client has written the object
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        valid: The `Boolean` scalar type represents `true` or `false`. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        BigFileStore
+    """
+    return execute(
+        FinishBigfileUploadMutation,
+        {"input": {"storeId": store_id, "valid": valid}},
+        rath=rath,
+    ).finish_bigfile_upload
+
+
+async def arequest_bigfile_access(
+    store_id: str, rath: Optional[ElektroRath] = None
+) -> BigFileAccessGrant:
+    """RequestBigfileAccess
+
+    Request temporary S3 read credentials for a big file
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        BigFileAccessGrant
+    """
+    return (
+        await aexecute(
+            RequestBigfileAccessMutation, {"input": {"storeId": store_id}}, rath=rath
+        )
+    ).request_bigfile_access
+
+
+def request_bigfile_access(
+    store_id: str, rath: Optional[ElektroRath] = None
+) -> BigFileAccessGrant:
+    """RequestBigfileAccess
+
+    Request temporary S3 read credentials for a big file
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        BigFileAccessGrant
+    """
+    return execute(
+        RequestBigfileAccessMutation, {"input": {"storeId": store_id}}, rath=rath
+    ).request_bigfile_access
+
+
+async def arequest_media_upload(
+    original_file_name: str,
+    file_size: Optional[int] = None,
+    content_type: Optional[str] = None,
+    rath: Optional[ElektroRath] = None,
+) -> MediaUploadGrant:
+    """RequestMediaUpload
+
+    Upload media and return a URL for access
+
+    Args:
+        original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        file_size: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+        content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        MediaUploadGrant
+    """
+    return (
+        await aexecute(
+            RequestMediaUploadMutation,
+            {
+                "input": {
+                    "originalFileName": original_file_name,
+                    "fileSize": file_size,
+                    "contentType": content_type,
+                }
+            },
+            rath=rath,
+        )
+    ).request_media_upload
+
+
+def request_media_upload(
+    original_file_name: str,
+    file_size: Optional[int] = None,
+    content_type: Optional[str] = None,
+    rath: Optional[ElektroRath] = None,
+) -> MediaUploadGrant:
+    """RequestMediaUpload
+
+    Upload media and return a URL for access
+
+    Args:
+        original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        file_size: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+        content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        MediaUploadGrant
+    """
+    return execute(
+        RequestMediaUploadMutation,
+        {
+            "input": {
+                "originalFileName": original_file_name,
+                "fileSize": file_size,
+                "contentType": content_type,
+            }
+        },
+        rath=rath,
+    ).request_media_upload
+
+
+async def afinish_media_upload(
+    store_id: str, valid: bool, rath: Optional[ElektroRath] = None
+) -> MediaStore:
+    """FinishMediaUpload
+
+    Finalize a media upload after the client has written the object
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        valid: The `Boolean` scalar type represents `true` or `false`. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        MediaStore
+    """
+    return (
+        await aexecute(
+            FinishMediaUploadMutation,
+            {"input": {"storeId": store_id, "valid": valid}},
+            rath=rath,
+        )
+    ).finish_media_upload
+
+
+def finish_media_upload(
+    store_id: str, valid: bool, rath: Optional[ElektroRath] = None
+) -> MediaStore:
+    """FinishMediaUpload
+
+    Finalize a media upload after the client has written the object
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        valid: The `Boolean` scalar type represents `true` or `false`. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        MediaStore
+    """
+    return execute(
+        FinishMediaUploadMutation,
+        {"input": {"storeId": store_id, "valid": valid}},
+        rath=rath,
+    ).finish_media_upload
+
+
+async def arequest_media_access(
+    store_id: str, rath: Optional[ElektroRath] = None
+) -> MediaAccessGrant:
+    """RequestMediaAccess
+
+    Request temporary S3 read credentials for a media file
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        MediaAccessGrant
+    """
+    return (
+        await aexecute(
+            RequestMediaAccessMutation, {"input": {"storeId": store_id}}, rath=rath
+        )
+    ).request_media_access
+
+
+def request_media_access(
+    store_id: str, rath: Optional[ElektroRath] = None
+) -> MediaAccessGrant:
+    """RequestMediaAccess
+
+    Request temporary S3 read credentials for a media file
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        MediaAccessGrant
+    """
+    return execute(
+        RequestMediaAccessMutation, {"input": {"storeId": store_id}}, rath=rath
+    ).request_media_access
+
+
+async def arequest_parquet_upload(
+    original_file_name: str,
+    datalayer: str,
+    protocol: str,
+    content_type: Optional[str] = None,
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    rath: Optional[ElektroRath] = None,
+) -> ParquetUploadGrant:
+    """RequestParquetUpload
+
+    Request an upload grant for a Parquet store
+
+    Args:
+        original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+        protocol: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ParquetUploadGrant
+    """
+    return (
+        await aexecute(
+            RequestParquetUploadMutation,
+            {
+                "input": {
+                    "originalFileName": original_file_name,
+                    "contentType": content_type,
+                    "datalayer": datalayer,
+                    "host": host,
+                    "port": port,
+                    "protocol": protocol,
+                }
+            },
+            rath=rath,
+        )
+    ).request_parquet_upload
+
+
+def request_parquet_upload(
+    original_file_name: str,
+    datalayer: str,
+    protocol: str,
+    content_type: Optional[str] = None,
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    rath: Optional[ElektroRath] = None,
+) -> ParquetUploadGrant:
+    """RequestParquetUpload
+
+    Request an upload grant for a Parquet store
+
+    Args:
+        original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+        protocol: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ParquetUploadGrant
+    """
+    return execute(
+        RequestParquetUploadMutation,
+        {
+            "input": {
+                "originalFileName": original_file_name,
+                "contentType": content_type,
+                "datalayer": datalayer,
+                "host": host,
+                "port": port,
+                "protocol": protocol,
+            }
+        },
+        rath=rath,
+    ).request_parquet_upload
+
+
+async def afinish_parquet_upload(
+    store_id: str, valid: bool, rath: Optional[ElektroRath] = None
+) -> ParquetStore:
+    """FinishParquetUpload
+
+    Finalize a Parquet upload after the client has written the object
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        valid: The `Boolean` scalar type represents `true` or `false`. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ParquetStore
+    """
+    return (
+        await aexecute(
+            FinishParquetUploadMutation,
+            {"input": {"storeId": store_id, "valid": valid}},
+            rath=rath,
+        )
+    ).finish_parquet_upload
+
+
+def finish_parquet_upload(
+    store_id: str, valid: bool, rath: Optional[ElektroRath] = None
+) -> ParquetStore:
+    """FinishParquetUpload
+
+    Finalize a Parquet upload after the client has written the object
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        valid: The `Boolean` scalar type represents `true` or `false`. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ParquetStore
+    """
+    return execute(
+        FinishParquetUploadMutation,
+        {"input": {"storeId": store_id, "valid": valid}},
+        rath=rath,
+    ).finish_parquet_upload
+
+
+async def arequest_parquet_access(
+    store_id: str, rath: Optional[ElektroRath] = None
+) -> ParquetAccessGrant:
+    """RequestParquetAccess
+
+    Request temporary S3 read credentials for a Parquet file
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ParquetAccessGrant
+    """
+    return (
+        await aexecute(
+            RequestParquetAccessMutation, {"input": {"storeId": store_id}}, rath=rath
+        )
+    ).request_parquet_access
+
+
+def request_parquet_access(
+    store_id: str, rath: Optional[ElektroRath] = None
+) -> ParquetAccessGrant:
+    """RequestParquetAccess
+
+    Request temporary S3 read credentials for a Parquet file
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ParquetAccessGrant
+    """
+    return execute(
+        RequestParquetAccessMutation, {"input": {"storeId": store_id}}, rath=rath
+    ).request_parquet_access
+
+
+async def arequest_zarr_upload(
+    datalayer: str,
+    protocol: str,
+    shape: Optional[Iterable[int]] = None,
+    chunks: Optional[Iterable[int]] = None,
+    version: Optional[str] = None,
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    rath: Optional[ElektroRath] = None,
+) -> ZarrUploadGrant:
+    """RequestZarrUpload
+
+    Request an upload grant for a Zarr store
+
+    Args:
+        shape: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
+        chunks: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
+        version: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+        protocol: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ZarrUploadGrant
+    """
+    return (
+        await aexecute(
+            RequestZarrUploadMutation,
+            {
+                "input": {
+                    "shape": shape,
+                    "chunks": chunks,
+                    "version": version,
+                    "datalayer": datalayer,
+                    "host": host,
+                    "port": port,
+                    "protocol": protocol,
+                }
+            },
+            rath=rath,
+        )
+    ).request_zarr_upload
+
+
+def request_zarr_upload(
+    datalayer: str,
+    protocol: str,
+    shape: Optional[Iterable[int]] = None,
+    chunks: Optional[Iterable[int]] = None,
+    version: Optional[str] = None,
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+    rath: Optional[ElektroRath] = None,
+) -> ZarrUploadGrant:
+    """RequestZarrUpload
+
+    Request an upload grant for a Zarr store
+
+    Args:
+        shape: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
+        chunks: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
+        version: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+        protocol: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ZarrUploadGrant
+    """
+    return execute(
+        RequestZarrUploadMutation,
+        {
+            "input": {
+                "shape": shape,
+                "chunks": chunks,
+                "version": version,
+                "datalayer": datalayer,
+                "host": host,
+                "port": port,
+                "protocol": protocol,
+            }
+        },
+        rath=rath,
+    ).request_zarr_upload
+
+
+async def afinish_zarr_upload(
+    store_id: str, valid: bool, rath: Optional[ElektroRath] = None
+) -> ZarrStore:
+    """FinishZarrUpload
+
+    Finalize a Zarr upload after the client has written the object
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        valid: The `Boolean` scalar type represents `true` or `false`. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ZarrStore
+    """
+    return (
+        await aexecute(
+            FinishZarrUploadMutation,
+            {"input": {"storeId": store_id, "valid": valid}},
+            rath=rath,
+        )
+    ).finish_zarr_upload
+
+
+def finish_zarr_upload(
+    store_id: str, valid: bool, rath: Optional[ElektroRath] = None
+) -> ZarrStore:
+    """FinishZarrUpload
+
+    Finalize a Zarr upload after the client has written the object
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        valid: The `Boolean` scalar type represents `true` or `false`. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ZarrStore
+    """
+    return execute(
+        FinishZarrUploadMutation,
+        {"input": {"storeId": store_id, "valid": valid}},
+        rath=rath,
+    ).finish_zarr_upload
+
+
+async def arequest_zarr_access(
+    store_id: str, rath: Optional[ElektroRath] = None
+) -> ZarrAccessGrant:
+    """RequestZarrAccess
+
+    Request temporary S3 read credentials for a Zarr store
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ZarrAccessGrant
+    """
+    return (
+        await aexecute(
+            RequestZarrAccessMutation, {"input": {"storeId": store_id}}, rath=rath
+        )
+    ).request_zarr_access
+
+
+def request_zarr_access(
+    store_id: str, rath: Optional[ElektroRath] = None
+) -> ZarrAccessGrant:
+    """RequestZarrAccess
+
+    Request temporary S3 read credentials for a Zarr store
+
+    Args:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ZarrAccessGrant
+    """
+    return execute(
+        RequestZarrAccessMutation, {"input": {"storeId": store_id}}, rath=rath
+    ).request_zarr_access
+
+
 async def acreate_dataset(
     name: str, rath: Optional[ElektroRath] = None
 ) -> CreateDatasetMutationCreatedataset:
@@ -2691,6 +4076,78 @@ def revert_dataset(
     return execute(
         RevertDatasetMutation, {"input": {"id": id, "historyId": history_id}}, rath=rath
     ).revert_dataset
+
+
+async def acreate_mod_environment(
+    name: str,
+    zip_file: BigFileLike,
+    mechanisms: Iterable[MechanismInput],
+    description: Optional[str] = None,
+    rath: Optional[ElektroRath] = None,
+) -> ModEnvironment:
+    """CreateModEnvironment
+
+    Create a mechanism from a mod file
+
+    Args:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        zip_file: A type representing a big file store reference, which can be either a string ID or a more complex object. (required)
+        mechanisms: Input for creating a mechanism (required) (list) (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ModEnvironment
+    """
+    return (
+        await aexecute(
+            CreateModEnvironmentMutation,
+            {
+                "input": {
+                    "name": name,
+                    "description": description,
+                    "zipFile": zip_file,
+                    "mechanisms": mechanisms,
+                }
+            },
+            rath=rath,
+        )
+    ).create_mod_environment
+
+
+def create_mod_environment(
+    name: str,
+    zip_file: BigFileLike,
+    mechanisms: Iterable[MechanismInput],
+    description: Optional[str] = None,
+    rath: Optional[ElektroRath] = None,
+) -> ModEnvironment:
+    """CreateModEnvironment
+
+    Create a mechanism from a mod file
+
+    Args:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        zip_file: A type representing a big file store reference, which can be either a string ID or a more complex object. (required)
+        mechanisms: Input for creating a mechanism (required) (list) (required)
+        rath (elektro.rath.ElektroRath, optional): The elektro rath client
+
+    Returns:
+        ModEnvironment
+    """
+    return execute(
+        CreateModEnvironmentMutation,
+        {
+            "input": {
+                "name": name,
+                "description": description,
+                "zipFile": zip_file,
+                "mechanisms": mechanisms,
+            }
+        },
+        rath=rath,
+    ).create_mod_environment
 
 
 async def acreate_experiment(
@@ -2836,110 +4293,6 @@ def from_file_like(
     ).from_file_like
 
 
-async def arequest_file_upload(
-    key: str,
-    datalayer: str,
-    hash: Optional[str] = None,
-    rath: Optional[ElektroRath] = None,
-) -> Credentials:
-    """RequestFileUpload
-
-    Request credentials to upload a new file
-
-    Args:
-        key: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        hash: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        Credentials
-    """
-    return (
-        await aexecute(
-            RequestFileUploadMutation,
-            {"input": {"key": key, "datalayer": datalayer, "hash": hash}},
-            rath=rath,
-        )
-    ).request_file_upload
-
-
-def request_file_upload(
-    key: str,
-    datalayer: str,
-    hash: Optional[str] = None,
-    rath: Optional[ElektroRath] = None,
-) -> Credentials:
-    """RequestFileUpload
-
-    Request credentials to upload a new file
-
-    Args:
-        key: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        hash: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        Credentials
-    """
-    return execute(
-        RequestFileUploadMutation,
-        {"input": {"key": key, "datalayer": datalayer, "hash": hash}},
-        rath=rath,
-    ).request_file_upload
-
-
-async def arequest_file_access(
-    store: IDCoercible,
-    duration: Optional[int] = None,
-    rath: Optional[ElektroRath] = None,
-) -> AccessCredentials:
-    """RequestFileAccess
-
-    Request credentials to access a file
-
-    Args:
-        store: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
-        duration: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        AccessCredentials
-    """
-    return (
-        await aexecute(
-            RequestFileAccessMutation,
-            {"input": {"store": store, "duration": duration}},
-            rath=rath,
-        )
-    ).request_file_access
-
-
-def request_file_access(
-    store: IDCoercible,
-    duration: Optional[int] = None,
-    rath: Optional[ElektroRath] = None,
-) -> AccessCredentials:
-    """RequestFileAccess
-
-    Request credentials to access a file
-
-    Args:
-        store: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
-        duration: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        AccessCredentials
-    """
-    return execute(
-        RequestFileAccessMutation,
-        {"input": {"store": store, "duration": duration}},
-        rath=rath,
-    ).request_file_access
-
-
 async def acreate_model_collection(
     name: str,
     models: Iterable[IDCoercible],
@@ -2997,6 +4350,7 @@ def create_model_collection(
 async def acreate_neuronmodel(
     name: str,
     config: ModelConfigInput,
+    environment: Optional[IDCoercible] = None,
     parent: Optional[IDCoercible] = None,
     description: Optional[str] = None,
     rath: Optional[ElektroRath] = None,
@@ -3007,6 +4361,7 @@ async def acreate_neuronmodel(
 
     Args:
         name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        environment: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
         parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
         description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         config:  (required)
@@ -3021,6 +4376,7 @@ async def acreate_neuronmodel(
             {
                 "input": {
                     "name": name,
+                    "environment": environment,
                     "parent": parent,
                     "description": description,
                     "config": config,
@@ -3034,6 +4390,7 @@ async def acreate_neuronmodel(
 def create_neuronmodel(
     name: str,
     config: ModelConfigInput,
+    environment: Optional[IDCoercible] = None,
     parent: Optional[IDCoercible] = None,
     description: Optional[str] = None,
     rath: Optional[ElektroRath] = None,
@@ -3044,6 +4401,7 @@ def create_neuronmodel(
 
     Args:
         name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        environment: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
         parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
         description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         config:  (required)
@@ -3057,6 +4415,7 @@ def create_neuronmodel(
         {
             "input": {
                 "name": name,
+                "environment": environment,
                 "parent": parent,
                 "description": description,
                 "config": config,
@@ -3227,7 +4586,7 @@ async def acreate_simulation(
     recordings: Iterable[RecordingInput],
     stimuli: Iterable[StimulusInput],
     duration: Millisecond,
-    time_trace: Optional[TraceCoercible] = None,
+    time_trace: Optional[ArrayLike] = None,
     dt: Optional[Millisecond] = None,
     rath: Optional[ElektroRath] = None,
 ) -> Simulation:
@@ -3240,7 +4599,7 @@ async def acreate_simulation(
         model: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
         recordings:  (required) (list) (required)
         stimuli:  (required) (list) (required)
-        time_trace: The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer
+        time_trace: A type representing an array-like store reference, which can be either a string ID or a more complex object.
         duration: The `Matrix` scalar type represents a matrix values as specified by (required)
         dt: The `Matrix` scalar type represents a matrix values as specified by
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
@@ -3273,7 +4632,7 @@ def create_simulation(
     recordings: Iterable[RecordingInput],
     stimuli: Iterable[StimulusInput],
     duration: Millisecond,
-    time_trace: Optional[TraceCoercible] = None,
+    time_trace: Optional[ArrayLike] = None,
     dt: Optional[Millisecond] = None,
     rath: Optional[ElektroRath] = None,
 ) -> Simulation:
@@ -3286,7 +4645,7 @@ def create_simulation(
         model: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
         recordings:  (required) (list) (required)
         stimuli:  (required) (list) (required)
-        time_trace: The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer
+        time_trace: A type representing an array-like store reference, which can be either a string ID or a more complex object.
         duration: The `Matrix` scalar type represents a matrix values as specified by (required)
         dt: The `Matrix` scalar type represents a matrix values as specified by
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
@@ -3312,7 +4671,7 @@ def create_simulation(
 
 
 async def afrom_trace_like(
-    array: TraceCoercible,
+    array: ArrayLike,
     name: str,
     dataset: Optional[IDCoercible] = None,
     tags: Optional[Iterable[str]] = None,
@@ -3342,7 +4701,7 @@ async def afrom_trace_like(
 
 
 def from_trace_like(
-    array: TraceCoercible,
+    array: ArrayLike,
     name: str,
     dataset: Optional[IDCoercible] = None,
     tags: Optional[Iterable[str]] = None,
@@ -3367,102 +4726,6 @@ def from_trace_like(
         {"input": {"array": array, "name": name, "dataset": dataset, "tags": tags}},
         rath=rath,
     ).from_trace_like
-
-
-async def arequest_upload(
-    key: str, datalayer: str, rath: Optional[ElektroRath] = None
-) -> Credentials:
-    """RequestUpload
-
-    Request credentials to upload a new image
-
-    Args:
-        key: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        Credentials
-    """
-    return (
-        await aexecute(
-            RequestUploadMutation,
-            {"input": {"key": key, "datalayer": datalayer}},
-            rath=rath,
-        )
-    ).request_upload
-
-
-def request_upload(
-    key: str, datalayer: str, rath: Optional[ElektroRath] = None
-) -> Credentials:
-    """RequestUpload
-
-    Request credentials to upload a new image
-
-    Args:
-        key: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        Credentials
-    """
-    return execute(
-        RequestUploadMutation,
-        {"input": {"key": key, "datalayer": datalayer}},
-        rath=rath,
-    ).request_upload
-
-
-async def arequest_access(
-    store: IDCoercible,
-    duration: Optional[int] = None,
-    rath: Optional[ElektroRath] = None,
-) -> AccessCredentials:
-    """RequestAccess
-
-    Request credentials to access an image
-
-    Args:
-        store: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
-        duration: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        AccessCredentials
-    """
-    return (
-        await aexecute(
-            RequestAccessMutation,
-            {"input": {"store": store, "duration": duration}},
-            rath=rath,
-        )
-    ).request_access
-
-
-def request_access(
-    store: IDCoercible,
-    duration: Optional[int] = None,
-    rath: Optional[ElektroRath] = None,
-) -> AccessCredentials:
-    """RequestAccess
-
-    Request credentials to access an image
-
-    Args:
-        store: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
-        duration: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
-        rath (elektro.rath.ElektroRath, optional): The elektro rath client
-
-    Returns:
-        AccessCredentials
-    """
-    return execute(
-        RequestAccessMutation,
-        {"input": {"store": store, "duration": duration}},
-        rath=rath,
-    ).request_access
 
 
 async def aget_block(id: ID, rath: Optional[ElektroRath] = None) -> Block:
@@ -4715,13 +5978,14 @@ def watch_traces(
         yield event.traces
 
 
-AnalogSignalInput.model_rebuild()
+ArgPortInput.model_rebuild()
+AssignWidgetInput.model_rebuild()
 BiophysicsInput.model_rebuild()
 BlockSegmentInput.model_rebuild()
 CellInput.model_rebuild()
 CompartmentInput.model_rebuild()
-CreateBlockInput.model_rebuild()
 CreateExperimentInput.model_rebuild()
+CreateModEnvironmentInput.model_rebuild()
 CreateNeuronModelInput.model_rebuild()
 CreateSimulationInput.model_rebuild()
 DatasetFilter.model_rebuild()
@@ -4730,8 +5994,6 @@ ModelCollectionFilter.model_rebuild()
 ModelConfigInput.model_rebuild()
 NeuronModelFilter.model_rebuild()
 RecordingFilter.model_rebuild()
-SectionInput.model_rebuild()
 SimulationFilter.model_rebuild()
 StimulusFilter.model_rebuild()
-TopologyInput.model_rebuild()
 TraceFilter.model_rebuild()

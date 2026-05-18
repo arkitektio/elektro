@@ -79,6 +79,9 @@ fragment NetStimulator on NetStimulator {
 fragment NeuronModel on NeuronModel {
   id
   name
+  environment {
+    ...ModEnvironment
+  }
   config {
     vInit
     celsius
