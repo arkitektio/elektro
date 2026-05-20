@@ -829,6 +829,10 @@ input MechanismInput {
   parameters: [ArgPortInput!]!
 }
 
+input MechanismOrder @oneOf {
+  createdAt: Ordering
+}
+
 """Temporary S3 credentials for reading a media object."""
 type MediaAccessGrant {
   status: String!
@@ -885,7 +889,23 @@ type ModEnvironment {
   name: String!
   description: String
   store: BigFileStore!
-  mechanisms(filters: MechanismFilter, pagination: OffsetPaginationInput): [Mechanism!]!
+  mechanisms(filters: MechanismFilter, ordering: [MechanismOrder!]! = [], pagination: OffsetPaginationInput): [Mechanism!]!
+}
+
+input ModEnvironmentFilter {
+  ids: [ID!]
+  search: String
+  id: ID
+  name: StrFilterLookup
+  description: StrFilterLookup
+  AND: ModEnvironmentFilter
+  OR: ModEnvironmentFilter
+  NOT: ModEnvironmentFilter
+  DISTINCT: Boolean
+}
+
+input ModEnvironmentOrder @oneOf {
+  createdAt: Ordering
 }
 
 """A change made to a model."""
@@ -1298,6 +1318,10 @@ type Query {
   myfiles(filters: FileFilter, pagination: OffsetPaginationInput): [File!]!
   randomTrace: Trace!
   blockStats(filters: BlockFilter = null): BlockStats!
+  modEnvironments(filters: ModEnvironmentFilter, ordering: [ModEnvironmentOrder!]! = [], pagination: OffsetPaginationInput): [ModEnvironment!]!
+  mechanisms(filters: MechanismFilter, ordering: [MechanismOrder!]! = [], pagination: OffsetPaginationInput): [Mechanism!]!
+  mechanism(id: ID!): Mechanism!
+  modEnvironment(id: ID!): ModEnvironment!
 
   """Returns a list of images"""
   stimulus(
@@ -1500,10 +1524,8 @@ input RequestParquetAccessInput {
 input RequestParquetUploadInput {
   originalFileName: String!
   contentType: String = null
-  datalayer: String! = "s3"
   host: String = null
   port: Int = null
-  protocol: String! = "https"
 }
 
 input RequestZarrAccessInput {
@@ -1514,10 +1536,8 @@ input RequestZarrUploadInput {
   shape: [Int!] = null
   chunks: [Int!] = null
   version: String = null
-  datalayer: String! = "s3"
   host: String = null
   port: Int = null
-  protocol: String! = "https"
 }
 
 type Requires {

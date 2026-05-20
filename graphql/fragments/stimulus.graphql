@@ -9,7 +9,23 @@ fragment Stimulus on Stimulus {
       ...ZarrStore
     }
   }
-
   position
   location
+}
+
+
+fragment DetailStimulus on Stimulus {
+  id
+  label
+  cell
+  kind
+  trace {
+    id
+    store {
+      ...ZarrStore
+    }
+  }
+  simulation {
+    ...Simulation
+  }
 }

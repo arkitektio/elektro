@@ -1,40 +1,40 @@
-from rath.scalars import IDCoercible, ID
-from elektro.rath import ElektroRath
-from datalayer.scalars import ArrayLike, BigFileLike
+from elektro.funcs import subscribe, aexecute, execute, asubscribe
 from elektro.traits import (
+    IsVectorizableTrait,
+    CompartmentTrait,
+    BiophysicsTrait,
+    ModelConfigTrait,
+    BiophysicsInputTrait,
+    TopologyInputTrait,
+    ModelConfigInputTrait,
     SectionInputTrait,
     TopologyTrait,
-    ModelConfigTrait,
-    HasDownloadAccessor,
-    ModelConfigInputTrait,
-    TopologyInputTrait,
     SimulationTrait,
-    HasPresignedDownloadAccessor,
-    CompartmentTrait,
-    ExperimentTrait,
-    HasZarrStoreTrait,
-    BiophysicsTrait,
-    BiophysicsInputTrait,
     HasZarrStoreAccessor,
-    IsVectorizableTrait,
+    ExperimentTrait,
+    HasDownloadAccessor,
+    HasZarrStoreTrait,
+    HasPresignedDownloadAccessor,
     CompartmentInputTrait,
 )
-from elektro.scalars import FileLike, TraceLike, TwoDVector, FiveDVector
 from typing import (
-    Union,
-    Annotated,
-    Any,
     List,
-    Iterable,
-    Literal,
-    Iterator,
+    Any,
+    Union,
     AsyncIterator,
+    Literal,
+    Annotated,
+    Iterable,
+    Iterator,
     Optional,
 )
-from elektro.funcs import aexecute, subscribe, execute, asubscribe
-from kanne.scalars import Millisecond
 from enum import Enum
-from pydantic import Field, ConfigDict, BaseModel
+from datalayer.scalars import ArrayLike, BigFileLike
+from elektro.rath import ElektroRath
+from pydantic import BaseModel, ConfigDict, Field
+from kanne.scalars import Millisecond
+from rath.scalars import IDCoercible, ID
+from elektro.scalars import FileLike, TwoDVector, FiveDVector, TraceLike
 from datetime import datetime
 
 
@@ -800,10 +800,8 @@ class RequestParquetUploadInput(BaseModel):
 
     original_file_name: str = Field(alias="originalFileName")
     content_type: Optional[str] = Field(alias="contentType", default=None)
-    datalayer: str
     host: Optional[str] = None
     port: Optional[int] = None
-    protocol: str
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, use_enum_values=True
     )
@@ -824,10 +822,8 @@ class RequestZarrUploadInput(BaseModel):
     shape: Optional[List[int]] = None
     chunks: Optional[List[int]] = None
     version: Optional[str] = None
-    datalayer: str
     host: Optional[str] = None
     port: Optional[int] = None
-    protocol: str
     model_config = ConfigDict(
         extra="forbid", populate_by_name=True, use_enum_values=True
     )
@@ -1986,6 +1982,69 @@ class BlockSegment(BaseModel):
         type = "BlockSegment"
 
 
+class DetailRecordingTrace(HasZarrStoreTrait, BaseModel):
+    """No documentation"""
+
+    typename: Literal["Trace"] = Field(
+        alias="__typename", default="Trace", exclude=True
+    )
+    id: ID
+    store: ZarrStore
+    "The store where the image data is stored."
+
+
+class DetailRecording(BaseModel):
+    """No documentation"""
+
+    typename: Literal["Recording"] = Field(
+        alias="__typename", default="Recording", exclude=True
+    )
+    id: ID
+    label: str
+    cell: str
+    trace: DetailRecordingTrace
+    simulation: Simulation
+
+    class Meta:
+        """Meta class for DetailRecording"""
+
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment DetailRecording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  simulation {\n    ...Simulation\n    __typename\n  }\n  __typename\n}"
+        name = "DetailRecording"
+        type = "Recording"
+
+
+class DetailStimulusTrace(HasZarrStoreTrait, BaseModel):
+    """No documentation"""
+
+    typename: Literal["Trace"] = Field(
+        alias="__typename", default="Trace", exclude=True
+    )
+    id: ID
+    store: ZarrStore
+    "The store where the image data is stored."
+
+
+class DetailStimulus(BaseModel):
+    """No documentation"""
+
+    typename: Literal["Stimulus"] = Field(
+        alias="__typename", default="Stimulus", exclude=True
+    )
+    id: ID
+    label: str
+    cell: str
+    kind: StimulusKind
+    trace: DetailStimulusTrace
+    simulation: Simulation
+
+    class Meta:
+        """Meta class for DetailStimulus"""
+
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment DetailStimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  simulation {\n    ...Simulation\n    __typename\n  }\n  __typename\n}"
+        name = "DetailStimulus"
+        type = "Stimulus"
+
+
 class Block(BaseModel):
     """No documentation"""
 
@@ -2804,7 +2863,7 @@ class ListNeuronModelsQuery(BaseModel):
 class GetRecordingQuery(BaseModel):
     """No documentation found for this operation."""
 
-    recording: Recording
+    recording: DetailRecording
     "Returns a list of images"
 
     class Arguments(BaseModel):
@@ -2816,7 +2875,7 @@ class GetRecordingQuery(BaseModel):
     class Meta:
         """Meta class for GetRecording"""
 
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nquery GetRecording($id: ID!) {\n  recording(id: $id) {\n    ...Recording\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment DetailRecording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  simulation {\n    ...Simulation\n    __typename\n  }\n  __typename\n}\n\nquery GetRecording($id: ID!) {\n  recording(id: $id) {\n    ...DetailRecording\n    __typename\n  }\n}"
 
 
 class SearchRecordingsQueryOptions(BaseModel):
@@ -2991,7 +3050,7 @@ class ListSimulationsQuery(BaseModel):
 class GetStimulusQuery(BaseModel):
     """No documentation found for this operation."""
 
-    stimulus: Stimulus
+    stimulus: DetailStimulus
     "Returns a list of images"
 
     class Arguments(BaseModel):
@@ -3003,7 +3062,7 @@ class GetStimulusQuery(BaseModel):
     class Meta:
         """Meta class for GetStimulus"""
 
-        document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nquery GetStimulus($id: ID!) {\n  stimulus(id: $id) {\n    ...Stimulus\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment DetailStimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  simulation {\n    ...Simulation\n    __typename\n  }\n  __typename\n}\n\nquery GetStimulus($id: ID!) {\n  stimulus(id: $id) {\n    ...DetailStimulus\n    __typename\n  }\n}"
 
 
 class SearchStimuliQueryOptions(BaseModel):
@@ -3610,8 +3669,6 @@ def request_media_access(
 
 async def arequest_parquet_upload(
     original_file_name: str,
-    datalayer: str,
-    protocol: str,
     content_type: Optional[str] = None,
     host: Optional[str] = None,
     port: Optional[int] = None,
@@ -3624,10 +3681,8 @@ async def arequest_parquet_upload(
     Args:
         original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-        datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
-        protocol: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
@@ -3640,10 +3695,8 @@ async def arequest_parquet_upload(
                 "input": {
                     "originalFileName": original_file_name,
                     "contentType": content_type,
-                    "datalayer": datalayer,
                     "host": host,
                     "port": port,
-                    "protocol": protocol,
                 }
             },
             rath=rath,
@@ -3653,8 +3706,6 @@ async def arequest_parquet_upload(
 
 def request_parquet_upload(
     original_file_name: str,
-    datalayer: str,
-    protocol: str,
     content_type: Optional[str] = None,
     host: Optional[str] = None,
     port: Optional[int] = None,
@@ -3667,10 +3718,8 @@ def request_parquet_upload(
     Args:
         original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-        datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
-        protocol: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
@@ -3682,10 +3731,8 @@ def request_parquet_upload(
             "input": {
                 "originalFileName": original_file_name,
                 "contentType": content_type,
-                "datalayer": datalayer,
                 "host": host,
                 "port": port,
-                "protocol": protocol,
             }
         },
         rath=rath,
@@ -3779,8 +3826,6 @@ def request_parquet_access(
 
 
 async def arequest_zarr_upload(
-    datalayer: str,
-    protocol: str,
     shape: Optional[Iterable[int]] = None,
     chunks: Optional[Iterable[int]] = None,
     version: Optional[str] = None,
@@ -3796,10 +3841,8 @@ async def arequest_zarr_upload(
         shape: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
         chunks: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
         version: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-        datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
-        protocol: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
@@ -3813,10 +3856,8 @@ async def arequest_zarr_upload(
                     "shape": shape,
                     "chunks": chunks,
                     "version": version,
-                    "datalayer": datalayer,
                     "host": host,
                     "port": port,
-                    "protocol": protocol,
                 }
             },
             rath=rath,
@@ -3825,8 +3866,6 @@ async def arequest_zarr_upload(
 
 
 def request_zarr_upload(
-    datalayer: str,
-    protocol: str,
     shape: Optional[Iterable[int]] = None,
     chunks: Optional[Iterable[int]] = None,
     version: Optional[str] = None,
@@ -3842,10 +3881,8 @@ def request_zarr_upload(
         shape: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
         chunks: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
         version: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-        datalayer: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
-        protocol: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
@@ -3858,10 +3895,8 @@ def request_zarr_upload(
                 "shape": shape,
                 "chunks": chunks,
                 "version": version,
-                "datalayer": datalayer,
                 "host": host,
                 "port": port,
-                "protocol": protocol,
             }
         },
         rath=rath,
@@ -5270,7 +5305,7 @@ def list_neuron_models(
     ).neuron_models
 
 
-async def aget_recording(id: ID, rath: Optional[ElektroRath] = None) -> Recording:
+async def aget_recording(id: ID, rath: Optional[ElektroRath] = None) -> DetailRecording:
     """GetRecording
 
     Returns a list of images
@@ -5280,12 +5315,12 @@ async def aget_recording(id: ID, rath: Optional[ElektroRath] = None) -> Recordin
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        Recording
+        DetailRecording
     """
     return (await aexecute(GetRecordingQuery, {"id": id}, rath=rath)).recording
 
 
-def get_recording(id: ID, rath: Optional[ElektroRath] = None) -> Recording:
+def get_recording(id: ID, rath: Optional[ElektroRath] = None) -> DetailRecording:
     """GetRecording
 
     Returns a list of images
@@ -5295,7 +5330,7 @@ def get_recording(id: ID, rath: Optional[ElektroRath] = None) -> Recording:
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        Recording
+        DetailRecording
     """
     return execute(GetRecordingQuery, {"id": id}, rath=rath).recording
 
@@ -5604,7 +5639,7 @@ def list_simulations(
     ).simulations
 
 
-async def aget_stimulus(id: ID, rath: Optional[ElektroRath] = None) -> Stimulus:
+async def aget_stimulus(id: ID, rath: Optional[ElektroRath] = None) -> DetailStimulus:
     """GetStimulus
 
     Returns a list of images
@@ -5614,12 +5649,12 @@ async def aget_stimulus(id: ID, rath: Optional[ElektroRath] = None) -> Stimulus:
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        Stimulus
+        DetailStimulus
     """
     return (await aexecute(GetStimulusQuery, {"id": id}, rath=rath)).stimulus
 
 
-def get_stimulus(id: ID, rath: Optional[ElektroRath] = None) -> Stimulus:
+def get_stimulus(id: ID, rath: Optional[ElektroRath] = None) -> DetailStimulus:
     """GetStimulus
 
     Returns a list of images
@@ -5629,7 +5664,7 @@ def get_stimulus(id: ID, rath: Optional[ElektroRath] = None) -> Stimulus:
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
-        Stimulus
+        DetailStimulus
     """
     return execute(GetStimulusQuery, {"id": id}, rath=rath).stimulus
 

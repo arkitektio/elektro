@@ -11,3 +11,19 @@ fragment Recording on Recording {
   position
   location
 }
+
+
+fragment DetailRecording on Recording {
+  id
+  label
+  cell
+  trace {
+    id
+    store {
+      ...ZarrStore
+    }
+  }
+  simulation {
+    ...Simulation
+  }
+}

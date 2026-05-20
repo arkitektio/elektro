@@ -1,6 +1,6 @@
 query GetStimulus($id: ID!) {
     stimulus(id: $id) {
-        ...Stimulus
+        ...DetailStimulus
     }
 }
 
