@@ -1,7 +1,7 @@
 from pydantic import Field
 from koil.composition import Composition
 from elektro.rath import ElektroRath
-from datalayer.datalayer import DataLayer
+from elektro.datalayer import DataLayer
 
 
 class Elektro(Composition):

@@ -44,3 +44,17 @@ s3:
 scopes:
   mikro_read: Read image from the database
   mikro_write: Write image to the database
+datalayer:
+  access_key: mikro_access_key
+  secret_key: mikro_secret_key
+  host: minio
+  port: 9000
+  protocol: http
+  media:
+    bucket: media
+  zarr:
+    bucket: zarr
+  parquet:
+    bucket: parquet
+  bigfile:
+    bucket: bigfile

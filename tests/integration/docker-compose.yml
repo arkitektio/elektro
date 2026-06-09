@@ -17,7 +17,7 @@ services:
     command: bash run-debug.sh
     stop_grace_period: 1s
     ports:
-      - 6888:80
+      - 5670:80
     volumes:
       - ./configs/elektro.yaml:/workspace/config.yaml
   minio:

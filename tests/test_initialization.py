@@ -1,6 +1,5 @@
 from elektro.api.schema import from_trace_like
 from elektro import Elektro
-import xarray as xr
 import numpy as np
 import pytest
 
@@ -11,11 +10,4 @@ def test_create_array(deployed_app: Elektro):
         np.zeros((1000,)),
         name="Farter 1",
     )
-    assert l.data.shape == (
-        1,
-        1,
-        10,
-        1000,
-        1000,
-    ), "Shape should be (10, 1000, 1000)"
-    pass
+    assert l.data.shape == (1000,), "Shape should be (1000,)"

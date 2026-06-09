@@ -6,12 +6,25 @@ Custom scalars for elektro
 
 import io
 import os
+import mimetypes
 from typing import Any, IO, List, Optional
 import xarray as xr
 import pandas as pd
 import numpy as np
 import uuid
 from collections.abc import Iterable
+
+
+def is_dask_array(v: Any) -> bool:
+    """Check if the input is a dask array."""
+    try:
+        import dask.array.core as da
+
+        return isinstance(v, da.Array)
+    except ImportError:
+        return False
+    except Exception as e:
+        raise ValueError(f"Error checking for dask array: {e}")
 
 
 class AssignationID(str):
@@ -503,3 +516,70 @@ class MeshLike:
 
     def __repr__(self):
         return f"MeshLike({self.value})"
+
+
+class ArrayLike:
+    """A custom scalar for wrapping of every supported array like structure on
+    the elektro platform. This scalar enables validation of various array formats
+    into an elektro api compliant xr.DataArray. Unlike ``TraceLike`` it preserves
+    the caller's labelled dimensions (and arbitrary dimensionality) verbatim."""
+
+    def __init__(self, value: xr.DataArray) -> None:
+        self.value = value
+        self.key = str(uuid.uuid4())
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v, *info):
+        """Validate the input array and convert it to a xr.DataArray."""
+        if isinstance(v, xr.DataArray):
+            return cls(v)
+
+        if isinstance(v, np.ndarray) or is_dask_array(v):
+            return cls(xr.DataArray(v))
+
+        raise ValueError(
+            f"Unsupported type {type(v)} for ArrayLike. Supported types are "
+            "xr.DataArray, numpy.ndarray and dask.array.Array"
+        )
+
+    def __repr__(self):
+        return f"ArrayLike({self.value})"
+
+
+class BigFileLike:
+    """A custom scalar for ensuring a common format to support write to the
+    big file api supported by elektro It converts the passed value into
+    a compliant format.."""
+
+    def __init__(self, value: IO, name: str = "") -> None:
+        self.value = value
+        self.file_name = os.path.basename(name)
+        self.key = self.file_name
+        self.mime_type = mimetypes.guess_type(self.file_name)[0]
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v, *info):
+        """Validate the input file and convert it to a compliant format."""
+
+        if isinstance(v, str):
+            file = open(v, "rb")
+            name = v
+        else:
+            file = v
+            name = v.name
+
+        if not isinstance(file, io.IOBase):
+            raise ValueError("This needs to be a instance of a file")
+
+        return cls(file, name=name)
+
+    def __repr__(self):
+        return f"BigFileLike({self.value})"

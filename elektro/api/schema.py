@@ -29,12 +29,18 @@ from typing import (
     Optional,
 )
 from enum import Enum
-from datalayer.scalars import ArrayLike, BigFileLike
 from elektro.rath import ElektroRath
 from pydantic import BaseModel, ConfigDict, Field
 from kanne.scalars import Millisecond
 from rath.scalars import IDCoercible, ID
-from elektro.scalars import FileLike, TwoDVector, FiveDVector, TraceLike
+from elektro.scalars import (
+    ArrayLike,
+    BigFileLike,
+    FileLike,
+    TwoDVector,
+    FiveDVector,
+    TraceLike,
+)
 from datetime import datetime
 
 

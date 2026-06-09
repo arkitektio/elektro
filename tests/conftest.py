@@ -1,3 +1,4 @@
+import sys
 from typing import Generator
 import pytest
 from dokker import local, Deployment
@@ -9,13 +10,29 @@ from rath.links.aiohttp import AIOHttpLink
 from rath.links.graphql_ws import GraphQLWSLink
 from elektro.rath import (
     ElektroRath,
-    UploadLink,
     SplitLink,
     ElektroLinkComposition,
 )
 from elektro.datalayer import DataLayer
+from elektro.middleware.upload import UploadMiddleware
 from graphql import OperationType
 from dataclasses import dataclass
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Register custom platform markers."""
+    config.addinivalue_line("markers", "linux_only: skip on non-Linux platforms")
+    config.addinivalue_line("markers", "no_windows: skip on Windows")
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:  # noqa: ARG001
+    """Skip tests marked linux_only or no_windows on the wrong platform."""
+    for item in items:
+        if item.get_closest_marker("linux_only") and sys.platform != "linux":
+            item.add_marker(pytest.mark.skip(reason="Linux only"))
+        if item.get_closest_marker("no_windows") and sys.platform == "win32":
+            item.add_marker(pytest.mark.skip(reason="Not supported on Windows"))
+
 
 project_path = os.path.join(os.path.dirname(__file__), "integration")
 docker_compose_file = os.path.join(project_path, "docker-compose.yml")
@@ -30,7 +47,7 @@ async def token_loader() -> str:
     will return an oauth2 token or similar authentication token.
 
     To change this mapping you can alter the static_token configuration in the
-    mikro configuration file (inside the integration folder).
+    elektro configuration file (inside the integration folder).
 
     """
     return "test"
@@ -38,30 +55,32 @@ async def token_loader() -> str:
 
 @dataclass
 class DeployedElektro:
-    """Dataclass to hold the deployed MikroNext application and its components."""
+    """Dataclass to hold the deployed Elektro application and its components."""
 
     deployment: Deployment
-    mikro_watcher: LogWatcher
+    elektro_watcher: LogWatcher
     minio_watcher: LogWatcher
-    mikro: Elektro
+    elektro: Elektro
 
 
 @pytest.fixture(scope="session")
 def deployed_app() -> Generator[DeployedElektro, None, None]:
-    """Fixture to deploy the MikroNext application with Docker Compose.
+    """Fixture to deploy the Elektro application with Docker Compose.
 
-    This fixture sets up the MikroNext application using Docker Compose,
-    configures health checks, and provides a deployed instance of MikroNext
-    for testing purposes. It also includes watchers for the Mikro and MinIO
+    This fixture sets up the Elektro application using Docker Compose,
+    configures health checks, and provides a deployed instance of Elektro
+    for testing purposes. It also includes watchers for the Elektro and MinIO
     services to monitor their logs, when performing requests against the application.
 
     Yields:
-        DeployedMikro: An instance containing the deployment, watchers, and MikroNext instance
+        DeployedElektro: An instance containing the deployment, watchers, and Elektro instance
 
     """
     setup = local(docker_compose_file)
     setup.add_health_check(
-        url=lambda spec: f"http://localhost:{spec.find_service('elektro').get_port_for_internal(80).published}/graphql",
+        url=lambda spec: (
+            f"http://localhost:{spec.find_service('elektro').get_port_for_internal(80).published}/graphql"
+        ),
         service="elektro",
         timeout=5,
         max_retries=10,
@@ -85,30 +104,34 @@ def deployed_app() -> Generator[DeployedElektro, None, None]:
         y = ElektroRath(
             link=ElektroLinkComposition(
                 auth=ComposedAuthLink(token_loader=token_loader, token_refresher=token_loader),
-                upload=UploadLink(datalayer=datalayer),
                 split=SplitLink(
                     left=AIOHttpLink(endpoint_url=elektro_http_url),
                     right=GraphQLWSLink(ws_endpoint_url=elektro_ws_url),
                     split=lambda o: o.node.operation != OperationType.SUBSCRIPTION,
                 ),
             ),
+            middlewares=[
+                UploadMiddleware(datalayer=datalayer),
+            ],
         )
 
-        mikro = Elektro(
+        elektro = Elektro(
             datalayer=datalayer,
             rath=y,
         )
 
         setup.up()
 
+        setup.run("initc", command="python init.py")
+
         setup.check_health()
 
-        with mikro as mikro:
+        with elektro as elektro:
             deployed = DeployedElektro(
                 deployment=setup,
-                mikro_watcher=watcher,
+                elektro_watcher=watcher,
                 minio_watcher=minio_watcher,
-                mikro=mikro,
+                elektro=elektro,
             )
 
             yield deployed

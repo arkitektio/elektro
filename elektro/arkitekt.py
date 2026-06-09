@@ -12,8 +12,10 @@ from arkitekt_next.service_registry import BaseArkitektService, Params
 
 from fakts_next.contrib.rath.aiohttp import FaktsAIOHttpLink
 from fakts_next.contrib.rath.graphql_ws import FaktsGraphQLWSLink
-from datalayer.fakts.datalayer import FaktsDataLayer
-from datalayer.links.upload import UploadLink
+from rath.links.dictinglink import DictingLink
+from rath.links.file import FileExtraction
+from elektro.contrib.fakts.datalayer import FaktsDataLayer
+from elektro.middleware.upload import UploadMiddleware
 from graphql import OperationType
 from arkitekt_next.service_registry import (
     get_default_service_registry,
@@ -38,9 +40,8 @@ class ElektroService(BaseArkitektService):
         return Elektro(
             rath=ElektroRath(
                 link=compose(
-                    UploadLink(
-                        datalayer=datalayer,
-                    ),
+                    FileExtraction(),
+                    DictingLink(),
                     CoercePintLink(),
                     FaktsAuthLink(
                         fakts=fakts,
@@ -56,7 +57,10 @@ class ElektroService(BaseArkitektService):
                         ),
                         split=lambda o: o.node.operation != OperationType.SUBSCRIPTION,
                     ),
-                )
+                ),
+                middlewares=[
+                    UploadMiddleware(datalayer=datalayer),
+                ],
             ),
             datalayer=datalayer,
         )
