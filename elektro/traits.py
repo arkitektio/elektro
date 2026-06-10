@@ -109,9 +109,7 @@ class BiophysicsTrait:
 
     def compartment_for_id(self, id: str) -> "Compartment":
         compartments = get_attributes_or_error(self, "compartments")
-        x = next(
-            (compartment for compartment in compartments if compartment.id == id), None
-        )
+        x = next((compartment for compartment in compartments if compartment.id == id), None)
         if x is None:
             raise ValueError(f"Compartment with id {id} not found")
         return x
@@ -132,9 +130,7 @@ class BiophysicsTrait:
         for compartment in compartments:
             data = {
                 "id": compartment.id,
-                "mechanisms": " ".join(
-                    ([mechanism for mechanism in compartment.mechanisms])
-                ),
+                "mechanisms": " ".join(([mechanism for mechanism in compartment.mechanisms])),
                 **{param.param: param.value for param in compartment.section_params},
                 **{param.param: param.value for param in compartment.global_params},
             }
@@ -292,9 +288,7 @@ class HasZarrStoreTrait(BaseModel):
         scale_views = get_attributes_or_error(self, "derived_scale_views")
 
         if len(scale_views) == 0:
-            raise ValueError(
-                "No ScaleView found in views. Please create a ScaleView first."
-            )
+            raise ValueError("No ScaleView found in views. Please create a ScaleView first.")
 
         sorted_views = sorted(scale_views, key=lambda image: image.scale_x)
         return [x.image.data for x in sorted_views]

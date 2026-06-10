@@ -190,7 +190,7 @@ class StimulusBase(BaseModel):
 
 class CurrentClampStimulus(StimulusBase):
     kind: Literal[StimulusKind.VOLTAGE] = StimulusKind.VOLTAGE  # type: ignore[assignment]
-    delay: Millisecond = Millisecond(100.0)
+    delay: Millisecond = Millisecond(100.0, "millisecond")
     amp: Ampere = Ampere(0.1, "nanoampere")
 
 
@@ -201,7 +201,7 @@ class WhiteNoiseStimulus(StimulusBase):
 
 class SineWaveStimulus(StimulusBase):
     kind: Literal[StimulusKind.VOLTAGE] = StimulusKind.VOLTAGE  # type: ignore[assignment]
-    frequency: Hertz = Hertz(10.0)
+    frequency: Hertz = Hertz(10.0, "hertz")
     amplitude: Ampere = Ampere(0.1, "nanoampere")
 
 
@@ -347,64 +347,50 @@ def run_simulation_processed(
     dt: Millisecond,
 ) -> SimulationResults:
     from neuron import h
-    import numpy as np
-    from collections import defaultdict
 
     h.load_file("stdrun.hoc")
 
-    # --------------------------------------------------------
-    # Execute Phase 2: Load DLLs into Worker Memory
-    # --------------------------------------------------------
+    # Load compiled .mod mechanisms into this worker's memory space.
     if model.environment:
         load_compiled_mechanisms(h, model.environment)
 
     hmodel = instantiate_model(h, model.config)
 
-    # 1. Validate units
+    # --- Time grid: snap the requested duration to an integer number of dt steps ---
     dt_obj = Millisecond.validate(dt)
     dt_ms = dt_obj.to("millisecond").magnitude
     requested_duration = Millisecond.validate(duration).to("millisecond").magnitude
-
-    # 2. SNAP TO GRID
     n_steps = int(round(requested_duration / dt_ms))
-    actual_dur_ms = n_steps * dt_ms
+    total_ms = n_steps * dt_ms
+    times = np.linspace(0.0, total_ms, n_steps + 1)
 
-    # 3. Configure NEURON with the ALIGNED values
-    h.dt = dt_ms
-    h.tstop = actual_dur_ms
-    h.CVode().active(0)
-    h.steps_per_ms = 1.0 / h.dt
-
-    h.v_init = model.config.v_init
-    h.celsius = model.config.celsius
-    h.finitialize(model.config.v_init)
-    h.fcurrent()
-    h.setdt()
-    h.init()
-
-    # 4. Create Precise Time Vector
-    times = np.linspace(0, actual_dur_ms, n_steps + 1)
-    t_vec_play = h.Vector(times)
-
-    # 5. Group Stimuli
+    # --- Stimuli ---
+    # `refs` keeps NEURON objects alive for the lifetime of the run; without it they
+    # are garbage-collected and silently stop injecting current.
+    #
+    # Step currents are injected with native `IClamp(delay, dur, amp)` point processes
+    # (NEURON sums overlapping point processes for us). They need NO played vector, so
+    # we avoid allocating a full-length NEURON Vector per stimulus -- the main source of
+    # memory spikes on long, fine-dt runs. Only genuinely time-varying stimuli (sine /
+    # white-noise) get a single played Vector, built from the grouped output waveform.
+    refs: list = []
     grouped: dict[tuple[str, str, float], list] = defaultdict(list)
     for stim in stims:
-        key = (stim.cell, stim.location, stim.position)
-        grouped[key].append(stim)
+        grouped[(stim.cell, stim.location, stim.position)].append(stim)
 
-    # 6. Build Waveforms
-    refs = []
-    input_waveforms = {}
+    # Per group, the output trace is either rebuilt deterministically from step
+    # parameters after the run (so it aligns with the recorded time axis), or it is
+    # the exact array we played for time-varying stimuli.
+    step_groups: dict[tuple[str, str, float], list[tuple[float, float, float]]] = {}
+    played_groups: dict[tuple[str, str, float], np.ndarray] = {}
 
     for key, stim_list in grouped.items():
         cell, loc, pos = key
-        sec = hmodel.cell_h_sections[cell][loc]
+        seg = hmodel.cell_h_sections[cell][loc](pos)
 
-        iclamp = h.IClamp(sec(pos))
-        iclamp.delay = 0
-        iclamp.dur = 1e9
-
-        combined = np.zeros_like(times, dtype=np.float64)
+        waveform = np.zeros(n_steps + 1, dtype=np.float64)
+        step_clamps: list[tuple[float, float, float]] = []  # (delay, dur, amp)
+        needs_vector = False
 
         for stim_param in stim_list:
             if isinstance(stim_param, CurrentClampStimulus):
@@ -412,83 +398,102 @@ def run_simulation_processed(
                 d = (
                     stim_param.duration.to("millisecond").magnitude
                     if stim_param.duration
-                    else actual_dur_ms
+                    else total_ms
                 )
                 amp = stim_param.amp.to("nanoampere").magnitude
-
-                mask = (times >= delay) & (times < (delay + d))
-                combined[mask] += amp
+                step_clamps.append((delay, d, amp))
+                waveform[(times >= delay) & (times < (delay + d))] += amp
 
             elif isinstance(stim_param, SineWaveStimulus):
                 A = stim_param.amplitude.to("nanoampere").magnitude
                 f = stim_param.frequency.to("hertz").magnitude
-                combined += A * np.sin(2 * np.pi * f * (times / 1000.0))
+                waveform += A * np.sin(2 * np.pi * f * (times / 1000.0))
+                needs_vector = True
 
             elif isinstance(stim_param, WhiteNoiseStimulus):
                 sigma = stim_param.noise_level.to("nanoampere").magnitude
-                combined += np.random.normal(0, sigma, size=len(times))
+                waveform += np.random.normal(0.0, sigma, size=n_steps + 1)
+                needs_vector = True
 
-        i_vec = h.Vector(combined)
-        i_vec.play(iclamp._ref_amp, t_vec_play, True)
+        if needs_vector:
+            # Time-varying: play the exact combined waveform so the recorded
+            # stimulus matches what was injected.
+            iclamp = h.IClamp(seg)
+            iclamp.delay = 0
+            iclamp.dur = 1e9
+            i_vec = h.Vector(waveform)
+            t_vec = h.Vector(times)
+            i_vec.play(iclamp._ref_amp, t_vec, True)
+            refs += [iclamp, i_vec, t_vec]
+            played_groups[key] = waveform
+        else:
+            for delay, d, amp in step_clamps:
+                iclamp = h.IClamp(seg)
+                iclamp.delay = delay
+                iclamp.dur = d
+                iclamp.amp = amp
+                refs.append(iclamp)
+            step_groups[key] = step_clamps
 
-        refs.append((iclamp, i_vec, t_vec_play))
-        input_waveforms[key] = combined
-
-    # 7. Prepare Recordings
+    # --- Recordings (registered before init, as NEURON requires) ---
     rec_t = h.Vector().record(h._ref_t)
+    rec_vecs = {
+        rec.id: h.Vector().record(
+            hmodel.cell_h_sections[rec.cell][rec.location](rec.position)._ref_v
+        )
+        for rec in records
+    }
 
-    raw_results = {}
-    for rec in records:
-        sec = hmodel.cell_h_sections[rec.cell][rec.location]
-        v_vec = h.Vector().record(sec(rec.position)._ref_v)
-        raw_results[rec.id] = v_vec
-
-    # 8. Run
-    h.stdinit()
+    # --- Run: minimal fixed-step initialisation, then integrate ---
     h.dt = dt_ms
     h.steps_per_ms = 1.0 / dt_ms
-    h.continuerun(actual_dur_ms)
+    h.tstop = total_ms
+    h.CVode().active(0)
+    h.celsius = model.config.celsius
+    h.v_init = model.config.v_init
+    h.finitialize(model.config.v_init)
+    h.continuerun(total_ms)
 
-    # 9. Process Outputs
+    # --- Collect outputs (copy out of NEURON-owned buffers) ---
     time_trace = rec_t.as_numpy().copy()
 
-    recordings_out = []
-    for rec in records:
-        trace = raw_results[rec.id].as_numpy().copy()
-        recordings_out.append(
-            RecordingInput(
-                cell=ID.validate(rec.cell),
-                location=ID.validate(rec.location),
-                kind=rec.kind,
-                position=rec.position,
-                trace=trace,
-            )
+    recordings_out = [
+        RecordingInput(
+            cell=ID.validate(rec.cell),
+            location=ID.validate(rec.location),
+            kind=rec.kind,
+            position=rec.position,
+            trace=rec_vecs[rec.id].as_numpy().copy(),
         )
+        for rec in records
+    ]
 
-    stimuli_out = []
-    for key, waveform in input_waveforms.items():
-        cell, loc, pos = key
-        if len(waveform) != len(time_trace):
-            final_wave = np.interp(time_trace, times, waveform)
-        else:
-            final_wave = waveform
+    # Step waveforms are rebuilt on the recorded time axis so the reported stimulus
+    # lines up exactly with `time_trace`; played waveforms are returned verbatim.
+    output_waveforms: dict[tuple[str, str, float], np.ndarray] = dict(played_groups)
+    for key, step_clamps in step_groups.items():
+        waveform = np.zeros_like(time_trace)
+        for delay, d, amp in step_clamps:
+            waveform[(time_trace >= delay) & (time_trace < (delay + d))] += amp
+        output_waveforms[key] = waveform
 
-        stimuli_out.append(
-            StimulusInput(
-                cell=ID.validate(cell),
-                location=ID.validate(loc),
-                kind=StimulusKind.CURRENT,
-                position=pos,
-                trace=final_wave,
-            )
+    stimuli_out = [
+        StimulusInput(
+            cell=ID.validate(cell),
+            location=ID.validate(loc),
+            kind=StimulusKind.CURRENT,
+            position=pos,
+            trace=waveform,
         )
+        for (cell, loc, pos), waveform in output_waveforms.items()
+    ]
 
     return SimulationResults(
         time_trace=time_trace,
         recordings=recordings_out,
         stimuli=stimuli_out,
         model=model,
-        duration=Millisecond(actual_dur_ms, "millisecond"),
+        duration=Millisecond(total_ms, "millisecond"),
         dt=dt_obj,
         name=name or f"Simulation for {model.name}",
         raw_results={},

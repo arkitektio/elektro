@@ -17,7 +17,7 @@ dependencies = [
     "numcodecs>=0.16.1",
     "obstore>=0.10.0",
     "kanne>=2.1.0",
-    "obstore>=0.10.0",
+    "filelock>=3.12",
 ]
 
 [project.optional-dependencies]
@@ -39,6 +39,7 @@ dev-dependencies =  [
     "dokker>=2.4",
     "pillow>=11.2.1",
     "pyarrow>=18.1.0",
+    "neuron>=9.0.1",
 ]
 
 
