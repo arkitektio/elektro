@@ -16,13 +16,14 @@ dependencies = [
     "pytest>=8.3.5",
     "numcodecs>=0.16.1",
     "obstore>=0.10.0",
-    "kanne>=2.1.0",
+    "kanne>=2.1.1",
     "filelock>=3.12",
 ]
 
 [project.optional-dependencies]
 turms = ["turms"]
 neuron = ["neuron>=8.0.0"]
+table = ["pyarrow>=12.0.1", "pandas>=2.2", "duckdb>=1.0"]
 
 [tool.uv]
 dev-dependencies =  [
@@ -89,6 +90,7 @@ exclude = [
 line-length = 100
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
 markers = [
     "integration: marks tests that require a deployment via testcontainers",
 ]

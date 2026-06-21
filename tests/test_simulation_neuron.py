@@ -12,7 +12,7 @@ import pytest
 
 pytest.importorskip("neuron")
 
-from kanne.scalars import Ampere  # noqa: E402
+from kanne.scalars import Duration, ElectricCurrent  # noqa: E402
 
 from elektro.api.schema import (  # noqa: E402
     Cell,
@@ -40,8 +40,8 @@ def _single_soma_model() -> NeuronModel:
                 id="soma",
                 category="soma",
                 nseg=1,
-                diam=20.0,
-                length=20.0,
+                diam="20 um",
+                length="20 um",
                 connections=[],
             )
         ]
@@ -57,7 +57,7 @@ def _single_soma_model() -> NeuronModel:
         ]
     )
     config = NeuronModelConfig(
-        vInit=-65.0,
+        vInit="-65 mV",
         celsius=37.0,
         cells=[Cell(id="cell_1", biophysics=biophysics, topology=topology)],
     )
@@ -77,19 +77,19 @@ def _run():
     model = _single_soma_model()
     return run_simulation_processed(
         model=model,
-        duration=DURATION_MS,
+        duration=Duration(f"{DURATION_MS} ms"),
         stims=[
             CurrentClampStimulus(
                 cell="cell_1",
                 location="soma",
                 position=0.5,
-                amp=Ampere(0.1, "nanoampere"),
-                delay=10,
+                amp=ElectricCurrent("0.1 nanoampere"),
+                delay=Duration("10 ms"),
             )
         ],
         records=[VRecord(cell="cell_1", location="soma", position=0.5)],
         name="unit-sim",
-        dt=DT_MS,
+        dt=Duration(f"{DT_MS} ms"),
     )
 
 

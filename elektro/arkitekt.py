@@ -7,6 +7,7 @@ from fakts_next.models import Requirement
 from kanne.contrib.rath.coerce_pint import CoercePintLink
 from rath.links import compose
 from rath.links.split import SplitLink
+from rekuest_next.links.context import ContextLink
 from fakts_next import Fakts
 from arkitekt_next.service_registry import BaseArkitektService, Params
 
@@ -46,6 +47,7 @@ class ElektroService(BaseArkitektService):
                     FaktsAuthLink(
                         fakts=fakts,
                     ),
+                    ContextLink(),
                     SplitLink(
                         left=FaktsAIOHttpLink(
                             fakts_group="elektro", fakts=fakts, endpoint_url="FAKE_URL"
@@ -71,13 +73,13 @@ class ElektroService(BaseArkitektService):
                 key="elektro",
                 service="live.arkitekt.elektro",
                 description="An instance of ArkitektNext Mikro to make requests to the user's data",
-                optional=True,
+                optional=False,
             ),
             Requirement(
                 key="datalayer",
                 service="live.arkitekt.s3",
                 description="An instance of ArkitektNext Datalayer to make requests to the user's data",
-                optional=True,
+                optional=False,
             ),
         ]
 

@@ -6,9 +6,11 @@ import xarray as xr
 
 @pytest.mark.integration
 def test_write_random(deployed_app):
+    dataset = create_dataset(name="test_write_random")
     x = from_trace_like(
         np.random.random((1000,)),
         name="test_random_write",
+        dataset=dataset.id,
     )
     assert x.id, "Did not get a random rep"
     assert x.data.shape == (1000,), "Did not write data according to schema ( T, C, Z, Y, X )"
@@ -16,9 +18,11 @@ def test_write_random(deployed_app):
 
 @pytest.mark.integration
 def test_get_random(deployed_app):
+    dataset = create_dataset(name="test_get_random")
     x = from_trace_like(
         np.random.random((1000,)),
         name="test_random_write",
+        dataset=dataset.id,
     )
     x = get_random_trace()
     assert x.id, "Did not get a random rep even though one was written"

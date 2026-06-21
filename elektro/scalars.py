@@ -63,6 +63,7 @@ MetricValue = Any
 FeatureValue = Any
 
 TraceCoercible = xr.DataArray | np.ndarray | list | tuple
+ArrayLikeCoercible = xr.DataArray | np.ndarray | list | tuple
 
 
 class Upload:

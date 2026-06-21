@@ -10,7 +10,7 @@ from elektro.datalayer import DataLayer, current_elektro_datalayer
 from koil import unkoil
 import aiohttp
 from pathlib import Path
-from typing import Tuple
+from typing import TYPE_CHECKING, Tuple
 import obstore  # Imported to access direct streaming capabilities
 
 from elektro.io.obstore import (
@@ -20,6 +20,9 @@ from elektro.io.obstore import (
 )
 from rath.scalars import ID
 from zarr.storage import StorePath
+
+if TYPE_CHECKING:
+    from duckdb import DuckDBPyConnection, DuckDBPyRelation
 
 
 async def aget_zarr_credentials_and_endpoint(
@@ -95,6 +98,37 @@ def open_parquet_filesystem(store_id: str) -> ParquetDatasetViaObstore:
     return ParquetDatasetViaObstore(
         create_s3_store(endpoint_url, credentials), credentials.key
     )
+
+
+async def aopen_parquet_duckdb(
+    store_id: str,
+) -> Tuple["DuckDBPyConnection", "DuckDBPyRelation"]:
+    """Open a lazy DuckDB relation over the parquet object asynchronously.
+
+    Returns ``(connection, relation)``. The connection is returned alongside the
+    relation because the relation is only valid while its connection is alive, so
+    the caller must keep a reference to it.
+    """
+    from elektro.io.duckdb_io import (
+        create_duckdb_s3_connection,
+        read_parquet_relation,
+    )
+
+    credentials, endpoint_url = await aget_table_credentials_and_endpoint(store_id)
+    con = create_duckdb_s3_connection(endpoint_url, credentials)
+    relation = read_parquet_relation(con, credentials.bucket, credentials.key)
+    return con, relation
+
+
+def open_parquet_duckdb(
+    store_id: str,
+) -> Tuple["DuckDBPyConnection", "DuckDBPyRelation"]:
+    """Open a lazy DuckDB relation over the parquet object synchronously.
+
+    Returns ``(connection, relation)``; keep a reference to the connection for as
+    long as the relation is used (the relation is bound to it).
+    """
+    return unkoil(aopen_parquet_duckdb, store_id)
 
 
 def _ensure_parent_directory(file_name: str) -> None:

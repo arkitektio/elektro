@@ -63,7 +63,7 @@ def _config(environment_id) -> ModelConfigInput:
     topology = TopologyInput(
         sections=[
             SectionInput(
-                category="soma", id="soma", nseg=1, diam=20, length=20, connections=[]
+                category="soma", id="soma", nseg=1, diam="20 um", length="20 um", connections=[]
             )
         ]
     )
@@ -71,14 +71,13 @@ def _config(environment_id) -> ModelConfigInput:
         compartments=[CompartmentInput(id="soma", mechanisms=["customleak"])]
     )
     return ModelConfigInput(
-        environments=[environment_id],
         cells=[
             CellInput(id="cell_1", biophysics=biophysics, topology=topology)
         ],
         netSynapses=[],
         netStimulators=[],
         netConnections=[],
-        vInit=-65,
+        vInit="-65 mV",
         celsius=37,
     )
 
@@ -116,7 +115,7 @@ def test_create_neuronmodel_and_config_roundtrip(deployed_app, tmp_path):
 def test_run_simulation_and_experiment(deployed_app, tmp_path):
     pytest.importorskip("neuron")  # end-to-end run compiles & executes locally
 
-    from kanne.scalars import Ampere
+    from kanne.scalars import ElectricCurrent
 
     from elektro.neuron.simulate import (
         CurrentClampStimulus,
@@ -136,18 +135,18 @@ def test_run_simulation_and_experiment(deployed_app, tmp_path):
     simulation = unkoil(
         arun_simulation,
         model=model,
-        duration=50.0,
+        duration="50 ms",
         records=[VRecord(cell="cell_1", location="soma", position=0.5)],
         stims=[
             CurrentClampStimulus(
                 cell="cell_1",
                 location="soma",
                 position=0.5,
-                amp=Ampere(0.1, "nanoampere"),
-                delay=10,
+                amp=ElectricCurrent("0.1 nanoampere"),
+                delay="10 ms",
             )
         ],
-        dt=0.025,
+        dt="0.025 ms",
     )
 
     assert simulation.id

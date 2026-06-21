@@ -334,6 +334,52 @@ class HasZarrStoreAccessor(BaseModel):
         return self._openstore
 
 
+class HasParquetStoreAccesor(BaseModel):
+    """Parquet Store Accessor
+
+    Allows reading a ParquetStore object's parquet data either as a pyarrow
+    dataset or as a lazy DuckDB relation queried directly on S3.
+    """
+
+    _dataset: Any = None
+    _duckdb_con: Any = None
+    _duckdb_rel: Any = None
+
+    @property
+    def parquet_dataset(self):
+        """The pyarrow Parquet Dataset of the ParquetStore object."""
+        from elektro.io.download import open_parquet_filesystem
+
+        if self._dataset is None:
+            id = get_attributes_or_error(self, "id")
+            self._dataset = open_parquet_filesystem(id)
+        return self._dataset
+
+    @property
+    def duckdb_relation(self):
+        """A lazy DuckDB relation over the parquet object, queried directly on S3.
+
+        Reads through DuckDB's ``httpfs`` extension so the object is never fully
+        downloaded. The backing connection is cached for the lifetime of this
+        accessor (the relation is only valid while its connection is alive).
+        """
+        from elektro.io.download import open_parquet_duckdb
+
+        if self._duckdb_rel is None:
+            id = get_attributes_or_error(self, "id")
+            self._duckdb_con, self._duckdb_rel = open_parquet_duckdb(id)
+        return self._duckdb_rel
+
+    @property
+    def data(self):
+        """The data of this table as a lazy DuckDB relation.
+
+        Filter/aggregate on the relation and call ``.df()`` to materialise just
+        what a query needs, without downloading the whole parquet object.
+        """
+        return self.duckdb_relation
+
+
 class HasDownloadAccessor(BaseModel):
     _dataset: Any = None
 

@@ -1,59 +1,76 @@
-from elektro.funcs import subscribe, aexecute, execute, asubscribe
 from elektro.traits import (
-    IsVectorizableTrait,
-    CompartmentTrait,
     BiophysicsTrait,
-    ModelConfigTrait,
-    BiophysicsInputTrait,
-    TopologyInputTrait,
     ModelConfigInputTrait,
-    SectionInputTrait,
-    TopologyTrait,
-    SimulationTrait,
-    HasZarrStoreAccessor,
+    BiophysicsInputTrait,
     ExperimentTrait,
-    HasDownloadAccessor,
+    ModelConfigTrait,
+    CompartmentTrait,
     HasZarrStoreTrait,
-    HasPresignedDownloadAccessor,
+    HasZarrStoreAccessor,
+    IsVectorizableTrait,
+    TopologyInputTrait,
+    SimulationTrait,
+    TopologyTrait,
+    HasDownloadAccessor,
     CompartmentInputTrait,
+    SectionInputTrait,
+    HasPresignedDownloadAccessor,
+    HasParquetStoreAccesor,
 )
 from typing import (
-    List,
-    Any,
-    Union,
+    Optional,
     AsyncIterator,
-    Literal,
-    Annotated,
+    List,
+    Union,
+    Dict,
     Iterable,
     Iterator,
-    Optional,
+    Any,
+    Annotated,
+    Literal,
 )
-from enum import Enum
-from elektro.rath import ElektroRath
-from pydantic import BaseModel, ConfigDict, Field
-from kanne.scalars import Millisecond
-from rath.scalars import IDCoercible, ID
+from elektro.funcs import asubscribe, aexecute, subscribe, execute
+from kanne.scalars import (
+    Temperature,
+    Length,
+    Frequency,
+    ElectricalConductance,
+    ElectricPotential,
+    Duration,
+)
+from datetime import datetime
 from elektro.scalars import (
-    ArrayLike,
-    BigFileLike,
-    FileLike,
     TwoDVector,
     FiveDVector,
     TraceLike,
+    BigFileLike,
+    FileLike,
+    ArrayLike,
 )
-from datetime import datetime
+from pydantic import BaseModel, Field, ConfigDict
+from rath.scalars import IDCoercible, ID
+from enum import Enum
+from elektro.rath import ElektroRath
 
 
-class AssignWidgetKind(str, Enum):
-    """The kind of assign widget."""
+class UnsetType:
+    """Sentinel for arguments the caller did not provide. Such fields are omitted on serialization so the GraphQL server applies its own default."""
 
-    SEARCH = "SEARCH"
-    CHOICE = "CHOICE"
-    SLIDER = "SLIDER"
-    CUSTOM = "CUSTOM"
-    STRING = "STRING"
-    STATE_CHOICE = "STATE_CHOICE"
-    PROXY = "PROXY"
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self):
+        return "UNSET"
+
+    def __bool__(self):
+        return False
+
+
+UNSET = UnsetType()
 
 
 class ConnectionKind(str, Enum):
@@ -62,39 +79,13 @@ class ConnectionKind(str, Enum):
     SYNAPSE = "SYNAPSE"
 
 
-class EffectKind(str, Enum):
-    """The kind of effect."""
-
-    MESSAGE = "MESSAGE"
-    HIDE = "HIDE"
-    CUSTOM = "CUSTOM"
-
-
-class OptionKey(str, Enum):
-    """No documentation"""
-
-    LABEL = "LABEL"
-    DESCRIPTION = "DESCRIPTION"
-    LOGO = "LOGO"
-    VALUE = "VALUE"
-
-
-class PortKind(str, Enum):
-    """The kind of port."""
+class ParameterKind(str, Enum):
+    """The kind of a mechanism parameter."""
 
     INT = "INT"
-    STRING = "STRING"
-    STRUCTURE = "STRUCTURE"
-    LIST = "LIST"
-    BOOL = "BOOL"
-    DICT = "DICT"
     FLOAT = "FLOAT"
-    DATE = "DATE"
-    UNION = "UNION"
-    ENUM = "ENUM"
-    MODEL = "MODEL"
-    MEMORY_STRUCTURE = "MEMORY_STRUCTURE"
-    INTERFACE = "INTERFACE"
+    STRING = "STRING"
+    BOOL = "BOOL"
 
 
 class RecordingKind(str, Enum):
@@ -105,20 +96,6 @@ class RecordingKind(str, Enum):
     TIME = "TIME"
     INA = "INA"
     UNKNOWN = "UNKNOWN"
-
-
-class RequiresOperator(str, Enum):
-    """The operator for matching descriptors."""
-
-    MATCHES = "MATCHES"
-    EXISTS = "EXISTS"
-    LTE = "LTE"
-    GTE = "GTE"
-    EQUALS = "EQUALS"
-    CONTAINS = "CONTAINS"
-    NOT_EQUALS = "NOT_EQUALS"
-    IN = "IN"
-    NOT_IN = "NOT_IN"
 
 
 class RoiKind(str, Enum):
@@ -155,7 +132,10 @@ class AnalogSignalChannelInput(BaseModel):
     color: Optional[List[int]] = None
     trace: TraceLike
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -165,89 +145,27 @@ class AnalogSignalInput(BaseModel):
     time_trace: TraceLike = Field(alias="timeTrace")
     name: Optional[str] = None
     description: Optional[str] = None
-    sampling_rate: float = Field(alias="samplingRate")
-    t_start: float = Field(alias="tStart")
+    sampling_rate: Frequency = Field(alias="samplingRate")
+    t_start: Duration = Field(alias="tStart")
     unit: Optional[str] = None
     channels: List[AnalogSignalChannelInput]
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class ArgPortInput(BaseModel):
-    """Port
-
-    A Port is a single input or output of a action. It is composed of a key and a kind
-    which are used to uniquely identify the port.
-
-    If the Port is a structure, we need to define a identifier and scope,
-    Identifiers uniquely identify a specific type of model for the scopes (e.g
-    all the ports that have the identifier "@mikro/image" are of the same type, and
-    are hence compatible with each other). Scopes are used to define in which context
-    the identifier is valid (e.g. a port with the identifier "@mikro/image" and the
-    scope "local", can only be wired to other ports that have the same identifier and
-    are running in the same app). Global ports are ports that have the scope "global",
-    and can be wired to any other port that has the same identifier, as there exists a
-    mechanism to resolve and retrieve the object for each app. Please check the rekuest
-    documentation for more information on how this works.
-
-
-    """
-
-    validators: Optional[List["ValidatorInput"]] = None
-    key: str
-    label: Optional[str] = None
-    kind: PortKind
-    description: Optional[str] = None
-    identifier: Optional[str] = None
-    nullable: bool
-    effects: Optional[List["EffectInput"]] = None
-    default: Optional[Any] = None
-    children: Optional[List["ArgPortInput"]] = None
-    choices: Optional[List["ChoiceInput"]] = None
-    widget: Optional["AssignWidgetInput"] = None
-    requires: Optional[List["RequiresInput"]] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class AssignWidgetInput(BaseModel):
-    """No documentation"""
-
-    as_paragraph: Optional[bool] = Field(alias="asParagraph", default=None)
-    "Whether to display the input as a paragraph or not. This is used for text inputs and dropdowns"
-    kind: AssignWidgetKind
-    query: Optional[str] = None
-    choices: Optional[List["ChoiceInput"]] = None
-    min: Optional[float] = None
-    max: Optional[float] = None
-    step: Optional[float] = None
-    placeholder: Optional[str] = None
-    hook: Optional[str] = None
-    ward: Optional[str] = None
-    fallback: Optional["AssignWidgetInput"] = None
-    filters: Optional[List[ArgPortInput]] = None
-    dependencies: Optional[List[str]] = None
-    dependency: Optional[str] = None
-    target_dependency: Optional[str] = Field(alias="targetDependency", default=None)
-    target_action: Optional[str] = Field(alias="targetAction", default=None)
-    target_port: Optional[str] = Field(alias="targetPort", default=None)
-    state_path: Optional[str] = Field(alias="statePath", default=None)
-    state_accessors: Optional[List["StateAccessorInput"]] = Field(
-        alias="stateAccessors", default=None
-    )
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class BiophysicsInput(BiophysicsInputTrait, BaseModel):
-    """No documentation"""
+    """Input for a biophysics model, which consists of compartments, each with their own mechanisms and parameters."""
 
-    compartments: List["CompartmentInput"]
+    compartments: Optional[List["CompartmentInput"]] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -256,91 +174,105 @@ class BlockSegmentInput(BaseModel):
 
     name: Optional[str] = None
     description: Optional[str] = None
-    analog_signals: List[AnalogSignalInput] = Field(alias="analogSignals")
-    irregularly_sampled_signals: List["IrregularlySampledSignalInput"] = Field(
-        alias="irregularlySampledSignals"
+    analog_signals: Optional[List[AnalogSignalInput]] = Field(
+        alias="analogSignals", default=None
     )
-    spike_trains: List["SpikeTrainInput"] = Field(alias="spikeTrains")
+    irregularly_sampled_signals: Optional[List["IrregularlySampledSignalInput"]] = (
+        Field(alias="irregularlySampledSignals", default=None)
+    )
+    spike_trains: Optional[List["SpikeTrainInput"]] = Field(
+        alias="spikeTrains", default=None
+    )
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class CellInput(BaseModel):
-    """No documentation"""
+    """Input for a cell model, which consists of a biophysics model and a topology. You can think of the biophysics model as the 'properties' of the cell, and the topology as the 'structure' of the cell."""
 
     id: str
+    "The unique identifier of the cell within the model."
     biophysics: BiophysicsInput
+    "The biophysics model of the cell, which defines the properties of the cell such as its compartments, mechanisms, and parameters."
     topology: "TopologyInput"
+    "The topology of the cell, which defines the structure of the cell such as its morphology and connectivity."
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class ChangeDatasetInput(BaseModel):
     """No documentation"""
 
-    name: str
     id: ID
+    name: str
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class ChoiceInput(BaseModel):
-    """
-    A choice is a value that can be selected in a dropdown.
-
-    It is composed of a value, a label, and a description. The value is the
-    value that is returned when the choice is selected. The label is the
-    text that is displayed in the dropdown. The description is the text
-    that is displayed when the user hovers over the choice.
-
-    """
-
-    value: Any
-    label: str
-    image: Optional[str] = None
-    description: Optional[str] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class CompartmentInput(CompartmentInputTrait, BaseModel):
-    """No documentation"""
+    """Input for a compartment in a biophysics model."""
 
     id: str
-    mechanisms: List[str]
+    "The unique identifier of the compartment within the model."
+    mechanisms: Optional[List[str]] = None
+    "The set of mechanisms active in this compartment."
     section_params: Optional[List["SectionParamMapInput"]] = Field(
         alias="sectionParams", default=None
     )
+    "The mechanism-specific parameters applied to the sections of this compartment."
     global_params: Optional[List["GlobalParamMapInput"]] = Field(
         alias="globalParams", default=None
     )
+    "The non-mechanistic (global) parameters applied to this compartment."
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class ConnectionInput(BaseModel):
-    """No documentation"""
+    """Input for a connection of a section to its parent section, defining the morphology tree."""
 
     parent: str
-    location: float
+    "The ID of the parent section this section connects to."
+    location: Optional[float] = None
+    "The position along the parent section where this section attaches, between 0 and 1."
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class CoordInput(BaseModel):
-    """No documentation"""
+    """Input for a 3D coordinate (in space) of a point along a section."""
 
-    x: float
-    y: float
-    z: float
+    x: Length
+    "The x coordinate of the point."
+    y: Length
+    "The y coordinate of the point."
+    z: Length
+    "The z coordinate of the point."
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -350,9 +282,12 @@ class CreateBlockInput(BaseModel):
     file: Optional[ID] = None
     name: str
     recording_time: Optional[datetime] = Field(alias="recordingTime", default=None)
-    segments: List[BlockSegmentInput]
+    segments: Optional[List[BlockSegmentInput]] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -361,7 +296,10 @@ class CreateDatasetInput(BaseModel):
 
     name: str
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -374,7 +312,10 @@ class CreateExperimentInput(BaseModel):
     recording_views: List["RecordingViewInput"] = Field(alias="recordingViews")
     description: Optional[str] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -386,7 +327,10 @@ class CreateModEnvironmentInput(BaseModel):
     zip_file: BigFileLike = Field(alias="zipFile")
     mechanisms: List["MechanismInput"]
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -397,7 +341,10 @@ class CreateModelCollectionInput(BaseModel):
     models: List[ID]
     description: Optional[str] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -410,7 +357,10 @@ class CreateNeuronModelInput(BaseModel):
     description: Optional[str] = None
     config: "ModelConfigInput"
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -422,10 +372,13 @@ class CreateSimulationInput(BaseModel):
     recordings: List["RecordingInput"]
     stimuli: List["StimulusInput"]
     time_trace: Optional[ArrayLike] = Field(alias="timeTrace", default=None)
-    duration: Millisecond
-    dt: Optional[Millisecond] = None
+    duration: Duration
+    dt: Optional[Duration] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -439,7 +392,10 @@ class DatasetFilter(BaseModel):
     not_: Optional["DatasetFilter"] = Field(alias="NOT", default=None)
     distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -448,30 +404,10 @@ class DeleteRoiInput(BaseModel):
 
     id: ID
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class EffectInput(BaseModel):
-    """
-                 An effect is a way to modify a port based on a condition. For example,
-    you could have an effect that sets a port to null if another port is null.
-
-    Or, you could have an effect that hides the port if another port meets a condition.
-    E.g when the user selects a certain option in a dropdown, another port is hidden.
-
-
-    """
-
-    function: str
-    dependencies: Optional[List[str]] = None
-    message: Optional[str] = None
-    kind: EffectKind
-    fade: Optional[bool] = None
-    hook: Optional[str] = None
-    ward: Optional[str] = None
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -489,7 +425,10 @@ class ExperimentFilter(BaseModel):
     not_: Optional["ExperimentFilter"] = Field(alias="NOT", default=None)
     distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -497,9 +436,12 @@ class FinishBigFileUploadInput(BaseModel):
     """No documentation"""
 
     store_id: str = Field(alias="storeId")
-    valid: bool
+    valid: Optional[bool] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -507,9 +449,12 @@ class FinishMediaUploadInput(BaseModel):
     """No documentation"""
 
     store_id: str = Field(alias="storeId")
-    valid: bool
+    valid: Optional[bool] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -517,9 +462,12 @@ class FinishParquetUploadInput(BaseModel):
     """No documentation"""
 
     store_id: str = Field(alias="storeId")
-    valid: bool
+    valid: Optional[bool] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -527,9 +475,12 @@ class FinishZarrUploadInput(BaseModel):
     """No documentation"""
 
     store_id: str = Field(alias="storeId")
-    valid: bool
+    valid: Optional[bool] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -541,7 +492,10 @@ class FromFileLike(BaseModel):
     origins: Optional[List[ID]] = None
     dataset: Optional[ID] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -557,18 +511,27 @@ class FromTraceLikeInput(BaseModel):
     tags: Optional[List[str]] = None
     "Optional list of tags to associate with the image"
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class GlobalParamMapInput(BaseModel):
-    """No documentation"""
+    """Input for a global parameter mapping of a biophysics model. (this will be set on non-mechanistic parameters (i.e PAS) of the model)"""
 
     param: str
+    "The name of the parameter to set."
     value: float
+    "The value of the parameter"
     description: Optional[str] = None
+    "Description of the parameter"
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -581,7 +544,10 @@ class IrregularlySampledSignalInput(BaseModel):
     unit: Optional[str] = None
     description: Optional[str] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -590,9 +556,12 @@ class MechanismInput(BaseModel):
 
     name: str
     description: Optional[str] = None
-    parameters: List[ArgPortInput]
+    parameters: List["ParameterInput"]
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -610,72 +579,112 @@ class ModelCollectionFilter(BaseModel):
     not_: Optional["ModelCollectionFilter"] = Field(alias="NOT", default=None)
     distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class ModelConfigInput(ModelConfigInputTrait, BaseModel):
-    """No documentation"""
+    """Input for the configuration of a model."""
 
-    cells: List[CellInput]
+    cells: Optional[List[CellInput]] = None
+    "The list of cells in the model."
     net_stimulators: Optional[List["NetStimulatorInput"]] = Field(
         alias="netStimulators", default=None
     )
+    "The list of net stimulators in the model."
     net_connections: Optional[List["NetConnectionInput"]] = Field(
         alias="netConnections", default=None
     )
+    "The list of net connections in the model."
     net_synapses: Optional[List["NetSynapseInput"]] = Field(
         alias="netSynapses", default=None
     )
-    v_init: float = Field(alias="vInit")
-    celsius: float
+    "The list of net synapses in the model."
+    v_init: Optional[ElectricPotential] = Field(alias="vInit", default=None)
+    "Initial membrane potential."
+    temperature: Optional[Temperature] = None
+    "Simulation bath temperature."
     label: Optional[str] = None
-    environments: List[str]
+    "An optional label for the model configuration."
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class NetConnectionInput(BaseModel):
-    """No documentation"""
+    """Input for a synaptic connection between two cells in the model. Each connection has a pre-synaptic cell (the net stimulator) and a post-synaptic cell (the synapse)."""
 
-    kind: ConnectionKind
+    kind: Optional[ConnectionKind] = None
+    "The kind of connection to create."
     id: ID
-    weight: Optional[float] = None
-    threshold: Optional[float] = None
-    delay: Optional[float] = None
+    "The unique identifier of the connection within the model."
+    weight: Optional[ElectricalConductance] = None
+    "The weight (conductance) of the connection."
+    threshold: Optional[ElectricPotential] = None
+    "The threshold for the connection."
+    delay: Optional[Duration] = None
+    "The delay for the connection."
     net_stimulator: ID = Field(alias="netStimulator")
+    "The ID of the net stimulator that is the pre-synaptic cell in this connection."
     synapse: ID
+    "The ID of the synapse that is the post-synaptic cell in this connection."
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class NetStimulatorInput(BaseModel):
-    """No documentation"""
+    """Input for a net stimulator in the model. This specifies the parameters of stimulators that drive synaptic connections."""
 
     id: ID
-    start: float
-    number: int
-    interval: Optional[float] = None
+    "The unique identifier of the stimulator within the model."
+    start: Optional[Duration] = None
+    "Start time of the first spike."
+    number: Optional[int] = None
+    "Number of spikes to emit."
+    interval: Optional[Duration] = None
+    "Interval between spikes."
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class NetSynapseInput(BaseModel):
-    """No documentation"""
+    """Input for an exponential synapse, a synaptic stimulus with an exponential rise and decay. This specifies the parameters of synapses in the model."""
 
     id: ID
-    kind: SynapseKind
-    e: float
-    tau2: float
-    tau1: float
+    "The unique identifier of the synapse within the model."
+    kind: Optional[SynapseKind] = None
+    "The kind of synapse model to use."
+    e: ElectricPotential
+    "Reversal potential."
+    tau2: Duration
+    "Decay time constant."
+    tau1: Duration
+    "Rise time constant."
     cell: ID
+    "The ID of the cell this synapse is located on."
     location: ID
-    position: float
+    "The location on the cell where the synapse is located. This can be a section name, a segment number, or a more complex specification depending on the model."
+    position: Optional[float] = None
+    "The position along the section where the synapse is located, specified as a value between 0 and 1. This is only relevant if the location is specified as a section name."
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -693,17 +702,40 @@ class NeuronModelFilter(BaseModel):
     not_: Optional["NeuronModelFilter"] = Field(alias="NOT", default=None)
     distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class OffsetPaginationInput(BaseModel):
     """No documentation"""
 
-    offset: int
+    offset: Optional[int] = None
     limit: Optional[int] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
+    )
+
+
+class ParameterInput(BaseModel):
+    """A parameter port of a mechanism"""
+
+    key: str
+    label: Optional[str] = None
+    kind: Optional[ParameterKind] = None
+    description: Optional[str] = None
+    default: Optional[Any] = None
+    nullable: Optional[bool] = None
+    model_config = ConfigDict(
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -721,7 +753,10 @@ class RecordingFilter(BaseModel):
     not_: Optional["RecordingFilter"] = Field(alias="NOT", default=None)
     distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -734,7 +769,10 @@ class RecordingInput(BaseModel):
     location: Optional[ID] = None
     position: Optional[float] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -742,11 +780,14 @@ class RecordingViewInput(BaseModel):
     """No documentation"""
 
     recording: ID
-    offset: Optional[float] = None
-    duration: Optional[float] = None
+    offset: Optional[Duration] = None
+    duration: Optional[Duration] = None
     label: Optional[str] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -755,7 +796,10 @@ class RequestBigFileAccessInput(BaseModel):
 
     store_id: str = Field(alias="storeId")
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -768,7 +812,10 @@ class RequestBigFileUploadInput(BaseModel):
     host: Optional[str] = None
     port: Optional[int] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -777,7 +824,10 @@ class RequestMediaAccessInput(BaseModel):
 
     store_id: str = Field(alias="storeId")
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -788,7 +838,10 @@ class RequestMediaUploadInput(BaseModel):
     file_size: Optional[int] = Field(alias="fileSize", default=None)
     content_type: Optional[str] = Field(alias="contentType", default=None)
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -797,19 +850,24 @@ class RequestParquetAccessInput(BaseModel):
 
     store_id: str = Field(alias="storeId")
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class RequestParquetUploadInput(BaseModel):
     """No documentation"""
 
-    original_file_name: str = Field(alias="originalFileName")
     content_type: Optional[str] = Field(alias="contentType", default=None)
     host: Optional[str] = None
     port: Optional[int] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -818,7 +876,10 @@ class RequestZarrAccessInput(BaseModel):
 
     store_id: str = Field(alias="storeId")
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -831,18 +892,10 @@ class RequestZarrUploadInput(BaseModel):
     host: Optional[str] = None
     port: Optional[int] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class RequiresInput(BaseModel):
-    """No documentation"""
-
-    key: str
-    operator: RequiresOperator
-    value: Any
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -852,7 +905,10 @@ class RevertInput(BaseModel):
     id: ID
     history_id: ID = Field(alias="historyId")
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -868,30 +924,43 @@ class RoiInput(BaseModel):
     label: Optional[str] = None
     "The label of the ROI"
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class SectionInput(SectionInputTrait, BaseModel):
-    """No documentation"""
+    """Input for a section of a cell's morphology, the basic structural unit of the topology."""
 
     id: str
+    "The unique identifier of the section within the cell."
     category: Optional[str] = None
-    nseg: int
-    diam: float
-    length: Optional[float] = None
+    "An optional category for the section (e.g. 'soma', 'axon', 'dend')."
+    nseg: Optional[int] = None
+    "The number of segments the section is discretized into."
+    diam: Optional[Length] = None
+    "The diameter of the section."
+    length: Optional[Length] = None
     "Length of the section. Required if coords is not provided."
     coords: Optional[List[CoordInput]] = None
+    "The 3D coordinates describing the section's geometry. Required if length is not provided."
     connections: Optional[List[ConnectionInput]] = None
+    "The connections of this section to its parent section(s)."
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class SectionParamMapInput(BaseModel):
-    """No documentation"""
+    """Input for a section parameter mapping of a biophysics model. (this will be set on the mechanisms of the compartments of the model)"""
 
     param: str
+    "The name of the parameter to set."
     mechanism: str
     "The governing mechanism"
     value: float
@@ -899,7 +968,10 @@ class SectionParamMapInput(BaseModel):
     description: Optional[str] = None
     "Description of the parameter"
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -917,7 +989,10 @@ class SimulationFilter(BaseModel):
     not_: Optional["SimulationFilter"] = Field(alias="NOT", default=None)
     distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -925,24 +1000,17 @@ class SpikeTrainInput(BaseModel):
     """No documentation"""
 
     times: TraceLike
-    t_start: float = Field(alias="tStart")
-    t_stop: float = Field(alias="tStop")
+    t_start: Duration = Field(alias="tStart")
+    t_stop: Duration = Field(alias="tStop")
     waveforms: Optional[TraceLike] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    left_sweep: Optional[float] = Field(alias="leftSweep", default=None)
+    left_sweep: Optional[Duration] = Field(alias="leftSweep", default=None)
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class StateAccessorInput(BaseModel):
-    """No documentation"""
-
-    option_key: OptionKey = Field(alias="optionKey")
-    sub_path: Optional[str] = Field(alias="subPath", default=None)
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -960,7 +1028,10 @@ class StimulusFilter(BaseModel):
     not_: Optional["StimulusFilter"] = Field(alias="NOT", default=None)
     distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -973,7 +1044,10 @@ class StimulusInput(BaseModel):
     location: Optional[ID] = None
     position: Optional[float] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -981,11 +1055,14 @@ class StimulusViewInput(BaseModel):
     """No documentation"""
 
     stimulus: ID
-    offset: Optional[float] = None
-    duration: Optional[float] = None
+    offset: Optional[Duration] = None
+    duration: Optional[Duration] = None
     label: Optional[str] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -1010,33 +1087,43 @@ class StrFilterLookup(BaseModel):
     regex: Optional[str] = None
     i_regex: Optional[str] = Field(alias="iRegex", default=None)
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class TopologyInput(TopologyInputTrait, BaseModel):
-    """No documentation"""
+    """Input for the topology of a cell, which defines its structure as a set of connected sections."""
 
     sections: List[SectionInput]
+    "The list of sections that make up the cell's morphology."
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
 class TraceFilter(BaseModel):
     """No documentation"""
 
+    search: Optional[str] = None
     name: Optional[StrFilterLookup] = None
     ids: Optional[List[ID]] = None
     dataset: Optional[DatasetFilter] = None
     not_derived: Optional[bool] = Field(alias="notDerived", default=None)
-    search: Optional[str] = None
     and_: Optional["TraceFilter"] = Field(alias="AND", default=None)
     or_: Optional["TraceFilter"] = Field(alias="OR", default=None)
     not_: Optional["TraceFilter"] = Field(alias="NOT", default=None)
     distinct: Optional[bool] = Field(alias="DISTINCT", default=None)
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -1048,24 +1135,10 @@ class UpdateRoiInput(BaseModel):
     vectors: Optional[List[TwoDVector]] = None
     kind: Optional[RoiKind] = None
     model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
-    )
-
-
-class ValidatorInput(BaseModel):
-    """
-    A validating function for a port. Can specify a function that will run when validating values of the port.
-    If outside dependencies are needed they need to be specified in the dependencies field. With the .. syntax
-    when transversing the tree of ports.
-
-    """
-
-    function: str
-    dependencies: Optional[List[str]] = None
-    label: Optional[str] = None
-    error_message: Optional[str] = Field(alias="errorMessage", default=None)
-    model_config = ConfigDict(
-        extra="forbid", populate_by_name=True, use_enum_values=True
+        extra="forbid",
+        validate_assignment=True,
+        populate_by_name=True,
+        use_enum_values=True,
     )
 
 
@@ -1289,13 +1362,13 @@ class Dataset(BaseModel):
 
 
 class MechanismParameters(BaseModel):
-    """No documentation"""
+    """A parameter port of a mechanism"""
 
-    typename: Literal["ArgPort"] = Field(
-        alias="__typename", default="ArgPort", exclude=True
+    typename: Literal["Parameter"] = Field(
+        alias="__typename", default="Parameter", exclude=True
     )
     key: str
-    kind: PortKind
+    kind: ParameterKind
 
 
 class Mechanism(BaseModel):
@@ -1346,18 +1419,25 @@ class ModelCollection(BaseModel):
 
 
 class ExpTwoSynapse(BaseModel):
-    """No documentation"""
+    """Represents an exponential synapse model, which is a type of synaptic stimulus that has an exponential rise and decay. This will be used to specify the parameters of synapses in the model."""
 
     typename: Literal["Exp2Synapse"] = Field(
         alias="__typename", default="Exp2Synapse", exclude=True
     )
     id: ID
-    tau1: float
-    tau2: float
-    e: float
+    "The unique identifier of the synapse within the model."
+    tau1: Duration
+    "Rise time constant."
+    tau2: Duration
+    "Decay time constant."
+    e: ElectricPotential
+    "Reversal potential."
     cell: str
+    "The ID of the cell this synapse is located on."
     location: str
+    "The location on the cell where the synapse is located. This can be a section name, a segment number, or a more complex specification depending on the model."
     position: float
+    "The position along the section where the synapse is located, specified as a value between 0 and 1. This is only relevant if the location is specified as a section name."
 
     class Meta:
         """Meta class for ExpTwoSynapse"""
@@ -1368,17 +1448,23 @@ class ExpTwoSynapse(BaseModel):
 
 
 class SynapticConnection(BaseModel):
-    """No documentation"""
+    """Represents a synaptic connection between two cells in the model. This will be used to specify the connections between cells in the model, where each connection has a pre-synaptic cell (the net stimulator) and a post-synaptic cell (the synapse)."""
 
     typename: Literal["SynapticConnection"] = Field(
         alias="__typename", default="SynapticConnection", exclude=True
     )
     id: ID
+    "The unique identifier of the connection within the model."
     net_stimulator: ID = Field(alias="netStimulator")
+    "The ID of the net stimulator that is the pre-synaptic cell in this connection."
     synapse: ID
-    weight: Optional[float] = Field(default=None)
-    threshold: Optional[float] = Field(default=None)
-    delay: Optional[float] = Field(default=None)
+    "The ID of the synapse that is the post-synaptic cell in this connection."
+    weight: Optional[ElectricalConductance] = Field(default=None)
+    "The weight (conductance) of the connection."
+    threshold: Optional[ElectricPotential] = Field(default=None)
+    "The threshold for the connection."
+    delay: Optional[Duration] = Field(default=None)
+    "The delay for the connection."
 
     class Meta:
         """Meta class for SynapticConnection"""
@@ -1389,40 +1475,51 @@ class SynapticConnection(BaseModel):
 
 
 class SectionCoords(BaseModel):
-    """No documentation"""
+    """Represents a 3D coordinate (in space) of a point along a section."""
 
     typename: Literal["Coord"] = Field(
         alias="__typename", default="Coord", exclude=True
     )
-    x: float
-    y: float
-    z: float
+    x: Length
+    "The x coordinate of the point."
+    y: Length
+    "The y coordinate of the point."
+    z: Length
+    "The z coordinate of the point."
 
 
 class SectionConnections(BaseModel):
-    """No documentation"""
+    """Represents a connection of a section to its parent section, defining the morphology tree."""
 
     typename: Literal["Connection"] = Field(
         alias="__typename", default="Connection", exclude=True
     )
     parent: str
+    "The ID of the parent section this section connects to."
     location: float
+    "The position along the parent section where this section attaches, between 0 and 1."
 
 
 class Section(BaseModel):
-    """No documentation"""
+    """Represents a section of a cell's morphology, the basic structural unit of the topology."""
 
     typename: Literal["Section"] = Field(
         alias="__typename", default="Section", exclude=True
     )
     id: str
-    length: Optional[float] = Field(default=None)
+    "The unique identifier of the section within the cell."
+    length: Optional[Length] = Field(default=None)
     "Length of the section. Required if coords is not provided."
-    diam: float
+    diam: Length
+    "The diameter of the section."
     coords: Optional[List[SectionCoords]] = Field(default=None)
+    "The 3D coordinates describing the section's geometry. Required if length is not provided."
     category: str
+    "An optional category for the section (e.g. 'soma', 'axon', 'dend')."
     nseg: int
+    "The number of segments the section is discretized into."
     connections: List[SectionConnections]
+    "The connections of this section to its parent section(s)."
 
     class Meta:
         """Meta class for Section"""
@@ -1433,12 +1530,13 @@ class Section(BaseModel):
 
 
 class SectionParamMap(BaseModel):
-    """No documentation"""
+    """Represents a section parameter mapping for a biophysics model. (this will be set on the mechanisms of the compartments of the model)"""
 
     typename: Literal["SectionParamMap"] = Field(
         alias="__typename", default="SectionParamMap", exclude=True
     )
     param: str
+    "The name of the parameter to set."
     mechanism: str
     "The governing mechanism"
     value: float
@@ -1453,13 +1551,15 @@ class SectionParamMap(BaseModel):
 
 
 class GlobalParamMap(BaseModel):
-    """No documentation"""
+    """Represents a global parameter mapping for a biophysics model. (this will be set on non-mechanistic parameters  (i.e PAS ) of the model)"""
 
     typename: Literal["GlobalParamMap"] = Field(
         alias="__typename", default="GlobalParamMap", exclude=True
     )
     param: str
+    "The name of the parameter to set."
     value: float
+    "The value of the parameter"
 
     class Meta:
         """Meta class for GlobalParamMap"""
@@ -1470,15 +1570,19 @@ class GlobalParamMap(BaseModel):
 
 
 class NetStimulator(BaseModel):
-    """No documentation"""
+    """Represents a net stimulator in the model. This will be used to specify the parameters of stimulators in the model."""
 
     typename: Literal["NetStimulator"] = Field(
         alias="__typename", default="NetStimulator", exclude=True
     )
     id: ID
-    interval: Optional[float] = Field(default=None)
+    "The unique identifier of the stimulator within the model."
+    interval: Optional[Duration] = Field(default=None)
+    "Interval between spikes."
     number: int
-    start: float
+    "Number of spikes to emit."
+    start: Duration
+    "Start time of the first spike."
 
     class Meta:
         """Meta class for NetStimulator"""
@@ -1533,7 +1637,7 @@ class ZarrStore(HasZarrStoreAccessor, BaseModel):
         type = "ZarrStore"
 
 
-class ParquetStore(BaseModel):
+class ParquetStore(HasParquetStoreAccesor, BaseModel):
     """No documentation"""
 
     typename: Literal["ParquetStore"] = Field(
@@ -1592,15 +1696,19 @@ class MediaStore(HasPresignedDownloadAccessor, BaseModel):
 
 
 class Compartment(CompartmentTrait, BaseModel):
-    """No documentation"""
+    """Represents a compartment in a biophysics model."""
 
     typename: Literal["Compartment"] = Field(
         alias="__typename", default="Compartment", exclude=True
     )
     id: str
+    "The unique identifier of the compartment within the model."
     mechanisms: List[str]
+    "The set of mechanisms active in this compartment."
     global_params: List[GlobalParamMap] = Field(alias="globalParams")
+    "The non-mechanistic (global) parameters applied to this compartment."
     section_params: List[SectionParamMap] = Field(alias="sectionParams")
+    "The mechanism-specific parameters applied to the sections of this compartment."
 
     class Meta:
         """Meta class for Compartment"""
@@ -1741,7 +1849,7 @@ class File(BaseModel):
 
 
 class CellBiophysics(BiophysicsTrait, BaseModel):
-    """No documentation"""
+    """Represents a biophysics model, which consists of compartments, each with their own mechanisms and parameters."""
 
     typename: Literal["Biophysics"] = Field(
         alias="__typename", default="Biophysics", exclude=True
@@ -1750,21 +1858,25 @@ class CellBiophysics(BiophysicsTrait, BaseModel):
 
 
 class CellTopology(TopologyTrait, BaseModel):
-    """No documentation"""
+    """Represents the topology of a cell, which defines its structure as a set of connected sections."""
 
     typename: Literal["Topology"] = Field(
         alias="__typename", default="Topology", exclude=True
     )
     sections: List[Section]
+    "The list of sections that make up the cell's morphology."
 
 
 class Cell(BaseModel):
-    """No documentation"""
+    """Represents a cell model, which consists of a biophysics model and a topology. You can think of the biophysics model as the 'properties' of the cell, and the topology as the 'structure' of the cell."""
 
     typename: Literal["Cell"] = Field(alias="__typename", default="Cell", exclude=True)
     id: str
+    "The unique identifier of the cell within the model."
     biophysics: CellBiophysics
+    "The biophysics model of the cell, which defines the properties of the cell such as its compartments, mechanisms, and parameters."
     topology: CellTopology
+    "The topology of the cell, which defines the structure of the cell such as its morphology and connectivity."
 
     class Meta:
         """Meta class for Cell"""
@@ -1833,13 +1945,13 @@ class Experiment(ExperimentTrait, BaseModel):
 
 
 class NeuronModelConfigNetsynapsesBase(BaseModel):
-    """No documentation"""
+    """Base class for synaptic stimulus parameters."""
 
 
 class NeuronModelConfigNetsynapsesBaseExp2Synapse(
     ExpTwoSynapse, NeuronModelConfigNetsynapsesBase, BaseModel
 ):
-    """No documentation"""
+    """Represents an exponential synapse model, which is a type of synaptic stimulus that has an exponential rise and decay. This will be used to specify the parameters of synapses in the model."""
 
     typename: Literal["Exp2Synapse"] = Field(
         alias="__typename", default="Exp2Synapse", exclude=True
@@ -1855,13 +1967,13 @@ class NeuronModelConfigNetsynapsesBaseCatchAll(
 
 
 class NeuronModelConfigNetconnectionsBase(BaseModel):
-    """No documentation"""
+    """Base class for net connection parameters."""
 
 
 class NeuronModelConfigNetconnectionsBaseSynapticConnection(
     SynapticConnection, NeuronModelConfigNetconnectionsBase, BaseModel
 ):
-    """No documentation"""
+    """Represents a synaptic connection between two cells in the model. This will be used to specify the connections between cells in the model, where each connection has a pre-synaptic cell (the net stimulator) and a post-synaptic cell (the synapse)."""
 
     typename: Literal["SynapticConnection"] = Field(
         alias="__typename", default="SynapticConnection", exclude=True
@@ -1877,14 +1989,17 @@ class NeuronModelConfigNetconnectionsBaseCatchAll(
 
 
 class NeuronModelConfig(ModelConfigTrait, BaseModel):
-    """No documentation"""
+    """Represents the configuration for the model."""
 
     typename: Literal["ModelConfig"] = Field(
         alias="__typename", default="ModelConfig", exclude=True
     )
-    v_init: float = Field(alias="vInit")
-    celsius: float
+    v_init: ElectricPotential = Field(alias="vInit")
+    "Initial membrane potential."
+    temperature: Temperature
+    "Simulation bath temperature."
     cells: List[Cell]
+    "The list of cells in the model."
     net_synapses: Optional[
         List[
             Union[
@@ -1896,6 +2011,7 @@ class NeuronModelConfig(ModelConfigTrait, BaseModel):
             ]
         ]
     ] = Field(default=None, alias="netSynapses")
+    "The list of net synapses in the model."
     net_connections: Optional[
         List[
             Union[
@@ -1907,9 +2023,11 @@ class NeuronModelConfig(ModelConfigTrait, BaseModel):
             ]
         ]
     ] = Field(default=None, alias="netConnections")
+    "The list of net connections in the model."
     net_stimulators: Optional[List[NetStimulator]] = Field(
         default=None, alias="netStimulators"
     )
+    "The list of net stimulators in the model."
 
 
 class NeuronModel(BaseModel):
@@ -1926,7 +2044,7 @@ class NeuronModel(BaseModel):
     class Meta:
         """Meta class for NeuronModel"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}"
         name = "NeuronModel"
         type = "NeuronModel"
 
@@ -1957,7 +2075,7 @@ class Simulation(SimulationTrait, BaseModel):
     )
     id: ID
     model: NeuronModel
-    duration: int
+    duration: Duration
     recordings: List[Recording]
     stimuli: List[Stimulus]
     time_trace: Trace = Field(alias="timeTrace")
@@ -1965,7 +2083,7 @@ class Simulation(SimulationTrait, BaseModel):
     class Meta:
         """Meta class for Simulation"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}"
         name = "Simulation"
         type = "Simulation"
 
@@ -2014,7 +2132,7 @@ class DetailRecording(BaseModel):
     class Meta:
         """Meta class for DetailRecording"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment DetailRecording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  simulation {\n    ...Simulation\n    __typename\n  }\n  __typename\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment DetailRecording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  simulation {\n    ...Simulation\n    __typename\n  }\n  __typename\n}"
         name = "DetailRecording"
         type = "Recording"
 
@@ -2046,7 +2164,7 @@ class DetailStimulus(BaseModel):
     class Meta:
         """Meta class for DetailStimulus"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment DetailStimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  simulation {\n    ...Simulation\n    __typename\n  }\n  __typename\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment DetailStimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  simulation {\n    ...Simulation\n    __typename\n  }\n  __typename\n}"
         name = "DetailStimulus"
         type = "Stimulus"
 
@@ -2477,7 +2595,7 @@ class CreateNeuronmodelMutation(BaseModel):
     class Meta:
         """Meta class for CreateNeuronmodel"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nmutation CreateNeuronmodel($input: CreateNeuronModelInput!) {\n  createNeuronModel(input: $input) {\n    ...NeuronModel\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nmutation CreateNeuronmodel($input: CreateNeuronModelInput!) {\n  createNeuronModel(input: $input) {\n    ...NeuronModel\n    __typename\n  }\n}"
 
 
 class CreateRoiMutation(BaseModel):
@@ -2549,7 +2667,7 @@ class CreateSimulationMutation(BaseModel):
     class Meta:
         """Meta class for CreateSimulation"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nmutation CreateSimulation($input: CreateSimulationInput!) {\n  createSimulation(input: $input) {\n    ...Simulation\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nmutation CreateSimulation($input: CreateSimulationInput!) {\n  createSimulation(input: $input) {\n    ...Simulation\n    __typename\n  }\n}"
 
 
 class FromTraceLikeMutation(BaseModel):
@@ -2817,7 +2935,7 @@ class GetNeuronModelQuery(BaseModel):
     class Meta:
         """Meta class for GetNeuronModel"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetNeuronModel($id: ID!) {\n  neuronModel(id: $id) {\n    ...NeuronModel\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetNeuronModel($id: ID!) {\n  neuronModel(id: $id) {\n    ...NeuronModel\n    __typename\n  }\n}"
 
 
 class SearchNeuronModelsQueryOptions(BaseModel):
@@ -2863,7 +2981,7 @@ class ListNeuronModelsQuery(BaseModel):
     class Meta:
         """Meta class for ListNeuronModels"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListNeuronModels($filter: NeuronModelFilter, $pagination: OffsetPaginationInput) {\n  neuronModels(filters: $filter, pagination: $pagination) {\n    ...NeuronModel\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListNeuronModels($filter: NeuronModelFilter, $pagination: OffsetPaginationInput) {\n  neuronModels(filters: $filter, pagination: $pagination) {\n    ...NeuronModel\n    __typename\n  }\n}"
 
 
 class GetRecordingQuery(BaseModel):
@@ -2881,7 +2999,7 @@ class GetRecordingQuery(BaseModel):
     class Meta:
         """Meta class for GetRecording"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment DetailRecording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  simulation {\n    ...Simulation\n    __typename\n  }\n  __typename\n}\n\nquery GetRecording($id: ID!) {\n  recording(id: $id) {\n    ...DetailRecording\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment DetailRecording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  simulation {\n    ...Simulation\n    __typename\n  }\n  __typename\n}\n\nquery GetRecording($id: ID!) {\n  recording(id: $id) {\n    ...DetailRecording\n    __typename\n  }\n}"
 
 
 class SearchRecordingsQueryOptions(BaseModel):
@@ -3004,7 +3122,7 @@ class GetSimulationQuery(BaseModel):
     class Meta:
         """Meta class for GetSimulation"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery GetSimulation($id: ID!) {\n  simulation(id: $id) {\n    ...Simulation\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery GetSimulation($id: ID!) {\n  simulation(id: $id) {\n    ...Simulation\n    __typename\n  }\n}"
 
 
 class SearchSimulationsQueryOptions(SimulationTrait, BaseModel):
@@ -3050,7 +3168,7 @@ class ListSimulationsQuery(BaseModel):
     class Meta:
         """Meta class for ListSimulations"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery ListSimulations($filter: SimulationFilter, $pagination: OffsetPaginationInput) {\n  simulations(filters: $filter, pagination: $pagination) {\n    ...Simulation\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nquery ListSimulations($filter: SimulationFilter, $pagination: OffsetPaginationInput) {\n  simulations(filters: $filter, pagination: $pagination) {\n    ...Simulation\n    __typename\n  }\n}"
 
 
 class GetStimulusQuery(BaseModel):
@@ -3068,7 +3186,7 @@ class GetStimulusQuery(BaseModel):
     class Meta:
         """Meta class for GetStimulus"""
 
-        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    celsius\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment DetailStimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  simulation {\n    ...Simulation\n    __typename\n  }\n  __typename\n}\n\nquery GetStimulus($id: ID!) {\n  stimulus(id: $id) {\n    ...DetailStimulus\n    __typename\n  }\n}"
+        document = "fragment GlobalParamMap on GlobalParamMap {\n  param\n  value\n  __typename\n}\n\nfragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  value\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  globalParams {\n    ...GlobalParamMap\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  connections {\n    parent\n    location\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    cells {\n      ...Cell\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Recording on Recording {\n  id\n  label\n  cell\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Stimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  position\n  location\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nfragment Simulation on Simulation {\n  id\n  model {\n    ...NeuronModel\n    __typename\n  }\n  duration\n  recordings {\n    ...Recording\n    __typename\n  }\n  stimuli {\n    ...Stimulus\n    __typename\n  }\n  timeTrace {\n    ...Trace\n    __typename\n  }\n  __typename\n}\n\nfragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment DetailStimulus on Stimulus {\n  id\n  label\n  cell\n  kind\n  trace {\n    id\n    store {\n      ...ZarrStore\n      __typename\n    }\n    __typename\n  }\n  simulation {\n    ...Simulation\n    __typename\n  }\n  __typename\n}\n\nquery GetStimulus($id: ID!) {\n  stimulus(id: $id) {\n    ...DetailStimulus\n    __typename\n  }\n}"
 
 
 class SearchStimuliQueryOptions(BaseModel):
@@ -3288,8 +3406,8 @@ class WatchTracesSubscription(BaseModel):
 async def acreate_block(
     name: str,
     segments: Iterable[BlockSegmentInput],
-    file: Optional[IDCoercible] = None,
-    recording_time: Optional[datetime] = None,
+    file: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    recording_time: Union[Optional[datetime], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> Block:
     """CreateBlock
@@ -3306,27 +3424,23 @@ async def acreate_block(
     Returns:
         Block
     """
-    return (
-        await aexecute(
-            CreateBlockMutation,
-            {
-                "input": {
-                    "file": file,
-                    "name": name,
-                    "recordingTime": recording_time,
-                    "segments": segments,
-                }
-            },
-            rath=rath,
-        )
-    ).create_block
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    if file is not UNSET:
+        _input["file"] = file
+    _input["name"] = name
+    if recording_time is not UNSET:
+        _input["recordingTime"] = recording_time
+    _input["segments"] = segments
+    variables["input"] = _input
+    return (await aexecute(CreateBlockMutation, variables, rath=rath)).create_block
 
 
 def create_block(
     name: str,
     segments: Iterable[BlockSegmentInput],
-    file: Optional[IDCoercible] = None,
-    recording_time: Optional[datetime] = None,
+    file: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    recording_time: Union[Optional[datetime], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> Block:
     """CreateBlock
@@ -3343,26 +3457,24 @@ def create_block(
     Returns:
         Block
     """
-    return execute(
-        CreateBlockMutation,
-        {
-            "input": {
-                "file": file,
-                "name": name,
-                "recordingTime": recording_time,
-                "segments": segments,
-            }
-        },
-        rath=rath,
-    ).create_block
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    if file is not UNSET:
+        _input["file"] = file
+    _input["name"] = name
+    if recording_time is not UNSET:
+        _input["recordingTime"] = recording_time
+    _input["segments"] = segments
+    variables["input"] = _input
+    return execute(CreateBlockMutation, variables, rath=rath).create_block
 
 
 async def arequest_bigfile_upload(
     original_file_name: str,
-    file_size: Optional[int] = None,
-    content_type: Optional[str] = None,
-    host: Optional[str] = None,
-    port: Optional[int] = None,
+    file_size: Union[Optional[int], UnsetType] = UNSET,
+    content_type: Union[Optional[str], UnsetType] = UNSET,
+    host: Union[Optional[str], UnsetType] = UNSET,
+    port: Union[Optional[int], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> BigFileUploadGrant:
     """RequestBigfileUpload
@@ -3380,29 +3492,29 @@ async def arequest_bigfile_upload(
     Returns:
         BigFileUploadGrant
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["originalFileName"] = original_file_name
+    if file_size is not UNSET:
+        _input["fileSize"] = file_size
+    if content_type is not UNSET:
+        _input["contentType"] = content_type
+    if host is not UNSET:
+        _input["host"] = host
+    if port is not UNSET:
+        _input["port"] = port
+    variables["input"] = _input
     return (
-        await aexecute(
-            RequestBigfileUploadMutation,
-            {
-                "input": {
-                    "originalFileName": original_file_name,
-                    "fileSize": file_size,
-                    "contentType": content_type,
-                    "host": host,
-                    "port": port,
-                }
-            },
-            rath=rath,
-        )
+        await aexecute(RequestBigfileUploadMutation, variables, rath=rath)
     ).request_bigfile_upload
 
 
 def request_bigfile_upload(
     original_file_name: str,
-    file_size: Optional[int] = None,
-    content_type: Optional[str] = None,
-    host: Optional[str] = None,
-    port: Optional[int] = None,
+    file_size: Union[Optional[int], UnsetType] = UNSET,
+    content_type: Union[Optional[str], UnsetType] = UNSET,
+    host: Union[Optional[str], UnsetType] = UNSET,
+    port: Union[Optional[int], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> BigFileUploadGrant:
     """RequestBigfileUpload
@@ -3420,18 +3532,20 @@ def request_bigfile_upload(
     Returns:
         BigFileUploadGrant
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["originalFileName"] = original_file_name
+    if file_size is not UNSET:
+        _input["fileSize"] = file_size
+    if content_type is not UNSET:
+        _input["contentType"] = content_type
+    if host is not UNSET:
+        _input["host"] = host
+    if port is not UNSET:
+        _input["port"] = port
+    variables["input"] = _input
     return execute(
-        RequestBigfileUploadMutation,
-        {
-            "input": {
-                "originalFileName": original_file_name,
-                "fileSize": file_size,
-                "contentType": content_type,
-                "host": host,
-                "port": port,
-            }
-        },
-        rath=rath,
+        RequestBigfileUploadMutation, variables, rath=rath
     ).request_bigfile_upload
 
 
@@ -3450,12 +3564,13 @@ async def afinish_bigfile_upload(
     Returns:
         BigFileStore
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    _input["valid"] = valid
+    variables["input"] = _input
     return (
-        await aexecute(
-            FinishBigfileUploadMutation,
-            {"input": {"storeId": store_id, "valid": valid}},
-            rath=rath,
-        )
+        await aexecute(FinishBigfileUploadMutation, variables, rath=rath)
     ).finish_bigfile_upload
 
 
@@ -3474,10 +3589,13 @@ def finish_bigfile_upload(
     Returns:
         BigFileStore
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    _input["valid"] = valid
+    variables["input"] = _input
     return execute(
-        FinishBigfileUploadMutation,
-        {"input": {"storeId": store_id, "valid": valid}},
-        rath=rath,
+        FinishBigfileUploadMutation, variables, rath=rath
     ).finish_bigfile_upload
 
 
@@ -3495,10 +3613,12 @@ async def arequest_bigfile_access(
     Returns:
         BigFileAccessGrant
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    variables["input"] = _input
     return (
-        await aexecute(
-            RequestBigfileAccessMutation, {"input": {"storeId": store_id}}, rath=rath
-        )
+        await aexecute(RequestBigfileAccessMutation, variables, rath=rath)
     ).request_bigfile_access
 
 
@@ -3516,15 +3636,19 @@ def request_bigfile_access(
     Returns:
         BigFileAccessGrant
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    variables["input"] = _input
     return execute(
-        RequestBigfileAccessMutation, {"input": {"storeId": store_id}}, rath=rath
+        RequestBigfileAccessMutation, variables, rath=rath
     ).request_bigfile_access
 
 
 async def arequest_media_upload(
     original_file_name: str,
-    file_size: Optional[int] = None,
-    content_type: Optional[str] = None,
+    file_size: Union[Optional[int], UnsetType] = UNSET,
+    content_type: Union[Optional[str], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> MediaUploadGrant:
     """RequestMediaUpload
@@ -3540,25 +3664,23 @@ async def arequest_media_upload(
     Returns:
         MediaUploadGrant
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["originalFileName"] = original_file_name
+    if file_size is not UNSET:
+        _input["fileSize"] = file_size
+    if content_type is not UNSET:
+        _input["contentType"] = content_type
+    variables["input"] = _input
     return (
-        await aexecute(
-            RequestMediaUploadMutation,
-            {
-                "input": {
-                    "originalFileName": original_file_name,
-                    "fileSize": file_size,
-                    "contentType": content_type,
-                }
-            },
-            rath=rath,
-        )
+        await aexecute(RequestMediaUploadMutation, variables, rath=rath)
     ).request_media_upload
 
 
 def request_media_upload(
     original_file_name: str,
-    file_size: Optional[int] = None,
-    content_type: Optional[str] = None,
+    file_size: Union[Optional[int], UnsetType] = UNSET,
+    content_type: Union[Optional[str], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> MediaUploadGrant:
     """RequestMediaUpload
@@ -3574,16 +3696,16 @@ def request_media_upload(
     Returns:
         MediaUploadGrant
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["originalFileName"] = original_file_name
+    if file_size is not UNSET:
+        _input["fileSize"] = file_size
+    if content_type is not UNSET:
+        _input["contentType"] = content_type
+    variables["input"] = _input
     return execute(
-        RequestMediaUploadMutation,
-        {
-            "input": {
-                "originalFileName": original_file_name,
-                "fileSize": file_size,
-                "contentType": content_type,
-            }
-        },
-        rath=rath,
+        RequestMediaUploadMutation, variables, rath=rath
     ).request_media_upload
 
 
@@ -3602,12 +3724,13 @@ async def afinish_media_upload(
     Returns:
         MediaStore
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    _input["valid"] = valid
+    variables["input"] = _input
     return (
-        await aexecute(
-            FinishMediaUploadMutation,
-            {"input": {"storeId": store_id, "valid": valid}},
-            rath=rath,
-        )
+        await aexecute(FinishMediaUploadMutation, variables, rath=rath)
     ).finish_media_upload
 
 
@@ -3626,11 +3749,12 @@ def finish_media_upload(
     Returns:
         MediaStore
     """
-    return execute(
-        FinishMediaUploadMutation,
-        {"input": {"storeId": store_id, "valid": valid}},
-        rath=rath,
-    ).finish_media_upload
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    _input["valid"] = valid
+    variables["input"] = _input
+    return execute(FinishMediaUploadMutation, variables, rath=rath).finish_media_upload
 
 
 async def arequest_media_access(
@@ -3647,10 +3771,12 @@ async def arequest_media_access(
     Returns:
         MediaAccessGrant
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    variables["input"] = _input
     return (
-        await aexecute(
-            RequestMediaAccessMutation, {"input": {"storeId": store_id}}, rath=rath
-        )
+        await aexecute(RequestMediaAccessMutation, variables, rath=rath)
     ).request_media_access
 
 
@@ -3668,16 +3794,19 @@ def request_media_access(
     Returns:
         MediaAccessGrant
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    variables["input"] = _input
     return execute(
-        RequestMediaAccessMutation, {"input": {"storeId": store_id}}, rath=rath
+        RequestMediaAccessMutation, variables, rath=rath
     ).request_media_access
 
 
 async def arequest_parquet_upload(
-    original_file_name: str,
-    content_type: Optional[str] = None,
-    host: Optional[str] = None,
-    port: Optional[int] = None,
+    content_type: Union[Optional[str], UnsetType] = UNSET,
+    host: Union[Optional[str], UnsetType] = UNSET,
+    port: Union[Optional[int], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> ParquetUploadGrant:
     """RequestParquetUpload
@@ -3685,7 +3814,6 @@ async def arequest_parquet_upload(
     Request an upload grant for a Parquet store
 
     Args:
-        original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
@@ -3694,27 +3822,24 @@ async def arequest_parquet_upload(
     Returns:
         ParquetUploadGrant
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    if content_type is not UNSET:
+        _input["contentType"] = content_type
+    if host is not UNSET:
+        _input["host"] = host
+    if port is not UNSET:
+        _input["port"] = port
+    variables["input"] = _input
     return (
-        await aexecute(
-            RequestParquetUploadMutation,
-            {
-                "input": {
-                    "originalFileName": original_file_name,
-                    "contentType": content_type,
-                    "host": host,
-                    "port": port,
-                }
-            },
-            rath=rath,
-        )
+        await aexecute(RequestParquetUploadMutation, variables, rath=rath)
     ).request_parquet_upload
 
 
 def request_parquet_upload(
-    original_file_name: str,
-    content_type: Optional[str] = None,
-    host: Optional[str] = None,
-    port: Optional[int] = None,
+    content_type: Union[Optional[str], UnsetType] = UNSET,
+    host: Union[Optional[str], UnsetType] = UNSET,
+    port: Union[Optional[int], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> ParquetUploadGrant:
     """RequestParquetUpload
@@ -3722,7 +3847,6 @@ def request_parquet_upload(
     Request an upload grant for a Parquet store
 
     Args:
-        original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
         port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
@@ -3731,17 +3855,17 @@ def request_parquet_upload(
     Returns:
         ParquetUploadGrant
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    if content_type is not UNSET:
+        _input["contentType"] = content_type
+    if host is not UNSET:
+        _input["host"] = host
+    if port is not UNSET:
+        _input["port"] = port
+    variables["input"] = _input
     return execute(
-        RequestParquetUploadMutation,
-        {
-            "input": {
-                "originalFileName": original_file_name,
-                "contentType": content_type,
-                "host": host,
-                "port": port,
-            }
-        },
-        rath=rath,
+        RequestParquetUploadMutation, variables, rath=rath
     ).request_parquet_upload
 
 
@@ -3760,12 +3884,13 @@ async def afinish_parquet_upload(
     Returns:
         ParquetStore
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    _input["valid"] = valid
+    variables["input"] = _input
     return (
-        await aexecute(
-            FinishParquetUploadMutation,
-            {"input": {"storeId": store_id, "valid": valid}},
-            rath=rath,
-        )
+        await aexecute(FinishParquetUploadMutation, variables, rath=rath)
     ).finish_parquet_upload
 
 
@@ -3784,10 +3909,13 @@ def finish_parquet_upload(
     Returns:
         ParquetStore
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    _input["valid"] = valid
+    variables["input"] = _input
     return execute(
-        FinishParquetUploadMutation,
-        {"input": {"storeId": store_id, "valid": valid}},
-        rath=rath,
+        FinishParquetUploadMutation, variables, rath=rath
     ).finish_parquet_upload
 
 
@@ -3805,10 +3933,12 @@ async def arequest_parquet_access(
     Returns:
         ParquetAccessGrant
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    variables["input"] = _input
     return (
-        await aexecute(
-            RequestParquetAccessMutation, {"input": {"storeId": store_id}}, rath=rath
-        )
+        await aexecute(RequestParquetAccessMutation, variables, rath=rath)
     ).request_parquet_access
 
 
@@ -3826,17 +3956,21 @@ def request_parquet_access(
     Returns:
         ParquetAccessGrant
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    variables["input"] = _input
     return execute(
-        RequestParquetAccessMutation, {"input": {"storeId": store_id}}, rath=rath
+        RequestParquetAccessMutation, variables, rath=rath
     ).request_parquet_access
 
 
 async def arequest_zarr_upload(
-    shape: Optional[Iterable[int]] = None,
-    chunks: Optional[Iterable[int]] = None,
-    version: Optional[str] = None,
-    host: Optional[str] = None,
-    port: Optional[int] = None,
+    shape: Union[Optional[Iterable[int]], UnsetType] = UNSET,
+    chunks: Union[Optional[Iterable[int]], UnsetType] = UNSET,
+    version: Union[Optional[str], UnsetType] = UNSET,
+    host: Union[Optional[str], UnsetType] = UNSET,
+    port: Union[Optional[int], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> ZarrUploadGrant:
     """RequestZarrUpload
@@ -3854,29 +3988,30 @@ async def arequest_zarr_upload(
     Returns:
         ZarrUploadGrant
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    if shape is not UNSET:
+        _input["shape"] = shape
+    if chunks is not UNSET:
+        _input["chunks"] = chunks
+    if version is not UNSET:
+        _input["version"] = version
+    if host is not UNSET:
+        _input["host"] = host
+    if port is not UNSET:
+        _input["port"] = port
+    variables["input"] = _input
     return (
-        await aexecute(
-            RequestZarrUploadMutation,
-            {
-                "input": {
-                    "shape": shape,
-                    "chunks": chunks,
-                    "version": version,
-                    "host": host,
-                    "port": port,
-                }
-            },
-            rath=rath,
-        )
+        await aexecute(RequestZarrUploadMutation, variables, rath=rath)
     ).request_zarr_upload
 
 
 def request_zarr_upload(
-    shape: Optional[Iterable[int]] = None,
-    chunks: Optional[Iterable[int]] = None,
-    version: Optional[str] = None,
-    host: Optional[str] = None,
-    port: Optional[int] = None,
+    shape: Union[Optional[Iterable[int]], UnsetType] = UNSET,
+    chunks: Union[Optional[Iterable[int]], UnsetType] = UNSET,
+    version: Union[Optional[str], UnsetType] = UNSET,
+    host: Union[Optional[str], UnsetType] = UNSET,
+    port: Union[Optional[int], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> ZarrUploadGrant:
     """RequestZarrUpload
@@ -3894,19 +4029,20 @@ def request_zarr_upload(
     Returns:
         ZarrUploadGrant
     """
-    return execute(
-        RequestZarrUploadMutation,
-        {
-            "input": {
-                "shape": shape,
-                "chunks": chunks,
-                "version": version,
-                "host": host,
-                "port": port,
-            }
-        },
-        rath=rath,
-    ).request_zarr_upload
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    if shape is not UNSET:
+        _input["shape"] = shape
+    if chunks is not UNSET:
+        _input["chunks"] = chunks
+    if version is not UNSET:
+        _input["version"] = version
+    if host is not UNSET:
+        _input["host"] = host
+    if port is not UNSET:
+        _input["port"] = port
+    variables["input"] = _input
+    return execute(RequestZarrUploadMutation, variables, rath=rath).request_zarr_upload
 
 
 async def afinish_zarr_upload(
@@ -3924,12 +4060,13 @@ async def afinish_zarr_upload(
     Returns:
         ZarrStore
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    _input["valid"] = valid
+    variables["input"] = _input
     return (
-        await aexecute(
-            FinishZarrUploadMutation,
-            {"input": {"storeId": store_id, "valid": valid}},
-            rath=rath,
-        )
+        await aexecute(FinishZarrUploadMutation, variables, rath=rath)
     ).finish_zarr_upload
 
 
@@ -3948,11 +4085,12 @@ def finish_zarr_upload(
     Returns:
         ZarrStore
     """
-    return execute(
-        FinishZarrUploadMutation,
-        {"input": {"storeId": store_id, "valid": valid}},
-        rath=rath,
-    ).finish_zarr_upload
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    _input["valid"] = valid
+    variables["input"] = _input
+    return execute(FinishZarrUploadMutation, variables, rath=rath).finish_zarr_upload
 
 
 async def arequest_zarr_access(
@@ -3969,10 +4107,12 @@ async def arequest_zarr_access(
     Returns:
         ZarrAccessGrant
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    variables["input"] = _input
     return (
-        await aexecute(
-            RequestZarrAccessMutation, {"input": {"storeId": store_id}}, rath=rath
-        )
+        await aexecute(RequestZarrAccessMutation, variables, rath=rath)
     ).request_zarr_access
 
 
@@ -3990,9 +4130,11 @@ def request_zarr_access(
     Returns:
         ZarrAccessGrant
     """
-    return execute(
-        RequestZarrAccessMutation, {"input": {"storeId": store_id}}, rath=rath
-    ).request_zarr_access
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["storeId"] = store_id
+    variables["input"] = _input
+    return execute(RequestZarrAccessMutation, variables, rath=rath).request_zarr_access
 
 
 async def acreate_dataset(
@@ -4009,9 +4151,11 @@ async def acreate_dataset(
     Returns:
         CreateDatasetMutationCreatedataset
     """
-    return (
-        await aexecute(CreateDatasetMutation, {"input": {"name": name}}, rath=rath)
-    ).create_dataset
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["name"] = name
+    variables["input"] = _input
+    return (await aexecute(CreateDatasetMutation, variables, rath=rath)).create_dataset
 
 
 def create_dataset(
@@ -4028,51 +4172,57 @@ def create_dataset(
     Returns:
         CreateDatasetMutationCreatedataset
     """
-    return execute(
-        CreateDatasetMutation, {"input": {"name": name}}, rath=rath
-    ).create_dataset
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["name"] = name
+    variables["input"] = _input
+    return execute(CreateDatasetMutation, variables, rath=rath).create_dataset
 
 
 async def aupdate_dataset(
-    name: str, id: IDCoercible, rath: Optional[ElektroRath] = None
+    id: IDCoercible, name: str, rath: Optional[ElektroRath] = None
 ) -> UpdateDatasetMutationUpdatedataset:
     """UpdateDataset
 
     Update dataset metadata
 
     Args:
-        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
         UpdateDatasetMutationUpdatedataset
     """
-    return (
-        await aexecute(
-            UpdateDatasetMutation, {"input": {"name": name, "id": id}}, rath=rath
-        )
-    ).update_dataset
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["id"] = id
+    _input["name"] = name
+    variables["input"] = _input
+    return (await aexecute(UpdateDatasetMutation, variables, rath=rath)).update_dataset
 
 
 def update_dataset(
-    name: str, id: IDCoercible, rath: Optional[ElektroRath] = None
+    id: IDCoercible, name: str, rath: Optional[ElektroRath] = None
 ) -> UpdateDatasetMutationUpdatedataset:
     """UpdateDataset
 
     Update dataset metadata
 
     Args:
-        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
         UpdateDatasetMutationUpdatedataset
     """
-    return execute(
-        UpdateDatasetMutation, {"input": {"name": name, "id": id}}, rath=rath
-    ).update_dataset
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["id"] = id
+    _input["name"] = name
+    variables["input"] = _input
+    return execute(UpdateDatasetMutation, variables, rath=rath).update_dataset
 
 
 async def arevert_dataset(
@@ -4090,13 +4240,12 @@ async def arevert_dataset(
     Returns:
         RevertDatasetMutationRevertdataset
     """
-    return (
-        await aexecute(
-            RevertDatasetMutation,
-            {"input": {"id": id, "historyId": history_id}},
-            rath=rath,
-        )
-    ).revert_dataset
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["id"] = id
+    _input["historyId"] = history_id
+    variables["input"] = _input
+    return (await aexecute(RevertDatasetMutation, variables, rath=rath)).revert_dataset
 
 
 def revert_dataset(
@@ -4114,16 +4263,19 @@ def revert_dataset(
     Returns:
         RevertDatasetMutationRevertdataset
     """
-    return execute(
-        RevertDatasetMutation, {"input": {"id": id, "historyId": history_id}}, rath=rath
-    ).revert_dataset
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["id"] = id
+    _input["historyId"] = history_id
+    variables["input"] = _input
+    return execute(RevertDatasetMutation, variables, rath=rath).revert_dataset
 
 
 async def acreate_mod_environment(
     name: str,
     zip_file: BigFileLike,
     mechanisms: Iterable[MechanismInput],
-    description: Optional[str] = None,
+    description: Union[Optional[str], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> ModEnvironment:
     """CreateModEnvironment
@@ -4140,19 +4292,16 @@ async def acreate_mod_environment(
     Returns:
         ModEnvironment
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["name"] = name
+    if description is not UNSET:
+        _input["description"] = description
+    _input["zipFile"] = zip_file
+    _input["mechanisms"] = mechanisms
+    variables["input"] = _input
     return (
-        await aexecute(
-            CreateModEnvironmentMutation,
-            {
-                "input": {
-                    "name": name,
-                    "description": description,
-                    "zipFile": zip_file,
-                    "mechanisms": mechanisms,
-                }
-            },
-            rath=rath,
-        )
+        await aexecute(CreateModEnvironmentMutation, variables, rath=rath)
     ).create_mod_environment
 
 
@@ -4160,7 +4309,7 @@ def create_mod_environment(
     name: str,
     zip_file: BigFileLike,
     mechanisms: Iterable[MechanismInput],
-    description: Optional[str] = None,
+    description: Union[Optional[str], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> ModEnvironment:
     """CreateModEnvironment
@@ -4177,17 +4326,16 @@ def create_mod_environment(
     Returns:
         ModEnvironment
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["name"] = name
+    if description is not UNSET:
+        _input["description"] = description
+    _input["zipFile"] = zip_file
+    _input["mechanisms"] = mechanisms
+    variables["input"] = _input
     return execute(
-        CreateModEnvironmentMutation,
-        {
-            "input": {
-                "name": name,
-                "description": description,
-                "zipFile": zip_file,
-                "mechanisms": mechanisms,
-            }
-        },
-        rath=rath,
+        CreateModEnvironmentMutation, variables, rath=rath
     ).create_mod_environment
 
 
@@ -4195,8 +4343,8 @@ async def acreate_experiment(
     name: str,
     stimulus_views: Iterable[StimulusViewInput],
     recording_views: Iterable[RecordingViewInput],
-    time_trace: Optional[IDCoercible] = None,
-    description: Optional[str] = None,
+    time_trace: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    description: Union[Optional[str], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> Experiment:
     """CreateExperiment
@@ -4214,20 +4362,18 @@ async def acreate_experiment(
     Returns:
         Experiment
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["name"] = name
+    if time_trace is not UNSET:
+        _input["timeTrace"] = time_trace
+    _input["stimulusViews"] = stimulus_views
+    _input["recordingViews"] = recording_views
+    if description is not UNSET:
+        _input["description"] = description
+    variables["input"] = _input
     return (
-        await aexecute(
-            CreateExperimentMutation,
-            {
-                "input": {
-                    "name": name,
-                    "timeTrace": time_trace,
-                    "stimulusViews": stimulus_views,
-                    "recordingViews": recording_views,
-                    "description": description,
-                }
-            },
-            rath=rath,
-        )
+        await aexecute(CreateExperimentMutation, variables, rath=rath)
     ).create_experiment
 
 
@@ -4235,8 +4381,8 @@ def create_experiment(
     name: str,
     stimulus_views: Iterable[StimulusViewInput],
     recording_views: Iterable[RecordingViewInput],
-    time_trace: Optional[IDCoercible] = None,
-    description: Optional[str] = None,
+    time_trace: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    description: Union[Optional[str], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> Experiment:
     """CreateExperiment
@@ -4254,26 +4400,24 @@ def create_experiment(
     Returns:
         Experiment
     """
-    return execute(
-        CreateExperimentMutation,
-        {
-            "input": {
-                "name": name,
-                "timeTrace": time_trace,
-                "stimulusViews": stimulus_views,
-                "recordingViews": recording_views,
-                "description": description,
-            }
-        },
-        rath=rath,
-    ).create_experiment
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["name"] = name
+    if time_trace is not UNSET:
+        _input["timeTrace"] = time_trace
+    _input["stimulusViews"] = stimulus_views
+    _input["recordingViews"] = recording_views
+    if description is not UNSET:
+        _input["description"] = description
+    variables["input"] = _input
+    return execute(CreateExperimentMutation, variables, rath=rath).create_experiment
 
 
 async def afrom_file_like(
     name: str,
     file: FileLike,
-    origins: Optional[Iterable[IDCoercible]] = None,
-    dataset: Optional[IDCoercible] = None,
+    origins: Union[Optional[Iterable[IDCoercible]], UnsetType] = UNSET,
+    dataset: Union[Optional[IDCoercible], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> File:
     """from_file_like
@@ -4290,27 +4434,23 @@ async def afrom_file_like(
     Returns:
         File
     """
-    return (
-        await aexecute(
-            From_file_likeMutation,
-            {
-                "input": {
-                    "name": name,
-                    "file": file,
-                    "origins": origins,
-                    "dataset": dataset,
-                }
-            },
-            rath=rath,
-        )
-    ).from_file_like
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["name"] = name
+    _input["file"] = file
+    if origins is not UNSET:
+        _input["origins"] = origins
+    if dataset is not UNSET:
+        _input["dataset"] = dataset
+    variables["input"] = _input
+    return (await aexecute(From_file_likeMutation, variables, rath=rath)).from_file_like
 
 
 def from_file_like(
     name: str,
     file: FileLike,
-    origins: Optional[Iterable[IDCoercible]] = None,
-    dataset: Optional[IDCoercible] = None,
+    origins: Union[Optional[Iterable[IDCoercible]], UnsetType] = UNSET,
+    dataset: Union[Optional[IDCoercible], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> File:
     """from_file_like
@@ -4327,17 +4467,22 @@ def from_file_like(
     Returns:
         File
     """
-    return execute(
-        From_file_likeMutation,
-        {"input": {"name": name, "file": file, "origins": origins, "dataset": dataset}},
-        rath=rath,
-    ).from_file_like
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["name"] = name
+    _input["file"] = file
+    if origins is not UNSET:
+        _input["origins"] = origins
+    if dataset is not UNSET:
+        _input["dataset"] = dataset
+    variables["input"] = _input
+    return execute(From_file_likeMutation, variables, rath=rath).from_file_like
 
 
 async def acreate_model_collection(
     name: str,
     models: Iterable[IDCoercible],
-    description: Optional[str] = None,
+    description: Union[Optional[str], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> ModelCollection:
     """CreateModelCollection
@@ -4353,19 +4498,22 @@ async def acreate_model_collection(
     Returns:
         ModelCollection
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["name"] = name
+    _input["models"] = models
+    if description is not UNSET:
+        _input["description"] = description
+    variables["input"] = _input
     return (
-        await aexecute(
-            CreateModelCollectionMutation,
-            {"input": {"name": name, "models": models, "description": description}},
-            rath=rath,
-        )
+        await aexecute(CreateModelCollectionMutation, variables, rath=rath)
     ).create_model_collection
 
 
 def create_model_collection(
     name: str,
     models: Iterable[IDCoercible],
-    description: Optional[str] = None,
+    description: Union[Optional[str], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> ModelCollection:
     """CreateModelCollection
@@ -4381,19 +4529,24 @@ def create_model_collection(
     Returns:
         ModelCollection
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["name"] = name
+    _input["models"] = models
+    if description is not UNSET:
+        _input["description"] = description
+    variables["input"] = _input
     return execute(
-        CreateModelCollectionMutation,
-        {"input": {"name": name, "models": models, "description": description}},
-        rath=rath,
+        CreateModelCollectionMutation, variables, rath=rath
     ).create_model_collection
 
 
 async def acreate_neuronmodel(
     name: str,
     config: ModelConfigInput,
-    environment: Optional[IDCoercible] = None,
-    parent: Optional[IDCoercible] = None,
-    description: Optional[str] = None,
+    environment: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    parent: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    description: Union[Optional[str], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> NeuronModel:
     """CreateNeuronmodel
@@ -4405,35 +4558,34 @@ async def acreate_neuronmodel(
         environment: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
         parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
         description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-        config:  (required)
+        config: Input for the configuration of a model. (required)
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
         NeuronModel
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["name"] = name
+    if environment is not UNSET:
+        _input["environment"] = environment
+    if parent is not UNSET:
+        _input["parent"] = parent
+    if description is not UNSET:
+        _input["description"] = description
+    _input["config"] = config
+    variables["input"] = _input
     return (
-        await aexecute(
-            CreateNeuronmodelMutation,
-            {
-                "input": {
-                    "name": name,
-                    "environment": environment,
-                    "parent": parent,
-                    "description": description,
-                    "config": config,
-                }
-            },
-            rath=rath,
-        )
+        await aexecute(CreateNeuronmodelMutation, variables, rath=rath)
     ).create_neuron_model
 
 
 def create_neuronmodel(
     name: str,
     config: ModelConfigInput,
-    environment: Optional[IDCoercible] = None,
-    parent: Optional[IDCoercible] = None,
-    description: Optional[str] = None,
+    environment: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    parent: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    description: Union[Optional[str], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> NeuronModel:
     """CreateNeuronmodel
@@ -4445,32 +4597,31 @@ def create_neuronmodel(
         environment: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
         parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
         description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-        config:  (required)
+        config: Input for the configuration of a model. (required)
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
         NeuronModel
     """
-    return execute(
-        CreateNeuronmodelMutation,
-        {
-            "input": {
-                "name": name,
-                "environment": environment,
-                "parent": parent,
-                "description": description,
-                "config": config,
-            }
-        },
-        rath=rath,
-    ).create_neuron_model
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["name"] = name
+    if environment is not UNSET:
+        _input["environment"] = environment
+    if parent is not UNSET:
+        _input["parent"] = parent
+    if description is not UNSET:
+        _input["description"] = description
+    _input["config"] = config
+    variables["input"] = _input
+    return execute(CreateNeuronmodelMutation, variables, rath=rath).create_neuron_model
 
 
 async def acreate_roi(
     trace: IDCoercible,
     vectors: Iterable[TwoDVector],
     kind: RoiKind,
-    label: Optional[str] = None,
+    label: Union[Optional[str], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> ROI:
     """CreateRoi
@@ -4487,27 +4638,22 @@ async def acreate_roi(
     Returns:
         ROI
     """
-    return (
-        await aexecute(
-            CreateRoiMutation,
-            {
-                "input": {
-                    "trace": trace,
-                    "vectors": vectors,
-                    "kind": kind,
-                    "label": label,
-                }
-            },
-            rath=rath,
-        )
-    ).create_roi
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["trace"] = trace
+    _input["vectors"] = vectors
+    _input["kind"] = kind
+    if label is not UNSET:
+        _input["label"] = label
+    variables["input"] = _input
+    return (await aexecute(CreateRoiMutation, variables, rath=rath)).create_roi
 
 
 def create_roi(
     trace: IDCoercible,
     vectors: Iterable[TwoDVector],
     kind: RoiKind,
-    label: Optional[str] = None,
+    label: Union[Optional[str], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> ROI:
     """CreateRoi
@@ -4524,11 +4670,15 @@ def create_roi(
     Returns:
         ROI
     """
-    return execute(
-        CreateRoiMutation,
-        {"input": {"trace": trace, "vectors": vectors, "kind": kind, "label": label}},
-        rath=rath,
-    ).create_roi
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["trace"] = trace
+    _input["vectors"] = vectors
+    _input["kind"] = kind
+    if label is not UNSET:
+        _input["label"] = label
+    variables["input"] = _input
+    return execute(CreateRoiMutation, variables, rath=rath).create_roi
 
 
 async def adelete_roi(id: IDCoercible, rath: Optional[ElektroRath] = None) -> ID:
@@ -4543,9 +4693,11 @@ async def adelete_roi(id: IDCoercible, rath: Optional[ElektroRath] = None) -> ID
     Returns:
         ID
     """
-    return (
-        await aexecute(DeleteRoiMutation, {"input": {"id": id}}, rath=rath)
-    ).delete_roi
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["id"] = id
+    variables["input"] = _input
+    return (await aexecute(DeleteRoiMutation, variables, rath=rath)).delete_roi
 
 
 def delete_roi(id: IDCoercible, rath: Optional[ElektroRath] = None) -> ID:
@@ -4560,14 +4712,18 @@ def delete_roi(id: IDCoercible, rath: Optional[ElektroRath] = None) -> ID:
     Returns:
         ID
     """
-    return execute(DeleteRoiMutation, {"input": {"id": id}}, rath=rath).delete_roi
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["id"] = id
+    variables["input"] = _input
+    return execute(DeleteRoiMutation, variables, rath=rath).delete_roi
 
 
 async def aupdate_roi(
     roi: IDCoercible,
-    label: Optional[str] = None,
-    vectors: Optional[Iterable[TwoDVector]] = None,
-    kind: Optional[RoiKind] = None,
+    label: Union[Optional[str], UnsetType] = UNSET,
+    vectors: Union[Optional[Iterable[TwoDVector]], UnsetType] = UNSET,
+    kind: Union[Optional[RoiKind], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> ROI:
     """UpdateRoi
@@ -4584,20 +4740,24 @@ async def aupdate_roi(
     Returns:
         ROI
     """
-    return (
-        await aexecute(
-            UpdateRoiMutation,
-            {"input": {"roi": roi, "label": label, "vectors": vectors, "kind": kind}},
-            rath=rath,
-        )
-    ).update_roi
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["roi"] = roi
+    if label is not UNSET:
+        _input["label"] = label
+    if vectors is not UNSET:
+        _input["vectors"] = vectors
+    if kind is not UNSET:
+        _input["kind"] = kind
+    variables["input"] = _input
+    return (await aexecute(UpdateRoiMutation, variables, rath=rath)).update_roi
 
 
 def update_roi(
     roi: IDCoercible,
-    label: Optional[str] = None,
-    vectors: Optional[Iterable[TwoDVector]] = None,
-    kind: Optional[RoiKind] = None,
+    label: Union[Optional[str], UnsetType] = UNSET,
+    vectors: Union[Optional[Iterable[TwoDVector]], UnsetType] = UNSET,
+    kind: Union[Optional[RoiKind], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> ROI:
     """UpdateRoi
@@ -4614,11 +4774,17 @@ def update_roi(
     Returns:
         ROI
     """
-    return execute(
-        UpdateRoiMutation,
-        {"input": {"roi": roi, "label": label, "vectors": vectors, "kind": kind}},
-        rath=rath,
-    ).update_roi
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["roi"] = roi
+    if label is not UNSET:
+        _input["label"] = label
+    if vectors is not UNSET:
+        _input["vectors"] = vectors
+    if kind is not UNSET:
+        _input["kind"] = kind
+    variables["input"] = _input
+    return execute(UpdateRoiMutation, variables, rath=rath).update_roi
 
 
 async def acreate_simulation(
@@ -4626,9 +4792,9 @@ async def acreate_simulation(
     model: IDCoercible,
     recordings: Iterable[RecordingInput],
     stimuli: Iterable[StimulusInput],
-    duration: Millisecond,
-    time_trace: Optional[ArrayLike] = None,
-    dt: Optional[Millisecond] = None,
+    duration: Duration,
+    time_trace: Union[Optional[ArrayLike], UnsetType] = UNSET,
+    dt: Union[Optional[Duration], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> Simulation:
     """CreateSimulation
@@ -4640,30 +4806,28 @@ async def acreate_simulation(
         model: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
         recordings:  (required) (list) (required)
         stimuli:  (required) (list) (required)
-        time_trace: A type representing an array-like store reference, which can be either a string ID or a more complex object.
-        duration: The `Matrix` scalar type represents a matrix values as specified by (required)
-        dt: The `Matrix` scalar type represents a matrix values as specified by
+        time_trace: A type representing an array-like structure, which can be a list or any iterable.
+        duration: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``). (required)
+        dt: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``).
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
         Simulation
     """
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["name"] = name
+    _input["model"] = model
+    _input["recordings"] = recordings
+    _input["stimuli"] = stimuli
+    if time_trace is not UNSET:
+        _input["timeTrace"] = time_trace
+    _input["duration"] = duration
+    if dt is not UNSET:
+        _input["dt"] = dt
+    variables["input"] = _input
     return (
-        await aexecute(
-            CreateSimulationMutation,
-            {
-                "input": {
-                    "name": name,
-                    "model": model,
-                    "recordings": recordings,
-                    "stimuli": stimuli,
-                    "timeTrace": time_trace,
-                    "duration": duration,
-                    "dt": dt,
-                }
-            },
-            rath=rath,
-        )
+        await aexecute(CreateSimulationMutation, variables, rath=rath)
     ).create_simulation
 
 
@@ -4672,9 +4836,9 @@ def create_simulation(
     model: IDCoercible,
     recordings: Iterable[RecordingInput],
     stimuli: Iterable[StimulusInput],
-    duration: Millisecond,
-    time_trace: Optional[ArrayLike] = None,
-    dt: Optional[Millisecond] = None,
+    duration: Duration,
+    time_trace: Union[Optional[ArrayLike], UnsetType] = UNSET,
+    dt: Union[Optional[Duration], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> Simulation:
     """CreateSimulation
@@ -4686,36 +4850,34 @@ def create_simulation(
         model: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
         recordings:  (required) (list) (required)
         stimuli:  (required) (list) (required)
-        time_trace: A type representing an array-like store reference, which can be either a string ID or a more complex object.
-        duration: The `Matrix` scalar type represents a matrix values as specified by (required)
-        dt: The `Matrix` scalar type represents a matrix values as specified by
+        time_trace: A type representing an array-like structure, which can be a list or any iterable.
+        duration: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``). (required)
+        dt: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``).
         rath (elektro.rath.ElektroRath, optional): The elektro rath client
 
     Returns:
         Simulation
     """
-    return execute(
-        CreateSimulationMutation,
-        {
-            "input": {
-                "name": name,
-                "model": model,
-                "recordings": recordings,
-                "stimuli": stimuli,
-                "timeTrace": time_trace,
-                "duration": duration,
-                "dt": dt,
-            }
-        },
-        rath=rath,
-    ).create_simulation
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["name"] = name
+    _input["model"] = model
+    _input["recordings"] = recordings
+    _input["stimuli"] = stimuli
+    if time_trace is not UNSET:
+        _input["timeTrace"] = time_trace
+    _input["duration"] = duration
+    if dt is not UNSET:
+        _input["dt"] = dt
+    variables["input"] = _input
+    return execute(CreateSimulationMutation, variables, rath=rath).create_simulation
 
 
 async def afrom_trace_like(
     array: ArrayLike,
     name: str,
-    dataset: Optional[IDCoercible] = None,
-    tags: Optional[Iterable[str]] = None,
+    dataset: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    tags: Union[Optional[Iterable[str]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> Trace:
     """FromTraceLike
@@ -4732,20 +4894,23 @@ async def afrom_trace_like(
     Returns:
         Trace
     """
-    return (
-        await aexecute(
-            FromTraceLikeMutation,
-            {"input": {"array": array, "name": name, "dataset": dataset, "tags": tags}},
-            rath=rath,
-        )
-    ).from_trace_like
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["array"] = array
+    _input["name"] = name
+    if dataset is not UNSET:
+        _input["dataset"] = dataset
+    if tags is not UNSET:
+        _input["tags"] = tags
+    variables["input"] = _input
+    return (await aexecute(FromTraceLikeMutation, variables, rath=rath)).from_trace_like
 
 
 def from_trace_like(
     array: ArrayLike,
     name: str,
-    dataset: Optional[IDCoercible] = None,
-    tags: Optional[Iterable[str]] = None,
+    dataset: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    tags: Union[Optional[Iterable[str]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> Trace:
     """FromTraceLike
@@ -4762,11 +4927,16 @@ def from_trace_like(
     Returns:
         Trace
     """
-    return execute(
-        FromTraceLikeMutation,
-        {"input": {"array": array, "name": name, "dataset": dataset, "tags": tags}},
-        rath=rath,
-    ).from_trace_like
+    variables: Dict[str, Any] = {}
+    _input: Dict[str, Any] = {}
+    _input["array"] = array
+    _input["name"] = name
+    if dataset is not UNSET:
+        _input["dataset"] = dataset
+    if tags is not UNSET:
+        _input["tags"] = tags
+    variables["input"] = _input
+    return execute(FromTraceLikeMutation, variables, rath=rath).from_trace_like
 
 
 async def aget_block(id: ID, rath: Optional[ElektroRath] = None) -> Block:
@@ -4780,7 +4950,9 @@ async def aget_block(id: ID, rath: Optional[ElektroRath] = None) -> Block:
     Returns:
         Block
     """
-    return (await aexecute(GetBlockQuery, {"id": id}, rath=rath)).block
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return (await aexecute(GetBlockQuery, variables, rath=rath)).block
 
 
 def get_block(id: ID, rath: Optional[ElektroRath] = None) -> Block:
@@ -4794,12 +4966,14 @@ def get_block(id: ID, rath: Optional[ElektroRath] = None) -> Block:
     Returns:
         Block
     """
-    return execute(GetBlockQuery, {"id": id}, rath=rath).block
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return execute(GetBlockQuery, variables, rath=rath).block
 
 
 async def asearch_blocks(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchBlocksQueryOptions]:
     """SearchBlocks
@@ -4813,16 +4987,17 @@ async def asearch_blocks(
     Returns:
         List[SearchBlocksQueryBlocks]
     """
-    return (
-        await aexecute(
-            SearchBlocksQuery, {"search": search, "values": values}, rath=rath
-        )
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return (await aexecute(SearchBlocksQuery, variables, rath=rath)).options
 
 
 def search_blocks(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchBlocksQueryOptions]:
     """SearchBlocks
@@ -4836,9 +5011,12 @@ def search_blocks(
     Returns:
         List[SearchBlocksQueryBlocks]
     """
-    return execute(
-        SearchBlocksQuery, {"search": search, "values": values}, rath=rath
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return execute(SearchBlocksQuery, variables, rath=rath).options
 
 
 async def aget_dataset(id: ID, rath: Optional[ElektroRath] = None) -> Dataset:
@@ -4852,7 +5030,9 @@ async def aget_dataset(id: ID, rath: Optional[ElektroRath] = None) -> Dataset:
     Returns:
         Dataset
     """
-    return (await aexecute(GetDatasetQuery, {"id": id}, rath=rath)).dataset
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return (await aexecute(GetDatasetQuery, variables, rath=rath)).dataset
 
 
 def get_dataset(id: ID, rath: Optional[ElektroRath] = None) -> Dataset:
@@ -4866,7 +5046,9 @@ def get_dataset(id: ID, rath: Optional[ElektroRath] = None) -> Dataset:
     Returns:
         Dataset
     """
-    return execute(GetDatasetQuery, {"id": id}, rath=rath).dataset
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return execute(GetDatasetQuery, variables, rath=rath).dataset
 
 
 async def aget_experiment(id: ID, rath: Optional[ElektroRath] = None) -> Experiment:
@@ -4880,7 +5062,9 @@ async def aget_experiment(id: ID, rath: Optional[ElektroRath] = None) -> Experim
     Returns:
         Experiment
     """
-    return (await aexecute(GetExperimentQuery, {"id": id}, rath=rath)).experiment
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return (await aexecute(GetExperimentQuery, variables, rath=rath)).experiment
 
 
 def get_experiment(id: ID, rath: Optional[ElektroRath] = None) -> Experiment:
@@ -4894,12 +5078,14 @@ def get_experiment(id: ID, rath: Optional[ElektroRath] = None) -> Experiment:
     Returns:
         Experiment
     """
-    return execute(GetExperimentQuery, {"id": id}, rath=rath).experiment
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return execute(GetExperimentQuery, variables, rath=rath).experiment
 
 
 async def asearch_experiments(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchExperimentsQueryOptions]:
     """SearchExperiments
@@ -4913,16 +5099,17 @@ async def asearch_experiments(
     Returns:
         List[SearchExperimentsQueryExperiments]
     """
-    return (
-        await aexecute(
-            SearchExperimentsQuery, {"search": search, "values": values}, rath=rath
-        )
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return (await aexecute(SearchExperimentsQuery, variables, rath=rath)).options
 
 
 def search_experiments(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchExperimentsQueryOptions]:
     """SearchExperiments
@@ -4936,14 +5123,17 @@ def search_experiments(
     Returns:
         List[SearchExperimentsQueryExperiments]
     """
-    return execute(
-        SearchExperimentsQuery, {"search": search, "values": values}, rath=rath
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return execute(SearchExperimentsQuery, variables, rath=rath).options
 
 
 async def alist_experiments(
-    filter: Optional[ExperimentFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    filter: Union[Optional[ExperimentFilter], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[Experiment]:
     """ListExperiments
@@ -4957,18 +5147,17 @@ async def alist_experiments(
     Returns:
         List[Experiment]
     """
-    return (
-        await aexecute(
-            ListExperimentsQuery,
-            {"filter": filter, "pagination": pagination},
-            rath=rath,
-        )
-    ).experiments
+    variables: Dict[str, Any] = {}
+    if filter is not UNSET:
+        variables["filter"] = filter
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
+    return (await aexecute(ListExperimentsQuery, variables, rath=rath)).experiments
 
 
 def list_experiments(
-    filter: Optional[ExperimentFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    filter: Union[Optional[ExperimentFilter], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[Experiment]:
     """ListExperiments
@@ -4982,9 +5171,12 @@ def list_experiments(
     Returns:
         List[Experiment]
     """
-    return execute(
-        ListExperimentsQuery, {"filter": filter, "pagination": pagination}, rath=rath
-    ).experiments
+    variables: Dict[str, Any] = {}
+    if filter is not UNSET:
+        variables["filter"] = filter
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
+    return execute(ListExperimentsQuery, variables, rath=rath).experiments
 
 
 async def aget_file(id: ID, rath: Optional[ElektroRath] = None) -> File:
@@ -4998,7 +5190,9 @@ async def aget_file(id: ID, rath: Optional[ElektroRath] = None) -> File:
     Returns:
         File
     """
-    return (await aexecute(GetFileQuery, {"id": id}, rath=rath)).file
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return (await aexecute(GetFileQuery, variables, rath=rath)).file
 
 
 def get_file(id: ID, rath: Optional[ElektroRath] = None) -> File:
@@ -5012,13 +5206,15 @@ def get_file(id: ID, rath: Optional[ElektroRath] = None) -> File:
     Returns:
         File
     """
-    return execute(GetFileQuery, {"id": id}, rath=rath).file
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return execute(GetFileQuery, variables, rath=rath).file
 
 
 async def asearch_files(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchFilesQueryOptions]:
     """SearchFiles
@@ -5033,19 +5229,20 @@ async def asearch_files(
     Returns:
         List[SearchFilesQueryFiles]
     """
-    return (
-        await aexecute(
-            SearchFilesQuery,
-            {"search": search, "values": values, "pagination": pagination},
-            rath=rath,
-        )
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
+    return (await aexecute(SearchFilesQuery, variables, rath=rath)).options
 
 
 def search_files(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchFilesQueryOptions]:
     """SearchFiles
@@ -5060,11 +5257,14 @@ def search_files(
     Returns:
         List[SearchFilesQueryFiles]
     """
-    return execute(
-        SearchFilesQuery,
-        {"search": search, "values": values, "pagination": pagination},
-        rath=rath,
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
+    return execute(SearchFilesQuery, variables, rath=rath).options
 
 
 async def aget_model_collection(
@@ -5080,8 +5280,10 @@ async def aget_model_collection(
     Returns:
         ModelCollection
     """
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
     return (
-        await aexecute(GetModelCollectionQuery, {"id": id}, rath=rath)
+        await aexecute(GetModelCollectionQuery, variables, rath=rath)
     ).model_collection
 
 
@@ -5096,12 +5298,14 @@ def get_model_collection(id: ID, rath: Optional[ElektroRath] = None) -> ModelCol
     Returns:
         ModelCollection
     """
-    return execute(GetModelCollectionQuery, {"id": id}, rath=rath).model_collection
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return execute(GetModelCollectionQuery, variables, rath=rath).model_collection
 
 
 async def asearch_model_collection(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchModelCollectionQueryOptions]:
     """SearchModelCollection
@@ -5115,16 +5319,17 @@ async def asearch_model_collection(
     Returns:
         List[SearchModelCollectionQueryModelcollections]
     """
-    return (
-        await aexecute(
-            SearchModelCollectionQuery, {"search": search, "values": values}, rath=rath
-        )
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return (await aexecute(SearchModelCollectionQuery, variables, rath=rath)).options
 
 
 def search_model_collection(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchModelCollectionQueryOptions]:
     """SearchModelCollection
@@ -5138,14 +5343,17 @@ def search_model_collection(
     Returns:
         List[SearchModelCollectionQueryModelcollections]
     """
-    return execute(
-        SearchModelCollectionQuery, {"search": search, "values": values}, rath=rath
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return execute(SearchModelCollectionQuery, variables, rath=rath).options
 
 
 async def alist_model_collections(
-    filter: Optional[ModelCollectionFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    filter: Union[Optional[ModelCollectionFilter], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[ModelCollection]:
     """ListModelCollections
@@ -5159,18 +5367,19 @@ async def alist_model_collections(
     Returns:
         List[ModelCollection]
     """
+    variables: Dict[str, Any] = {}
+    if filter is not UNSET:
+        variables["filter"] = filter
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
     return (
-        await aexecute(
-            ListModelCollectionsQuery,
-            {"filter": filter, "pagination": pagination},
-            rath=rath,
-        )
+        await aexecute(ListModelCollectionsQuery, variables, rath=rath)
     ).model_collections
 
 
 def list_model_collections(
-    filter: Optional[ModelCollectionFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    filter: Union[Optional[ModelCollectionFilter], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[ModelCollection]:
     """ListModelCollections
@@ -5184,11 +5393,12 @@ def list_model_collections(
     Returns:
         List[ModelCollection]
     """
-    return execute(
-        ListModelCollectionsQuery,
-        {"filter": filter, "pagination": pagination},
-        rath=rath,
-    ).model_collections
+    variables: Dict[str, Any] = {}
+    if filter is not UNSET:
+        variables["filter"] = filter
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
+    return execute(ListModelCollectionsQuery, variables, rath=rath).model_collections
 
 
 async def aget_neuron_model(id: ID, rath: Optional[ElektroRath] = None) -> NeuronModel:
@@ -5203,7 +5413,9 @@ async def aget_neuron_model(id: ID, rath: Optional[ElektroRath] = None) -> Neuro
     Returns:
         NeuronModel
     """
-    return (await aexecute(GetNeuronModelQuery, {"id": id}, rath=rath)).neuron_model
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return (await aexecute(GetNeuronModelQuery, variables, rath=rath)).neuron_model
 
 
 def get_neuron_model(id: ID, rath: Optional[ElektroRath] = None) -> NeuronModel:
@@ -5218,12 +5430,14 @@ def get_neuron_model(id: ID, rath: Optional[ElektroRath] = None) -> NeuronModel:
     Returns:
         NeuronModel
     """
-    return execute(GetNeuronModelQuery, {"id": id}, rath=rath).neuron_model
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return execute(GetNeuronModelQuery, variables, rath=rath).neuron_model
 
 
 async def asearch_neuron_models(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchNeuronModelsQueryOptions]:
     """SearchNeuronModels
@@ -5237,16 +5451,17 @@ async def asearch_neuron_models(
     Returns:
         List[SearchNeuronModelsQueryNeuronmodels]
     """
-    return (
-        await aexecute(
-            SearchNeuronModelsQuery, {"search": search, "values": values}, rath=rath
-        )
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return (await aexecute(SearchNeuronModelsQuery, variables, rath=rath)).options
 
 
 def search_neuron_models(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchNeuronModelsQueryOptions]:
     """SearchNeuronModels
@@ -5260,14 +5475,17 @@ def search_neuron_models(
     Returns:
         List[SearchNeuronModelsQueryNeuronmodels]
     """
-    return execute(
-        SearchNeuronModelsQuery, {"search": search, "values": values}, rath=rath
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return execute(SearchNeuronModelsQuery, variables, rath=rath).options
 
 
 async def alist_neuron_models(
-    filter: Optional[NeuronModelFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    filter: Union[Optional[NeuronModelFilter], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[NeuronModel]:
     """ListNeuronModels
@@ -5281,18 +5499,17 @@ async def alist_neuron_models(
     Returns:
         List[NeuronModel]
     """
-    return (
-        await aexecute(
-            ListNeuronModelsQuery,
-            {"filter": filter, "pagination": pagination},
-            rath=rath,
-        )
-    ).neuron_models
+    variables: Dict[str, Any] = {}
+    if filter is not UNSET:
+        variables["filter"] = filter
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
+    return (await aexecute(ListNeuronModelsQuery, variables, rath=rath)).neuron_models
 
 
 def list_neuron_models(
-    filter: Optional[NeuronModelFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    filter: Union[Optional[NeuronModelFilter], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[NeuronModel]:
     """ListNeuronModels
@@ -5306,9 +5523,12 @@ def list_neuron_models(
     Returns:
         List[NeuronModel]
     """
-    return execute(
-        ListNeuronModelsQuery, {"filter": filter, "pagination": pagination}, rath=rath
-    ).neuron_models
+    variables: Dict[str, Any] = {}
+    if filter is not UNSET:
+        variables["filter"] = filter
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
+    return execute(ListNeuronModelsQuery, variables, rath=rath).neuron_models
 
 
 async def aget_recording(id: ID, rath: Optional[ElektroRath] = None) -> DetailRecording:
@@ -5323,7 +5543,9 @@ async def aget_recording(id: ID, rath: Optional[ElektroRath] = None) -> DetailRe
     Returns:
         DetailRecording
     """
-    return (await aexecute(GetRecordingQuery, {"id": id}, rath=rath)).recording
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return (await aexecute(GetRecordingQuery, variables, rath=rath)).recording
 
 
 def get_recording(id: ID, rath: Optional[ElektroRath] = None) -> DetailRecording:
@@ -5338,12 +5560,14 @@ def get_recording(id: ID, rath: Optional[ElektroRath] = None) -> DetailRecording
     Returns:
         DetailRecording
     """
-    return execute(GetRecordingQuery, {"id": id}, rath=rath).recording
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return execute(GetRecordingQuery, variables, rath=rath).recording
 
 
 async def asearch_recordings(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchRecordingsQueryOptions]:
     """SearchRecordings
@@ -5357,16 +5581,17 @@ async def asearch_recordings(
     Returns:
         List[SearchRecordingsQueryRecordings]
     """
-    return (
-        await aexecute(
-            SearchRecordingsQuery, {"search": search, "values": values}, rath=rath
-        )
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return (await aexecute(SearchRecordingsQuery, variables, rath=rath)).options
 
 
 def search_recordings(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchRecordingsQueryOptions]:
     """SearchRecordings
@@ -5380,14 +5605,17 @@ def search_recordings(
     Returns:
         List[SearchRecordingsQueryRecordings]
     """
-    return execute(
-        SearchRecordingsQuery, {"search": search, "values": values}, rath=rath
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return execute(SearchRecordingsQuery, variables, rath=rath).options
 
 
 async def alist_recordings(
-    filter: Optional[RecordingFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    filter: Union[Optional[RecordingFilter], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[Recording]:
     """ListRecordings
@@ -5401,16 +5629,17 @@ async def alist_recordings(
     Returns:
         List[Recording]
     """
-    return (
-        await aexecute(
-            ListRecordingsQuery, {"filter": filter, "pagination": pagination}, rath=rath
-        )
-    ).recordings
+    variables: Dict[str, Any] = {}
+    if filter is not UNSET:
+        variables["filter"] = filter
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
+    return (await aexecute(ListRecordingsQuery, variables, rath=rath)).recordings
 
 
 def list_recordings(
-    filter: Optional[RecordingFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    filter: Union[Optional[RecordingFilter], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[Recording]:
     """ListRecordings
@@ -5424,9 +5653,12 @@ def list_recordings(
     Returns:
         List[Recording]
     """
-    return execute(
-        ListRecordingsQuery, {"filter": filter, "pagination": pagination}, rath=rath
-    ).recordings
+    variables: Dict[str, Any] = {}
+    if filter is not UNSET:
+        variables["filter"] = filter
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
+    return execute(ListRecordingsQuery, variables, rath=rath).recordings
 
 
 async def aget_rois(trace: ID, rath: Optional[ElektroRath] = None) -> List[ROI]:
@@ -5440,7 +5672,9 @@ async def aget_rois(trace: ID, rath: Optional[ElektroRath] = None) -> List[ROI]:
     Returns:
         List[ROI]
     """
-    return (await aexecute(GetRoisQuery, {"trace": trace}, rath=rath)).rois
+    variables: Dict[str, Any] = {}
+    variables["trace"] = trace
+    return (await aexecute(GetRoisQuery, variables, rath=rath)).rois
 
 
 def get_rois(trace: ID, rath: Optional[ElektroRath] = None) -> List[ROI]:
@@ -5454,7 +5688,9 @@ def get_rois(trace: ID, rath: Optional[ElektroRath] = None) -> List[ROI]:
     Returns:
         List[ROI]
     """
-    return execute(GetRoisQuery, {"trace": trace}, rath=rath).rois
+    variables: Dict[str, Any] = {}
+    variables["trace"] = trace
+    return execute(GetRoisQuery, variables, rath=rath).rois
 
 
 async def aget_roi(id: ID, rath: Optional[ElektroRath] = None) -> ROI:
@@ -5468,7 +5704,9 @@ async def aget_roi(id: ID, rath: Optional[ElektroRath] = None) -> ROI:
     Returns:
         ROI
     """
-    return (await aexecute(GetRoiQuery, {"id": id}, rath=rath)).roi
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return (await aexecute(GetRoiQuery, variables, rath=rath)).roi
 
 
 def get_roi(id: ID, rath: Optional[ElektroRath] = None) -> ROI:
@@ -5482,12 +5720,14 @@ def get_roi(id: ID, rath: Optional[ElektroRath] = None) -> ROI:
     Returns:
         ROI
     """
-    return execute(GetRoiQuery, {"id": id}, rath=rath).roi
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return execute(GetRoiQuery, variables, rath=rath).roi
 
 
 async def asearch_rois(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchRoisQueryOptions]:
     """SearchRois
@@ -5501,14 +5741,17 @@ async def asearch_rois(
     Returns:
         List[SearchRoisQueryRois]
     """
-    return (
-        await aexecute(SearchRoisQuery, {"search": search, "values": values}, rath=rath)
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return (await aexecute(SearchRoisQuery, variables, rath=rath)).options
 
 
 def search_rois(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchRoisQueryOptions]:
     """SearchRois
@@ -5522,9 +5765,12 @@ def search_rois(
     Returns:
         List[SearchRoisQueryRois]
     """
-    return execute(
-        SearchRoisQuery, {"search": search, "values": values}, rath=rath
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return execute(SearchRoisQuery, variables, rath=rath).options
 
 
 async def aget_simulation(id: ID, rath: Optional[ElektroRath] = None) -> Simulation:
@@ -5538,7 +5784,9 @@ async def aget_simulation(id: ID, rath: Optional[ElektroRath] = None) -> Simulat
     Returns:
         Simulation
     """
-    return (await aexecute(GetSimulationQuery, {"id": id}, rath=rath)).simulation
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return (await aexecute(GetSimulationQuery, variables, rath=rath)).simulation
 
 
 def get_simulation(id: ID, rath: Optional[ElektroRath] = None) -> Simulation:
@@ -5552,12 +5800,14 @@ def get_simulation(id: ID, rath: Optional[ElektroRath] = None) -> Simulation:
     Returns:
         Simulation
     """
-    return execute(GetSimulationQuery, {"id": id}, rath=rath).simulation
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return execute(GetSimulationQuery, variables, rath=rath).simulation
 
 
 async def asearch_simulations(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchSimulationsQueryOptions]:
     """SearchSimulations
@@ -5571,16 +5821,17 @@ async def asearch_simulations(
     Returns:
         List[SearchSimulationsQuerySimulations]
     """
-    return (
-        await aexecute(
-            SearchSimulationsQuery, {"search": search, "values": values}, rath=rath
-        )
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return (await aexecute(SearchSimulationsQuery, variables, rath=rath)).options
 
 
 def search_simulations(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchSimulationsQueryOptions]:
     """SearchSimulations
@@ -5594,14 +5845,17 @@ def search_simulations(
     Returns:
         List[SearchSimulationsQuerySimulations]
     """
-    return execute(
-        SearchSimulationsQuery, {"search": search, "values": values}, rath=rath
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return execute(SearchSimulationsQuery, variables, rath=rath).options
 
 
 async def alist_simulations(
-    filter: Optional[SimulationFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    filter: Union[Optional[SimulationFilter], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[Simulation]:
     """ListSimulations
@@ -5615,18 +5869,17 @@ async def alist_simulations(
     Returns:
         List[Simulation]
     """
-    return (
-        await aexecute(
-            ListSimulationsQuery,
-            {"filter": filter, "pagination": pagination},
-            rath=rath,
-        )
-    ).simulations
+    variables: Dict[str, Any] = {}
+    if filter is not UNSET:
+        variables["filter"] = filter
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
+    return (await aexecute(ListSimulationsQuery, variables, rath=rath)).simulations
 
 
 def list_simulations(
-    filter: Optional[SimulationFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    filter: Union[Optional[SimulationFilter], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[Simulation]:
     """ListSimulations
@@ -5640,9 +5893,12 @@ def list_simulations(
     Returns:
         List[Simulation]
     """
-    return execute(
-        ListSimulationsQuery, {"filter": filter, "pagination": pagination}, rath=rath
-    ).simulations
+    variables: Dict[str, Any] = {}
+    if filter is not UNSET:
+        variables["filter"] = filter
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
+    return execute(ListSimulationsQuery, variables, rath=rath).simulations
 
 
 async def aget_stimulus(id: ID, rath: Optional[ElektroRath] = None) -> DetailStimulus:
@@ -5657,7 +5913,9 @@ async def aget_stimulus(id: ID, rath: Optional[ElektroRath] = None) -> DetailSti
     Returns:
         DetailStimulus
     """
-    return (await aexecute(GetStimulusQuery, {"id": id}, rath=rath)).stimulus
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return (await aexecute(GetStimulusQuery, variables, rath=rath)).stimulus
 
 
 def get_stimulus(id: ID, rath: Optional[ElektroRath] = None) -> DetailStimulus:
@@ -5672,12 +5930,14 @@ def get_stimulus(id: ID, rath: Optional[ElektroRath] = None) -> DetailStimulus:
     Returns:
         DetailStimulus
     """
-    return execute(GetStimulusQuery, {"id": id}, rath=rath).stimulus
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return execute(GetStimulusQuery, variables, rath=rath).stimulus
 
 
 async def asearch_stimuli(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchStimuliQueryOptions]:
     """SearchStimuli
@@ -5691,16 +5951,17 @@ async def asearch_stimuli(
     Returns:
         List[SearchStimuliQueryStimuli]
     """
-    return (
-        await aexecute(
-            SearchStimuliQuery, {"search": search, "values": values}, rath=rath
-        )
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return (await aexecute(SearchStimuliQuery, variables, rath=rath)).options
 
 
 def search_stimuli(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchStimuliQueryOptions]:
     """SearchStimuli
@@ -5714,14 +5975,17 @@ def search_stimuli(
     Returns:
         List[SearchStimuliQueryStimuli]
     """
-    return execute(
-        SearchStimuliQuery, {"search": search, "values": values}, rath=rath
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return execute(SearchStimuliQuery, variables, rath=rath).options
 
 
 async def alist_stimuli(
-    filter: Optional[StimulusFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    filter: Union[Optional[StimulusFilter], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[Stimulus]:
     """ListStimuli
@@ -5735,16 +5999,17 @@ async def alist_stimuli(
     Returns:
         List[Stimulus]
     """
-    return (
-        await aexecute(
-            ListStimuliQuery, {"filter": filter, "pagination": pagination}, rath=rath
-        )
-    ).stimuli
+    variables: Dict[str, Any] = {}
+    if filter is not UNSET:
+        variables["filter"] = filter
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
+    return (await aexecute(ListStimuliQuery, variables, rath=rath)).stimuli
 
 
 def list_stimuli(
-    filter: Optional[StimulusFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    filter: Union[Optional[StimulusFilter], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[Stimulus]:
     """ListStimuli
@@ -5758,9 +6023,12 @@ def list_stimuli(
     Returns:
         List[Stimulus]
     """
-    return execute(
-        ListStimuliQuery, {"filter": filter, "pagination": pagination}, rath=rath
-    ).stimuli
+    variables: Dict[str, Any] = {}
+    if filter is not UNSET:
+        variables["filter"] = filter
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
+    return execute(ListStimuliQuery, variables, rath=rath).stimuli
 
 
 async def aget_trace(id: ID, rath: Optional[ElektroRath] = None) -> Trace:
@@ -5775,7 +6043,9 @@ async def aget_trace(id: ID, rath: Optional[ElektroRath] = None) -> Trace:
     Returns:
         Trace
     """
-    return (await aexecute(GetTraceQuery, {"id": id}, rath=rath)).trace
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return (await aexecute(GetTraceQuery, variables, rath=rath)).trace
 
 
 def get_trace(id: ID, rath: Optional[ElektroRath] = None) -> Trace:
@@ -5790,7 +6060,9 @@ def get_trace(id: ID, rath: Optional[ElektroRath] = None) -> Trace:
     Returns:
         Trace
     """
-    return execute(GetTraceQuery, {"id": id}, rath=rath).trace
+    variables: Dict[str, Any] = {}
+    variables["id"] = id
+    return execute(GetTraceQuery, variables, rath=rath).trace
 
 
 async def aget_random_trace(rath: Optional[ElektroRath] = None) -> Trace:
@@ -5803,7 +6075,8 @@ async def aget_random_trace(rath: Optional[ElektroRath] = None) -> Trace:
     Returns:
         Trace
     """
-    return (await aexecute(GetRandomTraceQuery, {}, rath=rath)).random_trace
+    variables: Dict[str, Any] = {}
+    return (await aexecute(GetRandomTraceQuery, variables, rath=rath)).random_trace
 
 
 def get_random_trace(rath: Optional[ElektroRath] = None) -> Trace:
@@ -5816,12 +6089,13 @@ def get_random_trace(rath: Optional[ElektroRath] = None) -> Trace:
     Returns:
         Trace
     """
-    return execute(GetRandomTraceQuery, {}, rath=rath).random_trace
+    variables: Dict[str, Any] = {}
+    return execute(GetRandomTraceQuery, variables, rath=rath).random_trace
 
 
 async def asearch_traces(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchTracesQueryOptions]:
     """SearchTraces
@@ -5835,16 +6109,17 @@ async def asearch_traces(
     Returns:
         List[SearchTracesQueryTraces]
     """
-    return (
-        await aexecute(
-            SearchTracesQuery, {"search": search, "values": values}, rath=rath
-        )
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return (await aexecute(SearchTracesQuery, variables, rath=rath)).options
 
 
 def search_traces(
-    search: Optional[str] = None,
-    values: Optional[List[ID]] = None,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    values: Union[Optional[List[ID]], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[SearchTracesQueryOptions]:
     """SearchTraces
@@ -5858,14 +6133,17 @@ def search_traces(
     Returns:
         List[SearchTracesQueryTraces]
     """
-    return execute(
-        SearchTracesQuery, {"search": search, "values": values}, rath=rath
-    ).options
+    variables: Dict[str, Any] = {}
+    if search is not UNSET:
+        variables["search"] = search
+    if values is not UNSET:
+        variables["values"] = values
+    return execute(SearchTracesQuery, variables, rath=rath).options
 
 
 async def alist_traces(
-    filter: Optional[TraceFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    filter: Union[Optional[TraceFilter], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[Trace]:
     """ListTraces
@@ -5879,16 +6157,17 @@ async def alist_traces(
     Returns:
         List[Trace]
     """
-    return (
-        await aexecute(
-            ListTracesQuery, {"filter": filter, "pagination": pagination}, rath=rath
-        )
-    ).traces
+    variables: Dict[str, Any] = {}
+    if filter is not UNSET:
+        variables["filter"] = filter
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
+    return (await aexecute(ListTracesQuery, variables, rath=rath)).traces
 
 
 def list_traces(
-    filter: Optional[TraceFilter] = None,
-    pagination: Optional[OffsetPaginationInput] = None,
+    filter: Union[Optional[TraceFilter], UnsetType] = UNSET,
+    pagination: Union[Optional[OffsetPaginationInput], UnsetType] = UNSET,
     rath: Optional[ElektroRath] = None,
 ) -> List[Trace]:
     """ListTraces
@@ -5902,13 +6181,16 @@ def list_traces(
     Returns:
         List[Trace]
     """
-    return execute(
-        ListTracesQuery, {"filter": filter, "pagination": pagination}, rath=rath
-    ).traces
+    variables: Dict[str, Any] = {}
+    if filter is not UNSET:
+        variables["filter"] = filter
+    if pagination is not UNSET:
+        variables["pagination"] = pagination
+    return execute(ListTracesQuery, variables, rath=rath).traces
 
 
 async def awatch_files(
-    dataset: Optional[ID] = None, rath: Optional[ElektroRath] = None
+    dataset: Union[Optional[ID], UnsetType] = UNSET, rath: Optional[ElektroRath] = None
 ) -> AsyncIterator[WatchFilesSubscriptionFiles]:
     """WatchFiles
 
@@ -5921,14 +6203,15 @@ async def awatch_files(
     Returns:
         WatchFilesSubscriptionFiles
     """
-    async for event in asubscribe(
-        WatchFilesSubscription, {"dataset": dataset}, rath=rath
-    ):
+    variables: Dict[str, Any] = {}
+    if dataset is not UNSET:
+        variables["dataset"] = dataset
+    async for event in asubscribe(WatchFilesSubscription, variables, rath=rath):
         yield event.files
 
 
 def watch_files(
-    dataset: Optional[ID] = None, rath: Optional[ElektroRath] = None
+    dataset: Union[Optional[ID], UnsetType] = UNSET, rath: Optional[ElektroRath] = None
 ) -> Iterator[WatchFilesSubscriptionFiles]:
     """WatchFiles
 
@@ -5941,7 +6224,10 @@ def watch_files(
     Returns:
         WatchFilesSubscriptionFiles
     """
-    for event in subscribe(WatchFilesSubscription, {"dataset": dataset}, rath=rath):
+    variables: Dict[str, Any] = {}
+    if dataset is not UNSET:
+        variables["dataset"] = dataset
+    for event in subscribe(WatchFilesSubscription, variables, rath=rath):
         yield event.files
 
 
@@ -5959,7 +6245,9 @@ async def awatch_rois(
     Returns:
         WatchRoisSubscriptionRois
     """
-    async for event in asubscribe(WatchRoisSubscription, {"trace": trace}, rath=rath):
+    variables: Dict[str, Any] = {}
+    variables["trace"] = trace
+    async for event in asubscribe(WatchRoisSubscription, variables, rath=rath):
         yield event.rois
 
 
@@ -5977,12 +6265,14 @@ def watch_rois(
     Returns:
         WatchRoisSubscriptionRois
     """
-    for event in subscribe(WatchRoisSubscription, {"trace": trace}, rath=rath):
+    variables: Dict[str, Any] = {}
+    variables["trace"] = trace
+    for event in subscribe(WatchRoisSubscription, variables, rath=rath):
         yield event.rois
 
 
 async def awatch_traces(
-    dataset: Optional[ID] = None, rath: Optional[ElektroRath] = None
+    dataset: Union[Optional[ID], UnsetType] = UNSET, rath: Optional[ElektroRath] = None
 ) -> AsyncIterator[WatchTracesSubscriptionTraces]:
     """WatchTraces
 
@@ -5995,14 +6285,15 @@ async def awatch_traces(
     Returns:
         WatchTracesSubscriptionTraces
     """
-    async for event in asubscribe(
-        WatchTracesSubscription, {"dataset": dataset}, rath=rath
-    ):
+    variables: Dict[str, Any] = {}
+    if dataset is not UNSET:
+        variables["dataset"] = dataset
+    async for event in asubscribe(WatchTracesSubscription, variables, rath=rath):
         yield event.traces
 
 
 def watch_traces(
-    dataset: Optional[ID] = None, rath: Optional[ElektroRath] = None
+    dataset: Union[Optional[ID], UnsetType] = UNSET, rath: Optional[ElektroRath] = None
 ) -> Iterator[WatchTracesSubscriptionTraces]:
     """WatchTraces
 
@@ -6015,12 +6306,13 @@ def watch_traces(
     Returns:
         WatchTracesSubscriptionTraces
     """
-    for event in subscribe(WatchTracesSubscription, {"dataset": dataset}, rath=rath):
+    variables: Dict[str, Any] = {}
+    if dataset is not UNSET:
+        variables["dataset"] = dataset
+    for event in subscribe(WatchTracesSubscription, variables, rath=rath):
         yield event.traces
 
 
-ArgPortInput.model_rebuild()
-AssignWidgetInput.model_rebuild()
 BiophysicsInput.model_rebuild()
 BlockSegmentInput.model_rebuild()
 CellInput.model_rebuild()
@@ -6031,6 +6323,7 @@ CreateNeuronModelInput.model_rebuild()
 CreateSimulationInput.model_rebuild()
 DatasetFilter.model_rebuild()
 ExperimentFilter.model_rebuild()
+MechanismInput.model_rebuild()
 ModelCollectionFilter.model_rebuild()
 ModelConfigInput.model_rebuild()
 NeuronModelFilter.model_rebuild()

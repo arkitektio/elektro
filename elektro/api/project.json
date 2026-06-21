@@ -40,10 +40,15 @@
                 "FiveDVector": "elektro.scalars.FiveDVector",
                 "Matrix": "elektro.scalars.Matrix",
                 "Metric": "typing.Any",
-                "Milliseconds": "kanne.scalars.Millisecond",
                 "Ampere": "kanne.scalars.Ampere",
                 "ID": "rath.scalars.ID",
-                "RGBAColor": "elektro.scalars.RGBAColor"
+                "RGBAColor": "elektro.scalars.RGBAColor",
+                "Frequency": "kanne.scalars.Frequency",
+                "Duration": "kanne.scalars.Duration",
+                "Length": "kanne.scalars.Length",
+                "ElectricPotential": "kanne.scalars.ElectricPotential",
+                "ElectricalConductance": "kanne.scalars.ElectricalConductance",
+                "Temperature": "kanne.scalars.Temperature"
             },
             "freeze": {
                 "enabled": false,
@@ -66,7 +71,7 @@
                 "allow_population_by_field_name": true,
                 "orm_mode": null,
                 "use_enum_values": true,
-                "validate_assignment": null,
+                "validate_assignment": true,
                 "types": [
                     "input"
                 ],
@@ -113,6 +118,9 @@
                 ],
                 "ZarrStore": [
                     "elektro.traits.HasZarrStoreAccessor"
+                ],
+                "ParquetStore": [
+                    "elektro.traits.HasParquetStoreAccesor"
                 ],
                 "BigFileStore": [
                     "elektro.traits.HasDownloadAccessor"

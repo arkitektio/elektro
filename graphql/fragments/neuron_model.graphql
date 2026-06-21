@@ -84,7 +84,7 @@ fragment NeuronModel on NeuronModel {
   }
   config {
     vInit
-    celsius
+    temperature
     cells {
       ...Cell
     }

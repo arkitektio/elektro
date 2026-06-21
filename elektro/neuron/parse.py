@@ -4,8 +4,12 @@ import json
 import zipfile
 import hashlib
 from pathlib import Path
-from typing import Dict, List, Any, Tuple
-from elektro.api.schema import CreateModEnvironmentInput, MechanismInput, ArgPortInput
+from typing import Dict, List, Any, Optional, Tuple, TYPE_CHECKING
+from elektro.api.schema import CreateModEnvironmentInput, MechanismInput, ParameterInput
+
+if TYPE_CHECKING:
+    from elektro.api.schema import ModEnvironment
+    from elektro.rath import ElektroRath
 
 
 # ==========================================
@@ -60,7 +64,7 @@ def parse_mod_file_to_schema(file_path: Path) -> MechanismInput:
                 key_name = f"{raw_param_name}_{mechanism_name}"
 
                 ports.append(
-                    ArgPortInput(
+                    ParameterInput(
                         key=key_name,
                         label=raw_param_name,  # Keep UI label clean
                         kind="FLOAT",
@@ -112,3 +116,51 @@ def build_and_zip_environment(
                     zipf.write(file_path, arcname)
 
     return output_zip_path, mechanisms_schema
+
+
+async def acreate_mod_environment_from_directory(
+    name: str,
+    directory_path: str,
+    description: Optional[str] = None,
+    output_zip_path: str = "/tmp/mechanisms.zip",
+    rath: Optional["ElektroRath"] = None,
+) -> "ModEnvironment":
+    """Zip a mechanisms directory, parse its ``.mod`` files, and create a
+    ModEnvironment asynchronously.
+
+    The zip is passed as a ``BigFileLike`` (``zip_file``); the UploadMiddleware
+    uploads it to S3 via obstore and swaps it for its store id before the
+    ``createModEnvironment`` mutation runs.
+    """
+    from elektro.api.schema import acreate_mod_environment
+
+    zip_path, mechanisms = build_and_zip_environment(directory_path, output_zip_path)
+    return await acreate_mod_environment(
+        name=name,
+        zip_file=zip_path,
+        mechanisms=mechanisms,
+        description=description,
+        rath=rath,
+    )
+
+
+def create_mod_environment_from_directory(
+    name: str,
+    directory_path: str,
+    description: Optional[str] = None,
+    output_zip_path: str = "/tmp/mechanisms.zip",
+    rath: Optional["ElektroRath"] = None,
+) -> "ModEnvironment":
+    """Zip a mechanisms directory, parse its ``.mod`` files, and create a
+    ModEnvironment synchronously. See :func:`acreate_mod_environment_from_directory`.
+    """
+    from elektro.api.schema import create_mod_environment
+
+    zip_path, mechanisms = build_and_zip_environment(directory_path, output_zip_path)
+    return create_mod_environment(
+        name=name,
+        zip_file=zip_path,
+        mechanisms=mechanisms,
+        description=description,
+        rath=rath,
+    )

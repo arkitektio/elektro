@@ -51,10 +51,11 @@ def test_current_clamp_with_pint_quantities():
     assert stim.delay.to("millisecond").magnitude == pytest.approx(20.0)
 
 
-def test_current_clamp_plain_number_delay_is_milliseconds():
-    # A bare number is interpreted as milliseconds by the Millisecond validator
-    # (this is the path the simulation script uses, e.g. ``delay=100``).
-    stim = CurrentClampStimulus(cell="cell_1", location="soma", delay=100)
+def test_current_clamp_unit_bearing_string_delay():
+    # The Duration dimension type requires a unit-bearing value; a unit-bearing
+    # string is parsed (this is the path the simulation script uses, e.g.
+    # ``delay="100 ms"``). Bare numbers are intentionally rejected.
+    stim = CurrentClampStimulus(cell="cell_1", location="soma", delay="100 ms")
     assert stim.delay.to("millisecond").magnitude == pytest.approx(100.0)
 
 
