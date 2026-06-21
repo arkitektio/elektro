@@ -50,6 +50,15 @@
                 "ElectricalConductance": "kanne.scalars.ElectricalConductance",
                 "Temperature": "kanne.scalars.Temperature"
             },
+            "coercible_scalars": {
+                "TraceLike": "elektro.scalars.TraceCoercible",
+                "ID": "rath.scalars.IDCoercible"
+            },
+            "graphql_default_class": null,
+            "deprecated_class": null,
+            "document_field_metadata": true,
+            "unset_type_class": null,
+            "unset_instance": null,
             "freeze": {
                 "enabled": false,
                 "types": [
@@ -150,11 +159,10 @@
                     "type": "turms.plugins.operations.OperationsPlugin"
                 },
                 {
+                    "type": "turms.plugins.input_funcs.InputFuncsPlugin"
+                },
+                {
                     "type": "turms.plugins.funcs.FuncsPlugin",
-                    "coercible_scalars": {
-                        "TraceLike": "elektro.scalars.TraceCoercible",
-                        "ID": "rath.scalars.IDCoercible"
-                    },
                     "expand_input_types": [
                         "input"
                     ],

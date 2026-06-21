@@ -1,56 +1,67 @@
 from elektro.traits import (
-    BiophysicsTrait,
-    ModelConfigInputTrait,
     BiophysicsInputTrait,
-    ExperimentTrait,
-    ModelConfigTrait,
-    CompartmentTrait,
-    HasZarrStoreTrait,
-    HasZarrStoreAccessor,
-    IsVectorizableTrait,
-    TopologyInputTrait,
     SimulationTrait,
-    TopologyTrait,
-    HasDownloadAccessor,
-    CompartmentInputTrait,
-    SectionInputTrait,
-    HasPresignedDownloadAccessor,
     HasParquetStoreAccesor,
+    HasDownloadAccessor,
+    TopologyTrait,
+    ModelConfigInputTrait,
+    HasZarrStoreTrait,
+    IsVectorizableTrait,
+    CompartmentTrait,
+    HasZarrStoreAccessor,
+    ExperimentTrait,
+    HasPresignedDownloadAccessor,
+    TopologyInputTrait,
+    BiophysicsTrait,
+    SectionInputTrait,
+    ModelConfigTrait,
+    CompartmentInputTrait,
 )
-from typing import (
-    Optional,
-    AsyncIterator,
-    List,
-    Union,
-    Dict,
-    Iterable,
-    Iterator,
-    Any,
-    Annotated,
-    Literal,
-)
-from elektro.funcs import asubscribe, aexecute, subscribe, execute
-from kanne.scalars import (
-    Temperature,
-    Length,
-    Frequency,
-    ElectricalConductance,
-    ElectricPotential,
-    Duration,
-)
-from datetime import datetime
 from elektro.scalars import (
-    TwoDVector,
-    FiveDVector,
-    TraceLike,
     BigFileLike,
-    FileLike,
+    TraceLike,
     ArrayLike,
+    FiveDVector,
+    TwoDVector,
+    TraceCoercible,
+    FileLike,
 )
-from pydantic import BaseModel, Field, ConfigDict
-from rath.scalars import IDCoercible, ID
+from elektro.funcs import execute, aexecute, asubscribe, subscribe
+from pydantic import Field, BaseModel, ConfigDict
+from typing import (
+    Iterable,
+    AsyncIterator,
+    Annotated,
+    Iterator,
+    Optional,
+    Literal,
+    Dict,
+    Union,
+    Any,
+    List,
+)
+from kanne.scalars import (
+    ElectricalConductance,
+    Temperature,
+    Duration,
+    Length,
+    ElectricPotential,
+    Frequency,
+)
 from enum import Enum
 from elektro.rath import ElektroRath
+from rath.scalars import ID, IDCoercible
+from datetime import datetime
+
+
+class GraphQLDefault:
+    """Records a GraphQL field schema default value. The client omits the field so the server applies its own default; this preserves the value for introspection."""
+
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return "GraphQLDefault(" + repr(self.value) + ")"
 
 
 class UnsetType:
@@ -160,7 +171,10 @@ class AnalogSignalInput(BaseModel):
 class BiophysicsInput(BiophysicsInputTrait, BaseModel):
     """Input for a biophysics model, which consists of compartments, each with their own mechanisms and parameters."""
 
-    compartments: Optional[List["CompartmentInput"]] = None
+    compartments: Annotated[
+        Optional[List["CompartmentInput"]], GraphQLDefault("[]")
+    ] = None
+    "Default: []"
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -174,15 +188,18 @@ class BlockSegmentInput(BaseModel):
 
     name: Optional[str] = None
     description: Optional[str] = None
-    analog_signals: Optional[List[AnalogSignalInput]] = Field(
-        alias="analogSignals", default=None
+    analog_signals: Annotated[
+        Optional[List[AnalogSignalInput]], GraphQLDefault("[]")
+    ] = Field(alias="analogSignals", default=None)
+    "Default: []"
+    irregularly_sampled_signals: Annotated[
+        Optional[List["IrregularlySampledSignalInput"]], GraphQLDefault("[]")
+    ] = Field(alias="irregularlySampledSignals", default=None)
+    "Default: []"
+    spike_trains: Annotated[Optional[List["SpikeTrainInput"]], GraphQLDefault("[]")] = (
+        Field(alias="spikeTrains", default=None)
     )
-    irregularly_sampled_signals: Optional[List["IrregularlySampledSignalInput"]] = (
-        Field(alias="irregularlySampledSignals", default=None)
-    )
-    spike_trains: Optional[List["SpikeTrainInput"]] = Field(
-        alias="spikeTrains", default=None
-    )
+    "Default: []"
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -194,12 +211,13 @@ class BlockSegmentInput(BaseModel):
 class CellInput(BaseModel):
     """Input for a cell model, which consists of a biophysics model and a topology. You can think of the biophysics model as the 'properties' of the cell, and the topology as the 'structure' of the cell."""
 
-    id: str
-    "The unique identifier of the cell within the model."
-    biophysics: BiophysicsInput
-    "The biophysics model of the cell, which defines the properties of the cell such as its compartments, mechanisms, and parameters."
-    topology: "TopologyInput"
-    "The topology of the cell, which defines the structure of the cell such as its morphology and connectivity."
+    id: str = Field(description="The unique identifier of the cell within the model.")
+    biophysics: BiophysicsInput = Field(
+        description="The biophysics model of the cell, which defines the properties of the cell such as its compartments, mechanisms, and parameters."
+    )
+    topology: "TopologyInput" = Field(
+        description="The topology of the cell, which defines the structure of the cell such as its morphology and connectivity."
+    )
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -224,18 +242,23 @@ class ChangeDatasetInput(BaseModel):
 class CompartmentInput(CompartmentInputTrait, BaseModel):
     """Input for a compartment in a biophysics model."""
 
-    id: str
-    "The unique identifier of the compartment within the model."
-    mechanisms: Optional[List[str]] = None
-    "The set of mechanisms active in this compartment."
+    id: str = Field(
+        description="The unique identifier of the compartment within the model."
+    )
+    mechanisms: Annotated[Optional[List[str]], GraphQLDefault("[]")] = Field(
+        default=None, description="The set of mechanisms active in this compartment."
+    )
+    "The set of mechanisms active in this compartment.\nDefault: []"
     section_params: Optional[List["SectionParamMapInput"]] = Field(
-        alias="sectionParams", default=None
+        alias="sectionParams",
+        default=None,
+        description="The mechanism-specific parameters applied to the sections of this compartment.",
     )
-    "The mechanism-specific parameters applied to the sections of this compartment."
     global_params: Optional[List["GlobalParamMapInput"]] = Field(
-        alias="globalParams", default=None
+        alias="globalParams",
+        default=None,
+        description="The non-mechanistic (global) parameters applied to this compartment.",
     )
-    "The non-mechanistic (global) parameters applied to this compartment."
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -247,10 +270,14 @@ class CompartmentInput(CompartmentInputTrait, BaseModel):
 class ConnectionInput(BaseModel):
     """Input for a connection of a section to its parent section, defining the morphology tree."""
 
-    parent: str
-    "The ID of the parent section this section connects to."
-    location: Optional[float] = None
-    "The position along the parent section where this section attaches, between 0 and 1."
+    parent: str = Field(
+        description="The ID of the parent section this section connects to."
+    )
+    location: Annotated[Optional[float], GraphQLDefault("1.0")] = Field(
+        default=None,
+        description="The position along the parent section where this section attaches, between 0 and 1.",
+    )
+    "The position along the parent section where this section attaches, between 0 and 1.\nDefault: 1.0"
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -262,12 +289,9 @@ class ConnectionInput(BaseModel):
 class CoordInput(BaseModel):
     """Input for a 3D coordinate (in space) of a point along a section."""
 
-    x: Length
-    "The x coordinate of the point."
-    y: Length
-    "The y coordinate of the point."
-    z: Length
-    "The z coordinate of the point."
+    x: Length = Field(description="The x coordinate of the point.")
+    y: Length = Field(description="The y coordinate of the point.")
+    z: Length = Field(description="The z coordinate of the point.")
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -282,7 +306,8 @@ class CreateBlockInput(BaseModel):
     file: Optional[ID] = None
     name: str
     recording_time: Optional[datetime] = Field(alias="recordingTime", default=None)
-    segments: Optional[List[BlockSegmentInput]] = None
+    segments: Annotated[Optional[List[BlockSegmentInput]], GraphQLDefault("[]")] = None
+    "Default: []"
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -436,7 +461,8 @@ class FinishBigFileUploadInput(BaseModel):
     """No documentation"""
 
     store_id: str = Field(alias="storeId")
-    valid: Optional[bool] = None
+    valid: Annotated[Optional[bool], GraphQLDefault("True")] = None
+    "Default: True"
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -449,7 +475,8 @@ class FinishMediaUploadInput(BaseModel):
     """No documentation"""
 
     store_id: str = Field(alias="storeId")
-    valid: Optional[bool] = None
+    valid: Annotated[Optional[bool], GraphQLDefault("True")] = None
+    "Default: True"
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -462,7 +489,8 @@ class FinishParquetUploadInput(BaseModel):
     """No documentation"""
 
     store_id: str = Field(alias="storeId")
-    valid: Optional[bool] = None
+    valid: Annotated[Optional[bool], GraphQLDefault("True")] = None
+    "Default: True"
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -475,7 +503,8 @@ class FinishZarrUploadInput(BaseModel):
     """No documentation"""
 
     store_id: str = Field(alias="storeId")
-    valid: Optional[bool] = None
+    valid: Annotated[Optional[bool], GraphQLDefault("True")] = None
+    "Default: True"
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -502,14 +531,16 @@ class FromFileLike(BaseModel):
 class FromTraceLikeInput(BaseModel):
     """Input type for creating an image from an array-like object"""
 
-    array: ArrayLike
-    "The array-like object to create the image from"
-    name: str
-    "The name of the image"
-    dataset: Optional[ID] = None
-    "Optional dataset ID to associate the image with"
-    tags: Optional[List[str]] = None
-    "Optional list of tags to associate with the image"
+    array: ArrayLike = Field(
+        description="The array-like object to create the image from"
+    )
+    name: str = Field(description="The name of the image")
+    dataset: Optional[ID] = Field(
+        default=None, description="Optional dataset ID to associate the image with"
+    )
+    tags: Optional[List[str]] = Field(
+        default=None, description="Optional list of tags to associate with the image"
+    )
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -521,12 +552,11 @@ class FromTraceLikeInput(BaseModel):
 class GlobalParamMapInput(BaseModel):
     """Input for a global parameter mapping of a biophysics model. (this will be set on non-mechanistic parameters (i.e PAS) of the model)"""
 
-    param: str
-    "The name of the parameter to set."
-    value: float
-    "The value of the parameter"
-    description: Optional[str] = None
-    "Description of the parameter"
+    param: str = Field(description="The name of the parameter to set.")
+    value: float = Field(description="The value of the parameter")
+    description: Optional[str] = Field(
+        default=None, description="Description of the parameter"
+    )
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -589,26 +619,45 @@ class ModelCollectionFilter(BaseModel):
 class ModelConfigInput(ModelConfigInputTrait, BaseModel):
     """Input for the configuration of a model."""
 
-    cells: Optional[List[CellInput]] = None
-    "The list of cells in the model."
-    net_stimulators: Optional[List["NetStimulatorInput"]] = Field(
-        alias="netStimulators", default=None
+    cells: Annotated[Optional[List[CellInput]], GraphQLDefault("[]")] = Field(
+        default=None, description="The list of cells in the model."
     )
-    "The list of net stimulators in the model."
-    net_connections: Optional[List["NetConnectionInput"]] = Field(
-        alias="netConnections", default=None
+    "The list of cells in the model.\nDefault: []"
+    net_stimulators: Annotated[
+        Optional[List["NetStimulatorInput"]], GraphQLDefault("[]")
+    ] = Field(
+        alias="netStimulators",
+        default=None,
+        description="The list of net stimulators in the model.",
     )
-    "The list of net connections in the model."
-    net_synapses: Optional[List["NetSynapseInput"]] = Field(
-        alias="netSynapses", default=None
+    "The list of net stimulators in the model.\nDefault: []"
+    net_connections: Annotated[
+        Optional[List["NetConnectionInput"]], GraphQLDefault("[]")
+    ] = Field(
+        alias="netConnections",
+        default=None,
+        description="The list of net connections in the model.",
     )
-    "The list of net synapses in the model."
-    v_init: Optional[ElectricPotential] = Field(alias="vInit", default=None)
-    "Initial membrane potential."
-    temperature: Optional[Temperature] = None
-    "Simulation bath temperature."
-    label: Optional[str] = None
-    "An optional label for the model configuration."
+    "The list of net connections in the model.\nDefault: []"
+    net_synapses: Annotated[Optional[List["NetSynapseInput"]], GraphQLDefault("[]")] = (
+        Field(
+            alias="netSynapses",
+            default=None,
+            description="The list of net synapses in the model.",
+        )
+    )
+    "The list of net synapses in the model.\nDefault: []"
+    v_init: Annotated[Optional[ElectricPotential], GraphQLDefault("-67 mV")] = Field(
+        alias="vInit", default=None, description="Initial membrane potential."
+    )
+    "Initial membrane potential.\nDefault: -67 mV"
+    temperature: Annotated[Optional[Temperature], GraphQLDefault("309.15 K")] = Field(
+        default=None, description="Simulation bath temperature."
+    )
+    "Simulation bath temperature.\nDefault: 309.15 K"
+    label: Optional[str] = Field(
+        default=None, description="An optional label for the model configuration."
+    )
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -620,20 +669,29 @@ class ModelConfigInput(ModelConfigInputTrait, BaseModel):
 class NetConnectionInput(BaseModel):
     """Input for a synaptic connection between two cells in the model. Each connection has a pre-synaptic cell (the net stimulator) and a post-synaptic cell (the synapse)."""
 
-    kind: Optional[ConnectionKind] = None
-    "The kind of connection to create."
-    id: ID
-    "The unique identifier of the connection within the model."
-    weight: Optional[ElectricalConductance] = None
-    "The weight (conductance) of the connection."
-    threshold: Optional[ElectricPotential] = None
-    "The threshold for the connection."
-    delay: Optional[Duration] = None
-    "The delay for the connection."
-    net_stimulator: ID = Field(alias="netStimulator")
-    "The ID of the net stimulator that is the pre-synaptic cell in this connection."
-    synapse: ID
-    "The ID of the synapse that is the post-synaptic cell in this connection."
+    kind: Annotated[Optional[ConnectionKind], GraphQLDefault("SYNAPSE")] = Field(
+        default=None, description="The kind of connection to create."
+    )
+    "The kind of connection to create.\nDefault: SYNAPSE"
+    id: ID = Field(
+        description="The unique identifier of the connection within the model."
+    )
+    weight: Optional[ElectricalConductance] = Field(
+        default=None, description="The weight (conductance) of the connection."
+    )
+    threshold: Optional[ElectricPotential] = Field(
+        default=None, description="The threshold for the connection."
+    )
+    delay: Optional[Duration] = Field(
+        default=None, description="The delay for the connection."
+    )
+    net_stimulator: ID = Field(
+        alias="netStimulator",
+        description="The ID of the net stimulator that is the pre-synaptic cell in this connection.",
+    )
+    synapse: ID = Field(
+        description="The ID of the synapse that is the post-synaptic cell in this connection."
+    )
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -645,14 +703,20 @@ class NetConnectionInput(BaseModel):
 class NetStimulatorInput(BaseModel):
     """Input for a net stimulator in the model. This specifies the parameters of stimulators that drive synaptic connections."""
 
-    id: ID
-    "The unique identifier of the stimulator within the model."
-    start: Optional[Duration] = None
-    "Start time of the first spike."
-    number: Optional[int] = None
-    "Number of spikes to emit."
-    interval: Optional[Duration] = None
-    "Interval between spikes."
+    id: ID = Field(
+        description="The unique identifier of the stimulator within the model."
+    )
+    start: Annotated[Optional[Duration], GraphQLDefault("100 ms")] = Field(
+        default=None, description="Start time of the first spike."
+    )
+    "Start time of the first spike.\nDefault: 100 ms"
+    number: Annotated[Optional[int], GraphQLDefault("1")] = Field(
+        default=None, description="Number of spikes to emit."
+    )
+    "Number of spikes to emit.\nDefault: 1"
+    interval: Optional[Duration] = Field(
+        default=None, description="Interval between spikes."
+    )
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -664,22 +728,23 @@ class NetStimulatorInput(BaseModel):
 class NetSynapseInput(BaseModel):
     """Input for an exponential synapse, a synaptic stimulus with an exponential rise and decay. This specifies the parameters of synapses in the model."""
 
-    id: ID
-    "The unique identifier of the synapse within the model."
-    kind: Optional[SynapseKind] = None
-    "The kind of synapse model to use."
-    e: ElectricPotential
-    "Reversal potential."
-    tau2: Duration
-    "Decay time constant."
-    tau1: Duration
-    "Rise time constant."
-    cell: ID
-    "The ID of the cell this synapse is located on."
-    location: ID
-    "The location on the cell where the synapse is located. This can be a section name, a segment number, or a more complex specification depending on the model."
-    position: Optional[float] = None
-    "The position along the section where the synapse is located, specified as a value between 0 and 1. This is only relevant if the location is specified as a section name."
+    id: ID = Field(description="The unique identifier of the synapse within the model.")
+    kind: Annotated[Optional[SynapseKind], GraphQLDefault("EXP2SYN")] = Field(
+        default=None, description="The kind of synapse model to use."
+    )
+    "The kind of synapse model to use.\nDefault: EXP2SYN"
+    e: ElectricPotential = Field(description="Reversal potential.")
+    tau2: Duration = Field(description="Decay time constant.")
+    tau1: Duration = Field(description="Rise time constant.")
+    cell: ID = Field(description="The ID of the cell this synapse is located on.")
+    location: ID = Field(
+        description="The location on the cell where the synapse is located. This can be a section name, a segment number, or a more complex specification depending on the model."
+    )
+    position: Annotated[Optional[float], GraphQLDefault("0.5")] = Field(
+        default=None,
+        description="The position along the section where the synapse is located, specified as a value between 0 and 1. This is only relevant if the location is specified as a section name.",
+    )
+    "The position along the section where the synapse is located, specified as a value between 0 and 1. This is only relevant if the location is specified as a section name.\nDefault: 0.5"
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -712,7 +777,8 @@ class NeuronModelFilter(BaseModel):
 class OffsetPaginationInput(BaseModel):
     """No documentation"""
 
-    offset: Optional[int] = None
+    offset: Annotated[Optional[int], GraphQLDefault("0")] = None
+    "Default: 0"
     limit: Optional[int] = None
     model_config = ConfigDict(
         extra="forbid",
@@ -727,10 +793,12 @@ class ParameterInput(BaseModel):
 
     key: str
     label: Optional[str] = None
-    kind: Optional[ParameterKind] = None
+    kind: Annotated[Optional[ParameterKind], GraphQLDefault("FLOAT")] = None
+    "Default: FLOAT"
     description: Optional[str] = None
     default: Optional[Any] = None
-    nullable: Optional[bool] = None
+    nullable: Annotated[Optional[bool], GraphQLDefault("False")] = None
+    "Default: False"
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -915,14 +983,12 @@ class RevertInput(BaseModel):
 class RoiInput(BaseModel):
     """No documentation"""
 
-    trace: ID
-    "The image this ROI belongs to"
-    vectors: List[TwoDVector]
-    "The vector coordinates defining the as XY"
-    kind: RoiKind
-    "The type/kind of ROI"
-    label: Optional[str] = None
-    "The label of the ROI"
+    trace: ID = Field(description="The image this ROI belongs to")
+    vectors: List[TwoDVector] = Field(
+        description="The vector coordinates defining the as XY"
+    )
+    kind: RoiKind = Field(description="The type/kind of ROI")
+    label: Optional[str] = Field(default=None, description="The label of the ROI")
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -934,20 +1000,35 @@ class RoiInput(BaseModel):
 class SectionInput(SectionInputTrait, BaseModel):
     """Input for a section of a cell's morphology, the basic structural unit of the topology."""
 
-    id: str
-    "The unique identifier of the section within the cell."
-    category: Optional[str] = None
-    "An optional category for the section (e.g. 'soma', 'axon', 'dend')."
-    nseg: Optional[int] = None
-    "The number of segments the section is discretized into."
-    diam: Optional[Length] = None
-    "The diameter of the section."
-    length: Optional[Length] = None
-    "Length of the section. Required if coords is not provided."
-    coords: Optional[List[CoordInput]] = None
-    "The 3D coordinates describing the section's geometry. Required if length is not provided."
-    connections: Optional[List[ConnectionInput]] = None
-    "The connections of this section to its parent section(s)."
+    id: str = Field(description="The unique identifier of the section within the cell.")
+    category: Optional[str] = Field(
+        default=None,
+        description="An optional category for the section (e.g. 'soma', 'axon', 'dend').",
+    )
+    nseg: Annotated[Optional[int], GraphQLDefault("1")] = Field(
+        default=None,
+        description="The number of segments the section is discretized into.",
+    )
+    "The number of segments the section is discretized into.\nDefault: 1"
+    diam: Annotated[Optional[Length], GraphQLDefault("1 µm")] = Field(
+        default=None, description="The diameter of the section."
+    )
+    "The diameter of the section.\nDefault: 1 µm"
+    length: Optional[Length] = Field(
+        default=None,
+        description="Length of the section. Required if coords is not provided.",
+    )
+    coords: Optional[List[CoordInput]] = Field(
+        default=None,
+        description="The 3D coordinates describing the section's geometry. Required if length is not provided.",
+    )
+    connections: Annotated[Optional[List[ConnectionInput]], GraphQLDefault("[]")] = (
+        Field(
+            default=None,
+            description="The connections of this section to its parent section(s).",
+        )
+    )
+    "The connections of this section to its parent section(s).\nDefault: []"
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -959,14 +1040,12 @@ class SectionInput(SectionInputTrait, BaseModel):
 class SectionParamMapInput(BaseModel):
     """Input for a section parameter mapping of a biophysics model. (this will be set on the mechanisms of the compartments of the model)"""
 
-    param: str
-    "The name of the parameter to set."
-    mechanism: str
-    "The governing mechanism"
-    value: float
-    "The value of the parameter"
-    description: Optional[str] = None
-    "Description of the parameter"
+    param: str = Field(description="The name of the parameter to set.")
+    mechanism: str = Field(description="The governing mechanism")
+    value: float = Field(description="The value of the parameter")
+    description: Optional[str] = Field(
+        default=None, description="Description of the parameter"
+    )
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -1097,8 +1176,9 @@ class StrFilterLookup(BaseModel):
 class TopologyInput(TopologyInputTrait, BaseModel):
     """Input for the topology of a cell, which defines its structure as a set of connected sections."""
 
-    sections: List[SectionInput]
-    "The list of sections that make up the cell's morphology."
+    sections: List[SectionInput] = Field(
+        description="The list of sections that make up the cell's morphology."
+    )
     model_config = ConfigDict(
         extra="forbid",
         validate_assignment=True,
@@ -3401,6 +3481,1584 @@ class WatchTracesSubscription(BaseModel):
         """Meta class for WatchTraces"""
 
         document = "fragment ZarrStore on ZarrStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Trace on Trace {\n  id\n  name\n  store {\n    ...ZarrStore\n    __typename\n  }\n  __typename\n}\n\nsubscription WatchTraces($dataset: ID) {\n  traces(dataset: $dataset) {\n    create {\n      ...Trace\n      __typename\n    }\n    delete\n    update {\n      ...Trace\n      __typename\n    }\n    __typename\n  }\n}"
+
+
+def analog_signal_channel_input(
+    name: str,
+    index: int,
+    trace: TraceCoercible,
+    unit: Union[Optional[str], UnsetType] = UNSET,
+    description: Union[Optional[str], UnsetType] = UNSET,
+    color: Union[Optional[Iterable[int]], UnsetType] = UNSET,
+) -> AnalogSignalChannelInput:
+    """Creates a AnalogSignalChannelInput
+
+    Arguments:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        index: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required)
+        unit: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        color: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
+        trace: The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer (required)
+    """
+    data: Dict[str, Any] = {}
+    data["name"] = name
+    data["index"] = index
+    if unit is not UNSET:
+        data["unit"] = unit
+    if description is not UNSET:
+        data["description"] = description
+    if color is not UNSET:
+        data["color"] = color
+    data["trace"] = trace
+    return AnalogSignalChannelInput(**data)
+
+
+def analog_signal_input(
+    time_trace: TraceCoercible,
+    sampling_rate: Frequency,
+    t_start: Duration,
+    channels: Iterable[AnalogSignalChannelInput],
+    name: Union[Optional[str], UnsetType] = UNSET,
+    description: Union[Optional[str], UnsetType] = UNSET,
+    unit: Union[Optional[str], UnsetType] = UNSET,
+) -> AnalogSignalInput:
+    """Creates a AnalogSignalInput
+
+    Arguments:
+        time_trace: The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer (required)
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        sampling_rate: A quantity of frequency (``"50 Hz"``, ``"1 kHz"``). (required)
+        t_start: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``). (required)
+        unit: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        channels:  (required) (list) (required)
+    """
+    data: Dict[str, Any] = {}
+    data["timeTrace"] = time_trace
+    if name is not UNSET:
+        data["name"] = name
+    if description is not UNSET:
+        data["description"] = description
+    data["samplingRate"] = sampling_rate
+    data["tStart"] = t_start
+    if unit is not UNSET:
+        data["unit"] = unit
+    data["channels"] = channels
+    return AnalogSignalInput(**data)
+
+
+def biophysics_input(compartments: Iterable[CompartmentInput]) -> BiophysicsInput:
+    """Creates a BiophysicsInput
+
+    Arguments:
+        compartments: Input for a compartment in a biophysics model. (required) (list) (required)
+    """
+    data: Dict[str, Any] = {}
+    data["compartments"] = compartments
+    return BiophysicsInput(**data)
+
+
+def block_segment_input(
+    analog_signals: Iterable[AnalogSignalInput],
+    irregularly_sampled_signals: Iterable[IrregularlySampledSignalInput],
+    spike_trains: Iterable[SpikeTrainInput],
+    name: Union[Optional[str], UnsetType] = UNSET,
+    description: Union[Optional[str], UnsetType] = UNSET,
+) -> BlockSegmentInput:
+    """Creates a BlockSegmentInput
+
+    Arguments:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        analog_signals:  (required) (list) (required)
+        irregularly_sampled_signals:  (required) (list) (required)
+        spike_trains:  (required) (list) (required)
+    """
+    data: Dict[str, Any] = {}
+    if name is not UNSET:
+        data["name"] = name
+    if description is not UNSET:
+        data["description"] = description
+    data["analogSignals"] = analog_signals
+    data["irregularlySampledSignals"] = irregularly_sampled_signals
+    data["spikeTrains"] = spike_trains
+    return BlockSegmentInput(**data)
+
+
+def cell_input(
+    id: str, biophysics: BiophysicsInput, topology: TopologyInput
+) -> CellInput:
+    """Creates a CellInput
+
+    Arguments:
+        id: The unique identifier of the cell within the model.
+        biophysics: The biophysics model of the cell, which defines the properties of the cell such as its compartments, mechanisms, and parameters.
+        topology: The topology of the cell, which defines the structure of the cell such as its morphology and connectivity.
+    """
+    data: Dict[str, Any] = {}
+    data["id"] = id
+    data["biophysics"] = biophysics
+    data["topology"] = topology
+    return CellInput(**data)
+
+
+def change_dataset_input(id: IDCoercible, name: str) -> ChangeDatasetInput:
+    """Creates a ChangeDatasetInput
+
+    Arguments:
+        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    """
+    data: Dict[str, Any] = {}
+    data["id"] = id
+    data["name"] = name
+    return ChangeDatasetInput(**data)
+
+
+def compartment_input(
+    id: str,
+    mechanisms: Iterable[str],
+    section_params: Union[Optional[Iterable[SectionParamMapInput]], UnsetType] = UNSET,
+    global_params: Union[Optional[Iterable[GlobalParamMapInput]], UnsetType] = UNSET,
+) -> CompartmentInput:
+    """Creates a CompartmentInput
+
+    Arguments:
+        id: The unique identifier of the compartment within the model.
+        mechanisms: The set of mechanisms active in this compartment.
+        section_params: The mechanism-specific parameters applied to the sections of this compartment.
+        global_params: The non-mechanistic (global) parameters applied to this compartment.
+    """
+    data: Dict[str, Any] = {}
+    data["id"] = id
+    data["mechanisms"] = mechanisms
+    if section_params is not UNSET:
+        data["sectionParams"] = section_params
+    if global_params is not UNSET:
+        data["globalParams"] = global_params
+    return CompartmentInput(**data)
+
+
+def connection_input(parent: str, location: float) -> ConnectionInput:
+    """Creates a ConnectionInput
+
+    Arguments:
+        parent: The ID of the parent section this section connects to.
+        location: The position along the parent section where this section attaches, between 0 and 1.
+    """
+    data: Dict[str, Any] = {}
+    data["parent"] = parent
+    data["location"] = location
+    return ConnectionInput(**data)
+
+
+def coord_input(x: Length, y: Length, z: Length) -> CoordInput:
+    """Creates a CoordInput
+
+    Arguments:
+        x: The x coordinate of the point.
+        y: The y coordinate of the point.
+        z: The z coordinate of the point.
+    """
+    data: Dict[str, Any] = {}
+    data["x"] = x
+    data["y"] = y
+    data["z"] = z
+    return CoordInput(**data)
+
+
+def create_block_input(
+    name: str,
+    segments: Iterable[BlockSegmentInput],
+    file: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    recording_time: Union[Optional[datetime], UnsetType] = UNSET,
+) -> CreateBlockInput:
+    """Creates a CreateBlockInput
+
+    Arguments:
+        file: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        recording_time: Date with time (isoformat)
+        segments:  (required) (list) (required)
+    """
+    data: Dict[str, Any] = {}
+    if file is not UNSET:
+        data["file"] = file
+    data["name"] = name
+    if recording_time is not UNSET:
+        data["recordingTime"] = recording_time
+    data["segments"] = segments
+    return CreateBlockInput(**data)
+
+
+def create_dataset_input(name: str) -> CreateDatasetInput:
+    """Creates a CreateDatasetInput
+
+    Arguments:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    """
+    data: Dict[str, Any] = {}
+    data["name"] = name
+    return CreateDatasetInput(**data)
+
+
+def create_experiment_input(
+    name: str,
+    stimulus_views: Iterable[StimulusViewInput],
+    recording_views: Iterable[RecordingViewInput],
+    time_trace: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    description: Union[Optional[str], UnsetType] = UNSET,
+) -> CreateExperimentInput:
+    """Creates a CreateExperimentInput
+
+    Arguments:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        time_trace: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        stimulus_views:  (required) (list) (required)
+        recording_views:  (required) (list) (required)
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    """
+    data: Dict[str, Any] = {}
+    data["name"] = name
+    if time_trace is not UNSET:
+        data["timeTrace"] = time_trace
+    data["stimulusViews"] = stimulus_views
+    data["recordingViews"] = recording_views
+    if description is not UNSET:
+        data["description"] = description
+    return CreateExperimentInput(**data)
+
+
+def create_mod_environment_input(
+    name: str,
+    zip_file: BigFileLike,
+    mechanisms: Iterable[MechanismInput],
+    description: Union[Optional[str], UnsetType] = UNSET,
+) -> CreateModEnvironmentInput:
+    """Creates a CreateModEnvironmentInput
+
+    Arguments:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        zip_file: A type representing a big file store reference, which can be either a string ID or a more complex object. (required)
+        mechanisms: Input for creating a mechanism (required) (list) (required)
+    """
+    data: Dict[str, Any] = {}
+    data["name"] = name
+    if description is not UNSET:
+        data["description"] = description
+    data["zipFile"] = zip_file
+    data["mechanisms"] = mechanisms
+    return CreateModEnvironmentInput(**data)
+
+
+def create_model_collection_input(
+    name: str,
+    models: Iterable[IDCoercible],
+    description: Union[Optional[str], UnsetType] = UNSET,
+) -> CreateModelCollectionInput:
+    """Creates a CreateModelCollectionInput
+
+    Arguments:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        models: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required) (list) (required)
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    """
+    data: Dict[str, Any] = {}
+    data["name"] = name
+    data["models"] = models
+    if description is not UNSET:
+        data["description"] = description
+    return CreateModelCollectionInput(**data)
+
+
+def create_neuron_model_input(
+    name: str,
+    config: ModelConfigInput,
+    environment: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    parent: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    description: Union[Optional[str], UnsetType] = UNSET,
+) -> CreateNeuronModelInput:
+    """Creates a CreateNeuronModelInput
+
+    Arguments:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        environment: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        config: Input for the configuration of a model. (required)
+    """
+    data: Dict[str, Any] = {}
+    data["name"] = name
+    if environment is not UNSET:
+        data["environment"] = environment
+    if parent is not UNSET:
+        data["parent"] = parent
+    if description is not UNSET:
+        data["description"] = description
+    data["config"] = config
+    return CreateNeuronModelInput(**data)
+
+
+def create_simulation_input(
+    name: str,
+    model: IDCoercible,
+    recordings: Iterable[RecordingInput],
+    stimuli: Iterable[StimulusInput],
+    duration: Duration,
+    time_trace: Union[Optional[ArrayLike], UnsetType] = UNSET,
+    dt: Union[Optional[Duration], UnsetType] = UNSET,
+) -> CreateSimulationInput:
+    """Creates a CreateSimulationInput
+
+    Arguments:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        model: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+        recordings:  (required) (list) (required)
+        stimuli:  (required) (list) (required)
+        time_trace: A type representing an array-like structure, which can be a list or any iterable.
+        duration: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``). (required)
+        dt: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``).
+    """
+    data: Dict[str, Any] = {}
+    data["name"] = name
+    data["model"] = model
+    data["recordings"] = recordings
+    data["stimuli"] = stimuli
+    if time_trace is not UNSET:
+        data["timeTrace"] = time_trace
+    data["duration"] = duration
+    if dt is not UNSET:
+        data["dt"] = dt
+    return CreateSimulationInput(**data)
+
+
+def dataset_filter(
+    id: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    name: Union[Optional[StrFilterLookup], UnsetType] = UNSET,
+    and_: Union[Optional[DatasetFilter], UnsetType] = UNSET,
+    or_: Union[Optional[DatasetFilter], UnsetType] = UNSET,
+    not_: Union[Optional[DatasetFilter], UnsetType] = UNSET,
+    distinct: Union[Optional[bool], UnsetType] = UNSET,
+) -> DatasetFilter:
+    """Creates a DatasetFilter
+
+    Arguments:
+        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        name:
+        and_:
+        or_:
+        not_:
+        distinct: The `Boolean` scalar type represents `true` or `false`.
+    """
+    data: Dict[str, Any] = {}
+    if id is not UNSET:
+        data["id"] = id
+    if name is not UNSET:
+        data["name"] = name
+    if and_ is not UNSET:
+        data["AND"] = and_
+    if or_ is not UNSET:
+        data["OR"] = or_
+    if not_ is not UNSET:
+        data["NOT"] = not_
+    if distinct is not UNSET:
+        data["DISTINCT"] = distinct
+    return DatasetFilter(**data)
+
+
+def delete_roi_input(id: IDCoercible) -> DeleteRoiInput:
+    """Creates a DeleteRoiInput
+
+    Arguments:
+        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+    """
+    data: Dict[str, Any] = {}
+    data["id"] = id
+    return DeleteRoiInput(**data)
+
+
+def experiment_filter(
+    ids: Union[Optional[Iterable[IDCoercible]], UnsetType] = UNSET,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    created_before: Union[Optional[datetime], UnsetType] = UNSET,
+    created_after: Union[Optional[datetime], UnsetType] = UNSET,
+    id: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    name: Union[Optional[StrFilterLookup], UnsetType] = UNSET,
+    and_: Union[Optional[ExperimentFilter], UnsetType] = UNSET,
+    or_: Union[Optional[ExperimentFilter], UnsetType] = UNSET,
+    not_: Union[Optional[ExperimentFilter], UnsetType] = UNSET,
+    distinct: Union[Optional[bool], UnsetType] = UNSET,
+) -> ExperimentFilter:
+    """Creates a ExperimentFilter
+
+    Arguments:
+        ids: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required) (list)
+        search: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        created_before: Date with time (isoformat)
+        created_after: Date with time (isoformat)
+        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        name:
+        and_:
+        or_:
+        not_:
+        distinct: The `Boolean` scalar type represents `true` or `false`.
+    """
+    data: Dict[str, Any] = {}
+    if ids is not UNSET:
+        data["ids"] = ids
+    if search is not UNSET:
+        data["search"] = search
+    if created_before is not UNSET:
+        data["createdBefore"] = created_before
+    if created_after is not UNSET:
+        data["createdAfter"] = created_after
+    if id is not UNSET:
+        data["id"] = id
+    if name is not UNSET:
+        data["name"] = name
+    if and_ is not UNSET:
+        data["AND"] = and_
+    if or_ is not UNSET:
+        data["OR"] = or_
+    if not_ is not UNSET:
+        data["NOT"] = not_
+    if distinct is not UNSET:
+        data["DISTINCT"] = distinct
+    return ExperimentFilter(**data)
+
+
+def finish_big_file_upload_input(
+    store_id: str, valid: bool
+) -> FinishBigFileUploadInput:
+    """Creates a FinishBigFileUploadInput
+
+    Arguments:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        valid: The `Boolean` scalar type represents `true` or `false`. (required)
+    """
+    data: Dict[str, Any] = {}
+    data["storeId"] = store_id
+    data["valid"] = valid
+    return FinishBigFileUploadInput(**data)
+
+
+def finish_media_upload_input(store_id: str, valid: bool) -> FinishMediaUploadInput:
+    """Creates a FinishMediaUploadInput
+
+    Arguments:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        valid: The `Boolean` scalar type represents `true` or `false`. (required)
+    """
+    data: Dict[str, Any] = {}
+    data["storeId"] = store_id
+    data["valid"] = valid
+    return FinishMediaUploadInput(**data)
+
+
+def finish_parquet_upload_input(store_id: str, valid: bool) -> FinishParquetUploadInput:
+    """Creates a FinishParquetUploadInput
+
+    Arguments:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        valid: The `Boolean` scalar type represents `true` or `false`. (required)
+    """
+    data: Dict[str, Any] = {}
+    data["storeId"] = store_id
+    data["valid"] = valid
+    return FinishParquetUploadInput(**data)
+
+
+def finish_zarr_upload_input(store_id: str, valid: bool) -> FinishZarrUploadInput:
+    """Creates a FinishZarrUploadInput
+
+    Arguments:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        valid: The `Boolean` scalar type represents `true` or `false`. (required)
+    """
+    data: Dict[str, Any] = {}
+    data["storeId"] = store_id
+    data["valid"] = valid
+    return FinishZarrUploadInput(**data)
+
+
+def from_file_like(
+    name: str,
+    file: FileLike,
+    origins: Union[Optional[Iterable[IDCoercible]], UnsetType] = UNSET,
+    dataset: Union[Optional[IDCoercible], UnsetType] = UNSET,
+) -> FromFileLike:
+    """Creates a FromFileLike
+
+    Arguments:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        file: The `FileLike` scalar type represents a reference to a big file storage previously created by the user n a datalayer (required)
+        origins: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required) (list)
+        dataset: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+    """
+    data: Dict[str, Any] = {}
+    data["name"] = name
+    data["file"] = file
+    if origins is not UNSET:
+        data["origins"] = origins
+    if dataset is not UNSET:
+        data["dataset"] = dataset
+    return FromFileLike(**data)
+
+
+def from_trace_like_input(
+    array: ArrayLike,
+    name: str,
+    dataset: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    tags: Union[Optional[Iterable[str]], UnsetType] = UNSET,
+) -> FromTraceLikeInput:
+    """Creates a FromTraceLikeInput
+
+    Arguments:
+        array: The array-like object to create the image from
+        name: The name of the image
+        dataset: Optional dataset ID to associate the image with
+        tags: Optional list of tags to associate with the image
+    """
+    data: Dict[str, Any] = {}
+    data["array"] = array
+    data["name"] = name
+    if dataset is not UNSET:
+        data["dataset"] = dataset
+    if tags is not UNSET:
+        data["tags"] = tags
+    return FromTraceLikeInput(**data)
+
+
+def global_param_map_input(
+    param: str, value: float, description: Union[Optional[str], UnsetType] = UNSET
+) -> GlobalParamMapInput:
+    """Creates a GlobalParamMapInput
+
+    Arguments:
+        param: The name of the parameter to set.
+        value: The value of the parameter
+        description: Description of the parameter
+    """
+    data: Dict[str, Any] = {}
+    data["param"] = param
+    data["value"] = value
+    if description is not UNSET:
+        data["description"] = description
+    return GlobalParamMapInput(**data)
+
+
+def irregularly_sampled_signal_input(
+    times: TraceCoercible,
+    trace: TraceCoercible,
+    name: Union[Optional[str], UnsetType] = UNSET,
+    unit: Union[Optional[str], UnsetType] = UNSET,
+    description: Union[Optional[str], UnsetType] = UNSET,
+) -> IrregularlySampledSignalInput:
+    """Creates a IrregularlySampledSignalInput
+
+    Arguments:
+        times: The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer (required)
+        trace: The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer (required)
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        unit: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    """
+    data: Dict[str, Any] = {}
+    data["times"] = times
+    data["trace"] = trace
+    if name is not UNSET:
+        data["name"] = name
+    if unit is not UNSET:
+        data["unit"] = unit
+    if description is not UNSET:
+        data["description"] = description
+    return IrregularlySampledSignalInput(**data)
+
+
+def mechanism_input(
+    name: str,
+    parameters: Iterable[ParameterInput],
+    description: Union[Optional[str], UnsetType] = UNSET,
+) -> MechanismInput:
+    """Creates a MechanismInput
+
+    Arguments:
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        parameters: A parameter port of a mechanism (required) (list) (required)
+    """
+    data: Dict[str, Any] = {}
+    data["name"] = name
+    if description is not UNSET:
+        data["description"] = description
+    data["parameters"] = parameters
+    return MechanismInput(**data)
+
+
+def model_collection_filter(
+    ids: Union[Optional[Iterable[IDCoercible]], UnsetType] = UNSET,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    created_before: Union[Optional[datetime], UnsetType] = UNSET,
+    created_after: Union[Optional[datetime], UnsetType] = UNSET,
+    id: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    name: Union[Optional[StrFilterLookup], UnsetType] = UNSET,
+    and_: Union[Optional[ModelCollectionFilter], UnsetType] = UNSET,
+    or_: Union[Optional[ModelCollectionFilter], UnsetType] = UNSET,
+    not_: Union[Optional[ModelCollectionFilter], UnsetType] = UNSET,
+    distinct: Union[Optional[bool], UnsetType] = UNSET,
+) -> ModelCollectionFilter:
+    """Creates a ModelCollectionFilter
+
+    Arguments:
+        ids: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required) (list)
+        search: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        created_before: Date with time (isoformat)
+        created_after: Date with time (isoformat)
+        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        name:
+        and_:
+        or_:
+        not_:
+        distinct: The `Boolean` scalar type represents `true` or `false`.
+    """
+    data: Dict[str, Any] = {}
+    if ids is not UNSET:
+        data["ids"] = ids
+    if search is not UNSET:
+        data["search"] = search
+    if created_before is not UNSET:
+        data["createdBefore"] = created_before
+    if created_after is not UNSET:
+        data["createdAfter"] = created_after
+    if id is not UNSET:
+        data["id"] = id
+    if name is not UNSET:
+        data["name"] = name
+    if and_ is not UNSET:
+        data["AND"] = and_
+    if or_ is not UNSET:
+        data["OR"] = or_
+    if not_ is not UNSET:
+        data["NOT"] = not_
+    if distinct is not UNSET:
+        data["DISTINCT"] = distinct
+    return ModelCollectionFilter(**data)
+
+
+def model_config_input(
+    cells: Iterable[CellInput],
+    v_init: ElectricPotential,
+    temperature: Temperature,
+    net_stimulators: Union[Optional[Iterable[NetStimulatorInput]], UnsetType] = UNSET,
+    net_connections: Union[Optional[Iterable[NetConnectionInput]], UnsetType] = UNSET,
+    net_synapses: Union[Optional[Iterable[NetSynapseInput]], UnsetType] = UNSET,
+    label: Union[Optional[str], UnsetType] = UNSET,
+) -> ModelConfigInput:
+    """Creates a ModelConfigInput
+
+    Arguments:
+        cells: The list of cells in the model.
+        net_stimulators: The list of net stimulators in the model.
+        net_connections: The list of net connections in the model.
+        net_synapses: The list of net synapses in the model.
+        v_init: Initial membrane potential.
+        temperature: Simulation bath temperature.
+        label: An optional label for the model configuration.
+    """
+    data: Dict[str, Any] = {}
+    data["cells"] = cells
+    if net_stimulators is not UNSET:
+        data["netStimulators"] = net_stimulators
+    if net_connections is not UNSET:
+        data["netConnections"] = net_connections
+    if net_synapses is not UNSET:
+        data["netSynapses"] = net_synapses
+    data["vInit"] = v_init
+    data["temperature"] = temperature
+    if label is not UNSET:
+        data["label"] = label
+    return ModelConfigInput(**data)
+
+
+def net_connection_input(
+    kind: ConnectionKind,
+    id: IDCoercible,
+    net_stimulator: IDCoercible,
+    synapse: IDCoercible,
+    weight: Union[Optional[ElectricalConductance], UnsetType] = UNSET,
+    threshold: Union[Optional[ElectricPotential], UnsetType] = UNSET,
+    delay: Union[Optional[Duration], UnsetType] = UNSET,
+) -> NetConnectionInput:
+    """Creates a NetConnectionInput
+
+    Arguments:
+        kind: The kind of connection to create.
+        id: The unique identifier of the connection within the model.
+        weight: The weight (conductance) of the connection.
+        threshold: The threshold for the connection.
+        delay: The delay for the connection.
+        net_stimulator: The ID of the net stimulator that is the pre-synaptic cell in this connection.
+        synapse: The ID of the synapse that is the post-synaptic cell in this connection.
+    """
+    data: Dict[str, Any] = {}
+    data["kind"] = kind
+    data["id"] = id
+    if weight is not UNSET:
+        data["weight"] = weight
+    if threshold is not UNSET:
+        data["threshold"] = threshold
+    if delay is not UNSET:
+        data["delay"] = delay
+    data["netStimulator"] = net_stimulator
+    data["synapse"] = synapse
+    return NetConnectionInput(**data)
+
+
+def net_stimulator_input(
+    id: IDCoercible,
+    start: Duration,
+    number: int,
+    interval: Union[Optional[Duration], UnsetType] = UNSET,
+) -> NetStimulatorInput:
+    """Creates a NetStimulatorInput
+
+    Arguments:
+        id: The unique identifier of the stimulator within the model.
+        start: Start time of the first spike.
+        number: Number of spikes to emit.
+        interval: Interval between spikes.
+    """
+    data: Dict[str, Any] = {}
+    data["id"] = id
+    data["start"] = start
+    data["number"] = number
+    if interval is not UNSET:
+        data["interval"] = interval
+    return NetStimulatorInput(**data)
+
+
+def net_synapse_input(
+    id: IDCoercible,
+    kind: SynapseKind,
+    e: ElectricPotential,
+    tau2: Duration,
+    tau1: Duration,
+    cell: IDCoercible,
+    location: IDCoercible,
+    position: float,
+) -> NetSynapseInput:
+    """Creates a NetSynapseInput
+
+    Arguments:
+        id: The unique identifier of the synapse within the model.
+        kind: The kind of synapse model to use.
+        e: Reversal potential.
+        tau2: Decay time constant.
+        tau1: Rise time constant.
+        cell: The ID of the cell this synapse is located on.
+        location: The location on the cell where the synapse is located. This can be a section name, a segment number, or a more complex specification depending on the model.
+        position: The position along the section where the synapse is located, specified as a value between 0 and 1. This is only relevant if the location is specified as a section name.
+    """
+    data: Dict[str, Any] = {}
+    data["id"] = id
+    data["kind"] = kind
+    data["e"] = e
+    data["tau2"] = tau2
+    data["tau1"] = tau1
+    data["cell"] = cell
+    data["location"] = location
+    data["position"] = position
+    return NetSynapseInput(**data)
+
+
+def neuron_model_filter(
+    ids: Union[Optional[Iterable[IDCoercible]], UnsetType] = UNSET,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    created_before: Union[Optional[datetime], UnsetType] = UNSET,
+    created_after: Union[Optional[datetime], UnsetType] = UNSET,
+    id: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    name: Union[Optional[StrFilterLookup], UnsetType] = UNSET,
+    and_: Union[Optional[NeuronModelFilter], UnsetType] = UNSET,
+    or_: Union[Optional[NeuronModelFilter], UnsetType] = UNSET,
+    not_: Union[Optional[NeuronModelFilter], UnsetType] = UNSET,
+    distinct: Union[Optional[bool], UnsetType] = UNSET,
+) -> NeuronModelFilter:
+    """Creates a NeuronModelFilter
+
+    Arguments:
+        ids: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required) (list)
+        search: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        created_before: Date with time (isoformat)
+        created_after: Date with time (isoformat)
+        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        name:
+        and_:
+        or_:
+        not_:
+        distinct: The `Boolean` scalar type represents `true` or `false`.
+    """
+    data: Dict[str, Any] = {}
+    if ids is not UNSET:
+        data["ids"] = ids
+    if search is not UNSET:
+        data["search"] = search
+    if created_before is not UNSET:
+        data["createdBefore"] = created_before
+    if created_after is not UNSET:
+        data["createdAfter"] = created_after
+    if id is not UNSET:
+        data["id"] = id
+    if name is not UNSET:
+        data["name"] = name
+    if and_ is not UNSET:
+        data["AND"] = and_
+    if or_ is not UNSET:
+        data["OR"] = or_
+    if not_ is not UNSET:
+        data["NOT"] = not_
+    if distinct is not UNSET:
+        data["DISTINCT"] = distinct
+    return NeuronModelFilter(**data)
+
+
+def offset_pagination_input(
+    offset: int, limit: Union[Optional[int], UnsetType] = UNSET
+) -> OffsetPaginationInput:
+    """Creates a OffsetPaginationInput
+
+    Arguments:
+        offset: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required)
+        limit: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    """
+    data: Dict[str, Any] = {}
+    data["offset"] = offset
+    if limit is not UNSET:
+        data["limit"] = limit
+    return OffsetPaginationInput(**data)
+
+
+def parameter_input(
+    key: str,
+    kind: ParameterKind,
+    nullable: bool,
+    label: Union[Optional[str], UnsetType] = UNSET,
+    description: Union[Optional[str], UnsetType] = UNSET,
+    default: Union[Optional[Any], UnsetType] = UNSET,
+) -> ParameterInput:
+    """Creates a ParameterInput
+
+    Arguments:
+        key: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        label: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        kind: ParameterKind (required)
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        default: The `Any` scalar any type
+        nullable: The `Boolean` scalar type represents `true` or `false`. (required)
+    """
+    data: Dict[str, Any] = {}
+    data["key"] = key
+    if label is not UNSET:
+        data["label"] = label
+    data["kind"] = kind
+    if description is not UNSET:
+        data["description"] = description
+    if default is not UNSET:
+        data["default"] = default
+    data["nullable"] = nullable
+    return ParameterInput(**data)
+
+
+def recording_filter(
+    ids: Union[Optional[Iterable[IDCoercible]], UnsetType] = UNSET,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    created_before: Union[Optional[datetime], UnsetType] = UNSET,
+    created_after: Union[Optional[datetime], UnsetType] = UNSET,
+    id: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    name: Union[Optional[StrFilterLookup], UnsetType] = UNSET,
+    and_: Union[Optional[RecordingFilter], UnsetType] = UNSET,
+    or_: Union[Optional[RecordingFilter], UnsetType] = UNSET,
+    not_: Union[Optional[RecordingFilter], UnsetType] = UNSET,
+    distinct: Union[Optional[bool], UnsetType] = UNSET,
+) -> RecordingFilter:
+    """Creates a RecordingFilter
+
+    Arguments:
+        ids: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required) (list)
+        search: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        created_before: Date with time (isoformat)
+        created_after: Date with time (isoformat)
+        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        name:
+        and_:
+        or_:
+        not_:
+        distinct: The `Boolean` scalar type represents `true` or `false`.
+    """
+    data: Dict[str, Any] = {}
+    if ids is not UNSET:
+        data["ids"] = ids
+    if search is not UNSET:
+        data["search"] = search
+    if created_before is not UNSET:
+        data["createdBefore"] = created_before
+    if created_after is not UNSET:
+        data["createdAfter"] = created_after
+    if id is not UNSET:
+        data["id"] = id
+    if name is not UNSET:
+        data["name"] = name
+    if and_ is not UNSET:
+        data["AND"] = and_
+    if or_ is not UNSET:
+        data["OR"] = or_
+    if not_ is not UNSET:
+        data["NOT"] = not_
+    if distinct is not UNSET:
+        data["DISTINCT"] = distinct
+    return RecordingFilter(**data)
+
+
+def recording_input(
+    trace: ArrayLike,
+    kind: RecordingKind,
+    cell: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    location: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    position: Union[Optional[float], UnsetType] = UNSET,
+) -> RecordingInput:
+    """Creates a RecordingInput
+
+    Arguments:
+        trace: A type representing an array-like structure, which can be a list or any iterable. (required)
+        kind: RecordingKind (required)
+        cell: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        location: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        position: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
+    """
+    data: Dict[str, Any] = {}
+    data["trace"] = trace
+    data["kind"] = kind
+    if cell is not UNSET:
+        data["cell"] = cell
+    if location is not UNSET:
+        data["location"] = location
+    if position is not UNSET:
+        data["position"] = position
+    return RecordingInput(**data)
+
+
+def recording_view_input(
+    recording: IDCoercible,
+    offset: Union[Optional[Duration], UnsetType] = UNSET,
+    duration: Union[Optional[Duration], UnsetType] = UNSET,
+    label: Union[Optional[str], UnsetType] = UNSET,
+) -> RecordingViewInput:
+    """Creates a RecordingViewInput
+
+    Arguments:
+        recording: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+        offset: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``).
+        duration: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``).
+        label: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    """
+    data: Dict[str, Any] = {}
+    data["recording"] = recording
+    if offset is not UNSET:
+        data["offset"] = offset
+    if duration is not UNSET:
+        data["duration"] = duration
+    if label is not UNSET:
+        data["label"] = label
+    return RecordingViewInput(**data)
+
+
+def request_big_file_access_input(store_id: str) -> RequestBigFileAccessInput:
+    """Creates a RequestBigFileAccessInput
+
+    Arguments:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    """
+    data: Dict[str, Any] = {}
+    data["storeId"] = store_id
+    return RequestBigFileAccessInput(**data)
+
+
+def request_big_file_upload_input(
+    original_file_name: str,
+    file_size: Union[Optional[int], UnsetType] = UNSET,
+    content_type: Union[Optional[str], UnsetType] = UNSET,
+    host: Union[Optional[str], UnsetType] = UNSET,
+    port: Union[Optional[int], UnsetType] = UNSET,
+) -> RequestBigFileUploadInput:
+    """Creates a RequestBigFileUploadInput
+
+    Arguments:
+        original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        file_size: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+        content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    """
+    data: Dict[str, Any] = {}
+    data["originalFileName"] = original_file_name
+    if file_size is not UNSET:
+        data["fileSize"] = file_size
+    if content_type is not UNSET:
+        data["contentType"] = content_type
+    if host is not UNSET:
+        data["host"] = host
+    if port is not UNSET:
+        data["port"] = port
+    return RequestBigFileUploadInput(**data)
+
+
+def request_media_access_input(store_id: str) -> RequestMediaAccessInput:
+    """Creates a RequestMediaAccessInput
+
+    Arguments:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    """
+    data: Dict[str, Any] = {}
+    data["storeId"] = store_id
+    return RequestMediaAccessInput(**data)
+
+
+def request_media_upload_input(
+    original_file_name: str,
+    file_size: Union[Optional[int], UnsetType] = UNSET,
+    content_type: Union[Optional[str], UnsetType] = UNSET,
+) -> RequestMediaUploadInput:
+    """Creates a RequestMediaUploadInput
+
+    Arguments:
+        original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+        file_size: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+        content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    """
+    data: Dict[str, Any] = {}
+    data["originalFileName"] = original_file_name
+    if file_size is not UNSET:
+        data["fileSize"] = file_size
+    if content_type is not UNSET:
+        data["contentType"] = content_type
+    return RequestMediaUploadInput(**data)
+
+
+def request_parquet_access_input(store_id: str) -> RequestParquetAccessInput:
+    """Creates a RequestParquetAccessInput
+
+    Arguments:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    """
+    data: Dict[str, Any] = {}
+    data["storeId"] = store_id
+    return RequestParquetAccessInput(**data)
+
+
+def request_parquet_upload_input(
+    content_type: Union[Optional[str], UnsetType] = UNSET,
+    host: Union[Optional[str], UnsetType] = UNSET,
+    port: Union[Optional[int], UnsetType] = UNSET,
+) -> RequestParquetUploadInput:
+    """Creates a RequestParquetUploadInput
+
+    Arguments:
+        content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    """
+    data: Dict[str, Any] = {}
+    if content_type is not UNSET:
+        data["contentType"] = content_type
+    if host is not UNSET:
+        data["host"] = host
+    if port is not UNSET:
+        data["port"] = port
+    return RequestParquetUploadInput(**data)
+
+
+def request_zarr_access_input(store_id: str) -> RequestZarrAccessInput:
+    """Creates a RequestZarrAccessInput
+
+    Arguments:
+        store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    """
+    data: Dict[str, Any] = {}
+    data["storeId"] = store_id
+    return RequestZarrAccessInput(**data)
+
+
+def request_zarr_upload_input(
+    shape: Union[Optional[Iterable[int]], UnsetType] = UNSET,
+    chunks: Union[Optional[Iterable[int]], UnsetType] = UNSET,
+    version: Union[Optional[str], UnsetType] = UNSET,
+    host: Union[Optional[str], UnsetType] = UNSET,
+    port: Union[Optional[int], UnsetType] = UNSET,
+) -> RequestZarrUploadInput:
+    """Creates a RequestZarrUploadInput
+
+    Arguments:
+        shape: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
+        chunks: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
+        version: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    """
+    data: Dict[str, Any] = {}
+    if shape is not UNSET:
+        data["shape"] = shape
+    if chunks is not UNSET:
+        data["chunks"] = chunks
+    if version is not UNSET:
+        data["version"] = version
+    if host is not UNSET:
+        data["host"] = host
+    if port is not UNSET:
+        data["port"] = port
+    return RequestZarrUploadInput(**data)
+
+
+def revert_input(id: IDCoercible, history_id: IDCoercible) -> RevertInput:
+    """Creates a RevertInput
+
+    Arguments:
+        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+        history_id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+    """
+    data: Dict[str, Any] = {}
+    data["id"] = id
+    data["historyId"] = history_id
+    return RevertInput(**data)
+
+
+def roi_input(
+    trace: IDCoercible,
+    vectors: Iterable[TwoDVector],
+    kind: RoiKind,
+    label: Union[Optional[str], UnsetType] = UNSET,
+) -> RoiInput:
+    """Creates a RoiInput
+
+    Arguments:
+        trace: The image this ROI belongs to
+        vectors: The vector coordinates defining the as XY
+        kind: The type/kind of ROI
+        label: The label of the ROI
+    """
+    data: Dict[str, Any] = {}
+    data["trace"] = trace
+    data["vectors"] = vectors
+    data["kind"] = kind
+    if label is not UNSET:
+        data["label"] = label
+    return RoiInput(**data)
+
+
+def section_input(
+    id: str,
+    nseg: int,
+    diam: Length,
+    category: Union[Optional[str], UnsetType] = UNSET,
+    length: Union[Optional[Length], UnsetType] = UNSET,
+    coords: Union[Optional[Iterable[CoordInput]], UnsetType] = UNSET,
+    connections: Union[Optional[Iterable[ConnectionInput]], UnsetType] = UNSET,
+) -> SectionInput:
+    """Creates a SectionInput
+
+    Arguments:
+        id: The unique identifier of the section within the cell.
+        category: An optional category for the section (e.g. 'soma', 'axon', 'dend').
+        nseg: The number of segments the section is discretized into.
+        diam: The diameter of the section.
+        length: Length of the section. Required if coords is not provided.
+        coords: The 3D coordinates describing the section's geometry. Required if length is not provided.
+        connections: The connections of this section to its parent section(s).
+    """
+    data: Dict[str, Any] = {}
+    data["id"] = id
+    if category is not UNSET:
+        data["category"] = category
+    data["nseg"] = nseg
+    data["diam"] = diam
+    if length is not UNSET:
+        data["length"] = length
+    if coords is not UNSET:
+        data["coords"] = coords
+    if connections is not UNSET:
+        data["connections"] = connections
+    return SectionInput(**data)
+
+
+def section_param_map_input(
+    param: str,
+    mechanism: str,
+    value: float,
+    description: Union[Optional[str], UnsetType] = UNSET,
+) -> SectionParamMapInput:
+    """Creates a SectionParamMapInput
+
+    Arguments:
+        param: The name of the parameter to set.
+        mechanism: The governing mechanism
+        value: The value of the parameter
+        description: Description of the parameter
+    """
+    data: Dict[str, Any] = {}
+    data["param"] = param
+    data["mechanism"] = mechanism
+    data["value"] = value
+    if description is not UNSET:
+        data["description"] = description
+    return SectionParamMapInput(**data)
+
+
+def simulation_filter(
+    ids: Union[Optional[Iterable[IDCoercible]], UnsetType] = UNSET,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    created_before: Union[Optional[datetime], UnsetType] = UNSET,
+    created_after: Union[Optional[datetime], UnsetType] = UNSET,
+    id: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    name: Union[Optional[StrFilterLookup], UnsetType] = UNSET,
+    and_: Union[Optional[SimulationFilter], UnsetType] = UNSET,
+    or_: Union[Optional[SimulationFilter], UnsetType] = UNSET,
+    not_: Union[Optional[SimulationFilter], UnsetType] = UNSET,
+    distinct: Union[Optional[bool], UnsetType] = UNSET,
+) -> SimulationFilter:
+    """Creates a SimulationFilter
+
+    Arguments:
+        ids: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required) (list)
+        search: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        created_before: Date with time (isoformat)
+        created_after: Date with time (isoformat)
+        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        name:
+        and_:
+        or_:
+        not_:
+        distinct: The `Boolean` scalar type represents `true` or `false`.
+    """
+    data: Dict[str, Any] = {}
+    if ids is not UNSET:
+        data["ids"] = ids
+    if search is not UNSET:
+        data["search"] = search
+    if created_before is not UNSET:
+        data["createdBefore"] = created_before
+    if created_after is not UNSET:
+        data["createdAfter"] = created_after
+    if id is not UNSET:
+        data["id"] = id
+    if name is not UNSET:
+        data["name"] = name
+    if and_ is not UNSET:
+        data["AND"] = and_
+    if or_ is not UNSET:
+        data["OR"] = or_
+    if not_ is not UNSET:
+        data["NOT"] = not_
+    if distinct is not UNSET:
+        data["DISTINCT"] = distinct
+    return SimulationFilter(**data)
+
+
+def spike_train_input(
+    times: TraceCoercible,
+    t_start: Duration,
+    t_stop: Duration,
+    waveforms: Union[Optional[TraceCoercible], UnsetType] = UNSET,
+    name: Union[Optional[str], UnsetType] = UNSET,
+    description: Union[Optional[str], UnsetType] = UNSET,
+    left_sweep: Union[Optional[Duration], UnsetType] = UNSET,
+) -> SpikeTrainInput:
+    """Creates a SpikeTrainInput
+
+    Arguments:
+        times: The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer (required)
+        t_start: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``). (required)
+        t_stop: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``). (required)
+        waveforms: The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer
+        name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        left_sweep: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``).
+    """
+    data: Dict[str, Any] = {}
+    data["times"] = times
+    data["tStart"] = t_start
+    data["tStop"] = t_stop
+    if waveforms is not UNSET:
+        data["waveforms"] = waveforms
+    if name is not UNSET:
+        data["name"] = name
+    if description is not UNSET:
+        data["description"] = description
+    if left_sweep is not UNSET:
+        data["leftSweep"] = left_sweep
+    return SpikeTrainInput(**data)
+
+
+def stimulus_filter(
+    ids: Union[Optional[Iterable[IDCoercible]], UnsetType] = UNSET,
+    search: Union[Optional[str], UnsetType] = UNSET,
+    created_before: Union[Optional[datetime], UnsetType] = UNSET,
+    created_after: Union[Optional[datetime], UnsetType] = UNSET,
+    id: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    name: Union[Optional[StrFilterLookup], UnsetType] = UNSET,
+    and_: Union[Optional[StimulusFilter], UnsetType] = UNSET,
+    or_: Union[Optional[StimulusFilter], UnsetType] = UNSET,
+    not_: Union[Optional[StimulusFilter], UnsetType] = UNSET,
+    distinct: Union[Optional[bool], UnsetType] = UNSET,
+) -> StimulusFilter:
+    """Creates a StimulusFilter
+
+    Arguments:
+        ids: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required) (list)
+        search: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        created_before: Date with time (isoformat)
+        created_after: Date with time (isoformat)
+        id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        name:
+        and_:
+        or_:
+        not_:
+        distinct: The `Boolean` scalar type represents `true` or `false`.
+    """
+    data: Dict[str, Any] = {}
+    if ids is not UNSET:
+        data["ids"] = ids
+    if search is not UNSET:
+        data["search"] = search
+    if created_before is not UNSET:
+        data["createdBefore"] = created_before
+    if created_after is not UNSET:
+        data["createdAfter"] = created_after
+    if id is not UNSET:
+        data["id"] = id
+    if name is not UNSET:
+        data["name"] = name
+    if and_ is not UNSET:
+        data["AND"] = and_
+    if or_ is not UNSET:
+        data["OR"] = or_
+    if not_ is not UNSET:
+        data["NOT"] = not_
+    if distinct is not UNSET:
+        data["DISTINCT"] = distinct
+    return StimulusFilter(**data)
+
+
+def stimulus_input(
+    trace: ArrayLike,
+    kind: StimulusKind,
+    cell: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    location: Union[Optional[IDCoercible], UnsetType] = UNSET,
+    position: Union[Optional[float], UnsetType] = UNSET,
+) -> StimulusInput:
+    """Creates a StimulusInput
+
+    Arguments:
+        trace: A type representing an array-like structure, which can be a list or any iterable. (required)
+        kind: StimulusKind (required)
+        cell: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        location: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+        position: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
+    """
+    data: Dict[str, Any] = {}
+    data["trace"] = trace
+    data["kind"] = kind
+    if cell is not UNSET:
+        data["cell"] = cell
+    if location is not UNSET:
+        data["location"] = location
+    if position is not UNSET:
+        data["position"] = position
+    return StimulusInput(**data)
+
+
+def stimulus_view_input(
+    stimulus: IDCoercible,
+    offset: Union[Optional[Duration], UnsetType] = UNSET,
+    duration: Union[Optional[Duration], UnsetType] = UNSET,
+    label: Union[Optional[str], UnsetType] = UNSET,
+) -> StimulusViewInput:
+    """Creates a StimulusViewInput
+
+    Arguments:
+        stimulus: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+        offset: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``).
+        duration: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``).
+        label: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    """
+    data: Dict[str, Any] = {}
+    data["stimulus"] = stimulus
+    if offset is not UNSET:
+        data["offset"] = offset
+    if duration is not UNSET:
+        data["duration"] = duration
+    if label is not UNSET:
+        data["label"] = label
+    return StimulusViewInput(**data)
+
+
+def str_filter_lookup(
+    exact: Union[Optional[str], UnsetType] = UNSET,
+    i_exact: Union[Optional[str], UnsetType] = UNSET,
+    contains: Union[Optional[str], UnsetType] = UNSET,
+    i_contains: Union[Optional[str], UnsetType] = UNSET,
+    in_list: Union[Optional[Iterable[str]], UnsetType] = UNSET,
+    gt: Union[Optional[str], UnsetType] = UNSET,
+    gte: Union[Optional[str], UnsetType] = UNSET,
+    lt: Union[Optional[str], UnsetType] = UNSET,
+    lte: Union[Optional[str], UnsetType] = UNSET,
+    starts_with: Union[Optional[str], UnsetType] = UNSET,
+    i_starts_with: Union[Optional[str], UnsetType] = UNSET,
+    ends_with: Union[Optional[str], UnsetType] = UNSET,
+    i_ends_with: Union[Optional[str], UnsetType] = UNSET,
+    range: Union[Optional[Iterable[str]], UnsetType] = UNSET,
+    is_null: Union[Optional[bool], UnsetType] = UNSET,
+    regex: Union[Optional[str], UnsetType] = UNSET,
+    i_regex: Union[Optional[str], UnsetType] = UNSET,
+) -> StrFilterLookup:
+    """Creates a StrFilterLookup
+
+    Arguments:
+        exact: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        i_exact: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        contains: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        i_contains: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        in_list: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required) (list)
+        gt: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        gte: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        lt: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        lte: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        starts_with: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        i_starts_with: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        ends_with: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        i_ends_with: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        range: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required) (list)
+        is_null: The `Boolean` scalar type represents `true` or `false`.
+        regex: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        i_regex: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    """
+    data: Dict[str, Any] = {}
+    if exact is not UNSET:
+        data["exact"] = exact
+    if i_exact is not UNSET:
+        data["iExact"] = i_exact
+    if contains is not UNSET:
+        data["contains"] = contains
+    if i_contains is not UNSET:
+        data["iContains"] = i_contains
+    if in_list is not UNSET:
+        data["inList"] = in_list
+    if gt is not UNSET:
+        data["gt"] = gt
+    if gte is not UNSET:
+        data["gte"] = gte
+    if lt is not UNSET:
+        data["lt"] = lt
+    if lte is not UNSET:
+        data["lte"] = lte
+    if starts_with is not UNSET:
+        data["startsWith"] = starts_with
+    if i_starts_with is not UNSET:
+        data["iStartsWith"] = i_starts_with
+    if ends_with is not UNSET:
+        data["endsWith"] = ends_with
+    if i_ends_with is not UNSET:
+        data["iEndsWith"] = i_ends_with
+    if range is not UNSET:
+        data["range"] = range
+    if is_null is not UNSET:
+        data["isNull"] = is_null
+    if regex is not UNSET:
+        data["regex"] = regex
+    if i_regex is not UNSET:
+        data["iRegex"] = i_regex
+    return StrFilterLookup(**data)
+
+
+def topology_input(sections: Iterable[SectionInput]) -> TopologyInput:
+    """Creates a TopologyInput
+
+    Arguments:
+        sections: The list of sections that make up the cell's morphology.
+    """
+    data: Dict[str, Any] = {}
+    data["sections"] = sections
+    return TopologyInput(**data)
+
+
+def trace_filter(
+    search: Union[Optional[str], UnsetType] = UNSET,
+    name: Union[Optional[StrFilterLookup], UnsetType] = UNSET,
+    ids: Union[Optional[Iterable[IDCoercible]], UnsetType] = UNSET,
+    dataset: Union[Optional[DatasetFilter], UnsetType] = UNSET,
+    not_derived: Union[Optional[bool], UnsetType] = UNSET,
+    and_: Union[Optional[TraceFilter], UnsetType] = UNSET,
+    or_: Union[Optional[TraceFilter], UnsetType] = UNSET,
+    not_: Union[Optional[TraceFilter], UnsetType] = UNSET,
+    distinct: Union[Optional[bool], UnsetType] = UNSET,
+) -> TraceFilter:
+    """Creates a TraceFilter
+
+    Arguments:
+        search: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        name:
+        ids: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required) (list)
+        dataset:
+        not_derived: The `Boolean` scalar type represents `true` or `false`.
+        and_:
+        or_:
+        not_:
+        distinct: The `Boolean` scalar type represents `true` or `false`.
+    """
+    data: Dict[str, Any] = {}
+    if search is not UNSET:
+        data["search"] = search
+    if name is not UNSET:
+        data["name"] = name
+    if ids is not UNSET:
+        data["ids"] = ids
+    if dataset is not UNSET:
+        data["dataset"] = dataset
+    if not_derived is not UNSET:
+        data["notDerived"] = not_derived
+    if and_ is not UNSET:
+        data["AND"] = and_
+    if or_ is not UNSET:
+        data["OR"] = or_
+    if not_ is not UNSET:
+        data["NOT"] = not_
+    if distinct is not UNSET:
+        data["DISTINCT"] = distinct
+    return TraceFilter(**data)
+
+
+def update_roi_input(
+    roi: IDCoercible,
+    label: Union[Optional[str], UnsetType] = UNSET,
+    vectors: Union[Optional[Iterable[TwoDVector]], UnsetType] = UNSET,
+    kind: Union[Optional[RoiKind], UnsetType] = UNSET,
+) -> UpdateRoiInput:
+    """Creates a UpdateRoiInput
+
+    Arguments:
+        roi: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+        label: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+        vectors: The `Vector` scalar type represents a matrix values as specified by (required) (list)
+        kind: RoiKind
+    """
+    data: Dict[str, Any] = {}
+    data["roi"] = roi
+    if label is not UNSET:
+        data["label"] = label
+    if vectors is not UNSET:
+        data["vectors"] = vectors
+    if kind is not UNSET:
+        data["kind"] = kind
+    return UpdateRoiInput(**data)
 
 
 async def acreate_block(

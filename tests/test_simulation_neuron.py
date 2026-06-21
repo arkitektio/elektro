@@ -58,7 +58,7 @@ def _single_soma_model() -> NeuronModel:
     )
     config = NeuronModelConfig(
         vInit="-65 mV",
-        celsius=37.0,
+        temperature="310.15 K",
         cells=[Cell(id="cell_1", biophysics=biophysics, topology=topology)],
     )
     # ``environment`` is a required field on NeuronModel; bypass validation so we can

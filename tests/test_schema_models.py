@@ -60,7 +60,7 @@ def _config() -> ModelConfigInput:
         netStimulators=[],
         netConnections=[],
         vInit="-70 mV",
-        celsius=37,
+        temperature="310.15 K",
     )
 
 
