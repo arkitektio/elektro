@@ -1,11 +1,14 @@
-db:
-  db_name: mikro
-  dependency: db
-  engine: django.db.backends.postgresql
-  host: db
-  password: hello_django
-  port: 5432
-  username: hello_django
+authentikate:
+  issuers:
+    - kind: rsa
+      iss: lok
+      kid: lok-key-1
+      public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDXx/g7dyiwmfIQvkBKvUAM+KBuL1KdvZfZMlYhbyrz9Auk2xao1gLYiQJ183joiXadUreL4BugUrasQVdR9JvBWXOBeqm2FD5Ehf9VvqXdzCOQ7/fUXkb9N8sqmz5YitQuheKGDh0weNmVcfdsCGU38sACEvFQg+5dv1tqLbm7EllT+vogntDVX16DmvpvFEX4HYHpT8qM/xuqSB6yQ8+wBuQd3K7WTFgUrUqQx6zFrSMUbSArPrrY5Z0GJAeDAHKp4+V+um4mSHpYM2nBJ5pn80wYpsf97KIL9P+UJzjb/indB8dCqpPkAk3HogBhj67Tp5JoqCMoaXHFU3tiYQCp
+  static_tokens:
+    test:
+      sub: 1
+      iss: lok
+      active_org: org
 django:
   admin:
     email: admin@admin.com
@@ -15,13 +18,8 @@ django:
   hosts:
     - "*"
   secret_key: ab94ec351412c22324b2f635e0d6b9dd
-force_script_name: ""
+  force_script_name: ""
 lok:
-  static_tokens:
-    test:
-      sub: 1
-      iss: lok
-      active_org: org
   issuer: lok
   key_type: RS256
   public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDXx/g7dyiwmfIQvkBKvUAM+KBuL1KdvZfZMlYhbyrz9Auk2xao1gLYiQJ183joiXadUreL4BugUrasQVdR9JvBWXOBeqm2FD5Ehf9VvqXdzCOQ7/fUXkb9N8sqmz5YitQuheKGDh0weNmVcfdsCGU38sACEvFQg+5dv1tqLbm7EllT+vogntDVX16DmvpvFEX4HYHpT8qM/xuqSB6yQ8+wBuQd3K7WTFgUrUqQx6zFrSMUbSArPrrY5Z0GJAeDAHKp4+V+um4mSHpYM2nBJ5pn80wYpsf97KIL9P+UJzjb/indB8dCqpPkAk3HogBhj67Tp5JoqCMoaXHFU3tiYQCp
@@ -29,18 +27,6 @@ redis:
   dependency: redis
   host: redis
   port: 6379
-s3:
-  access_key: mikro_access_key
-  buckets:
-    media: media
-    parquet: parquet
-    zarr: zarr
-  dependency: minio
-  host: minio
-  name: lanky-green-dalmatian
-  port: 9000
-  protocol: http
-  secret_key: mikro_secret_key
 scopes:
   mikro_read: Read image from the database
   mikro_write: Write image to the database
@@ -58,3 +44,11 @@ datalayer:
     bucket: parquet
   bigfile:
     bucket: bigfile
+postgres:
+  db_name: mikro
+  dependency: db
+  engine: django.db.backends.postgresql
+  host: db
+  password: hello_django
+  port: 5432
+  username: hello_django
