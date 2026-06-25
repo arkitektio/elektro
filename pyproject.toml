@@ -25,6 +25,8 @@ dependencies = [
 turms = ["turms"]
 neuron = ["neuron>=8.0.0; sys_platform != 'win32'"]
 table = ["pyarrow>=12.0.1", "pandas>=2.2", "duckdb>=1.0"]
+# Installed inside the semantic-release Docker action so build_command has uv.
+build = ["uv>=0.7.12"]
 
 [tool.uv]
 dev-dependencies =  [
@@ -113,11 +115,12 @@ docs_base_path = "website/docs"
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
-# Runs on the runner (semantic-release is invoked via uvx in CI, not the Docker
-# action), so `uv` is already on PATH. After PSR bumps the version in
+# The semantic-release GitHub Action runs in a Docker container without uv, so
+# install it first (the `build` extra). After PSR bumps the version in
 # pyproject.toml, re-sync just this package's entry in uv.lock and stage it so
 # the release commit carries a consistent lock. $PACKAGE_NAME is injected by PSR.
 build_command = """
+    python -m pip install -e '.[build]'
     uv lock --upgrade-package "$PACKAGE_NAME"
     git add uv.lock
     uv build
