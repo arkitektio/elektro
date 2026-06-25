@@ -672,7 +672,7 @@ dependencies = [
 
 [package.optional-dependencies]
 neuron = [
-    { name = "neuron" },
+    { name = "neuron", marker = "sys_platform != 'win32'" },
 ]
 table = [
     { name = "duckdb" },
@@ -708,7 +708,7 @@ requires-dist = [
     { name = "duckdb", marker = "extra == 'table'", specifier = ">=1.0" },
     { name = "filelock", specifier = ">=3.12" },
     { name = "kanne", specifier = ">=2.1.1" },
-    { name = "neuron", marker = "extra == 'neuron'", specifier = ">=8.0.0" },
+    { name = "neuron", marker = "sys_platform != 'win32' and extra == 'neuron'", specifier = ">=8.0.0" },
     { name = "numcodecs", specifier = ">=0.16.1" },
     { name = "numpy", marker = "python_full_version >= '3.12' and python_full_version < '4'", specifier = ">=1.26" },
     { name = "obstore", specifier = ">=0.10.0" },
