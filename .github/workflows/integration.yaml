@@ -1,11 +1,15 @@
 name: Integration Tests
 on:
   push:
-    branches: [main]
+    branches: [main, next]
   pull_request:
-    branches: [main]
+    branches: [main, next]
 jobs:
   test_integration:
+    # Test prerelease branches against the prerelease backend (:next) and the
+    # stable line against :latest. base_ref is set on PRs, ref_name on pushes.
+    env:
+      ELEKTRO_SERVICE_TAG: ${{ (github.base_ref || github.ref_name) == 'main' && 'latest' || 'next' }}
     strategy:
       fail-fast: false
       matrix:
