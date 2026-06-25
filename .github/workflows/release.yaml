@@ -35,13 +35,28 @@ jobs:
       - name: Run tests
         run: uv run pytest -m "not integration"
 
+      # Run semantic-release as a CLI on the runner (NOT the Docker action) so
+      # the `uv build` build_command can find the `uv` installed by setup-uv.
+      # The action runs in its own container where uv is absent -> "uv: command
+      # not found". `released` is derived by comparing the next computed version
+      # against the last released tag; the build_command in pyproject populates
+      # dist/ at the new version. Branch config tags vX.Y.Z on main,
+      # vX.Y.Z-rc.N on next.
       - name: Python Semantic Release
         id: release
-        uses: python-semantic-release/python-semantic-release@v9
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          # build_command in pyproject (`uv build`) populates dist/ at the new
-          # version. Branch config tags vX.Y.Z on main, vX.Y.Z-rc.N on next.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SR="uvx --from python-semantic-release semantic-release"
+          NEXT=$($SR version --print 2>/dev/null || true)
+          LAST=$($SR version --print-last-released 2>/dev/null || true)
+          if [ -n "$NEXT" ] && [ "$NEXT" != "$LAST" ]; then
+            $SR version
+            echo "released=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No release required (next='$NEXT', last='$LAST')."
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
 
       # rc versions upload fine; pip ignores them unless `--pre` is passed.
       - name: Publish to PyPI

@@ -113,7 +113,15 @@ docs_base_path = "website/docs"
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
-build_command = "uv build"
+# Runs on the runner (semantic-release is invoked via uvx in CI, not the Docker
+# action), so `uv` is already on PATH. After PSR bumps the version in
+# pyproject.toml, re-sync just this package's entry in uv.lock and stage it so
+# the release commit carries a consistent lock. $PACKAGE_NAME is injected by PSR.
+build_command = """
+    uv lock --upgrade-package "$PACKAGE_NAME"
+    git add uv.lock
+    uv build
+"""
 commit_message = "chore(release): v{version} [skip ci]"
 
 # main -> stable X.Y.Z. next -> prereleases X.Y.Z-rc.N. N.x -> maintenance.
