@@ -1,11 +1,11 @@
+"""Parse NEURON mod files and build packaged mod environments."""
+
 import os
 import re
-import json
 import zipfile
-import hashlib
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple, TYPE_CHECKING
-from elektro.api.schema import CreateModEnvironmentInput, MechanismInput, ParameterInput
+from typing import List, Optional, Tuple, TYPE_CHECKING
+from elektro.api.schema import MechanismInput, ParameterInput
 
 if TYPE_CHECKING:
     from elektro.api.schema import ModEnvironment
@@ -30,9 +30,7 @@ def parse_mod_file_to_schema(file_path: Path) -> MechanismInput:
 
     # 2. Extract Description (Look for TITLE)
     title_match = re.search(r"TITLE\s+([^\n]+)", content)
-    description = (
-        title_match.group(1).strip() if title_match else f"Parsed from {file_path.name}"
-    )
+    description = title_match.group(1).strip() if title_match else f"Parsed from {file_path.name}"
 
     # 3. Extract PARAMETER block
     param_block_match = re.search(r"PARAMETER\s*\{([^}]*)\}", content)
@@ -48,9 +46,7 @@ def parse_mod_file_to_schema(file_path: Path) -> MechanismInput:
 
             # Regex captures the variable name (Group 1) and an optional default value (Group 2)
             # e.g., "gbar = 0.05 (S/cm2)" -> Group 1: "gbar", Group 2: "0.05"
-            var_match = re.match(
-                r"^([a-zA-Z0-9_]+(?:\[\d+\])?)\s*(?:=\s*([\d\.\-eE]+))?", line
-            )
+            var_match = re.match(r"^([a-zA-Z0-9_]+(?:\[\d+\])?)\s*(?:=\s*([\d\.\-eE]+))?", line)
 
             if var_match:
                 raw_param_name = var_match.group(1)
@@ -74,9 +70,7 @@ def parse_mod_file_to_schema(file_path: Path) -> MechanismInput:
                     )
                 )
 
-    return MechanismInput(
-        name=mechanism_name, description=description, parameters=ports
-    )
+    return MechanismInput(name=mechanism_name, description=description, parameters=ports)
 
 
 def build_and_zip_environment(

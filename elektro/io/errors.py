@@ -1,3 +1,6 @@
+"""Exception types raised during data upload and download."""
+
+
 class IoError(Exception):
     """Base class for IO Errors"""
 

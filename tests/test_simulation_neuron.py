@@ -10,6 +10,8 @@ The whole module is skipped when the optional ``neuron`` package is not installe
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.neuron
+
 pytest.importorskip("neuron")
 
 from kanne.scalars import Duration, ElectricCurrent  # noqa: E402
@@ -27,6 +29,7 @@ from elektro.api.schema import (  # noqa: E402
 )
 from elektro.neuron.simulate import (  # noqa: E402
     CurrentClampStimulus,
+    SimulationResults,
     VRecord,
     run_simulation_processed,
 )
@@ -73,7 +76,7 @@ DT_MS = 0.025
 N_STEPS = int(round(DURATION_MS / DT_MS))
 
 
-def _run():
+def _run() -> SimulationResults:
     model = _single_soma_model()
     return run_simulation_processed(
         model=model,
@@ -93,14 +96,16 @@ def _run():
     )
 
 
-def test_time_trace_grid():
+def test_time_trace_grid() -> None:
+    """The time trace has ``N_STEPS + 1`` points and the snapped duration."""
     result = _run()
     # The engine snaps to an integer number of dt steps and records n_steps + 1 points.
     assert len(result.time_trace) == N_STEPS + 1
     assert result.duration.to("millisecond").magnitude == pytest.approx(N_STEPS * DT_MS)
 
 
-def test_recordings_shape_and_kind():
+def test_recordings_shape_and_kind() -> None:
+    """The single recording is a voltage trace matching the time-trace length."""
     result = _run()
     assert len(result.recordings) == 1
     rec = result.recordings[0]
@@ -108,7 +113,8 @@ def test_recordings_shape_and_kind():
     assert np.asarray(rec.trace.value).shape[0] == len(result.time_trace)
 
 
-def test_stimulus_grouped_and_waveform():
+def test_stimulus_grouped_and_waveform() -> None:
+    """The stimulus is a single CURRENT waveform that is zero before the 10 ms delay."""
     result = _run()
     # One stimulus location -> one combined StimulusInput tagged as CURRENT.
     assert len(result.stimuli) == 1

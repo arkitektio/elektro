@@ -34,9 +34,14 @@ if TYPE_CHECKING:
         CompartmentInput,
         SectionParamMapInput,
     )
+    from elektro.io.obstore import ParquetDatasetViaObstore
+    from zarr.storage import StorePath
+    from duckdb import DuckDBPyRelation
 
 
 class ModelConfigTrait(BaseModel):
+    """Mixin for ModelConfig data."""
+
     def as_input(self) -> "ModelConfigInput":
         """Convert the model to a ModelConfigInput"""
         from elektro.api.schema import ModelConfigInput
@@ -47,11 +52,16 @@ class ModelConfigTrait(BaseModel):
 
 
 class SectionInputTrait(BaseModel):
+    """Mixin for SectionInput data."""
+
     pass
 
 
 class CompartmentInputTrait(BaseModel):
+    """Mixin for CompartmentInput data."""
+
     def get_section_param_for_id(self, id: str) -> "SectionParamMapInput":
+        """Return the section param mapping matching the given param id."""
         sections = get_attributes_or_error(self, "section_params")
         x = next((section for section in sections if section.param == id), None)
         if x is None:
@@ -65,6 +75,7 @@ class BiophysicsInputTrait(BaseModel):
     """Mixin for Biophysics data"""
 
     def get_compartment_for_id(self, id: str) -> "CompartmentInput":
+        """Return the compartment input matching the given id."""
         sections = get_attributes_or_error(self, "compartments")
         x = next((section for section in sections if section.id == id), None)
         if x is None:
@@ -76,6 +87,7 @@ class TopologyInputTrait(BaseModel):
     """Mixin for Topology data"""
 
     def get_section_for_id(self, id: str) -> "SectionInput":
+        """Return the section input matching the given id."""
         sections = get_attributes_or_error(self, "sections")
         x = next((section for section in sections if section.id == id), None)
         if x is None:
@@ -84,6 +96,7 @@ class TopologyInputTrait(BaseModel):
 
     @property
     def section_ids(self) -> List[str]:
+        """The ids of all sections in the topology."""
         sections = get_attributes_or_error(self, "sections")
         return [section.id for section in sections]
 
@@ -92,6 +105,7 @@ class ModelConfigInputTrait(BaseModel):
     """Mixin for Topology data"""
 
     def get_cell_for_id(self, id: str) -> "CellInput":
+        """Return the cell input matching the given id."""
         sections = get_attributes_or_error(self, "cells")
         x = next((section for section in sections if section.id == id), None)
         if x is None:
@@ -100,6 +114,7 @@ class ModelConfigInputTrait(BaseModel):
 
     @property
     def cell_ids(self) -> List[str]:
+        """The ids of all cells in the model config."""
         sections = get_attributes_or_error(self, "cells")
         return [section.id for section in sections]
 
@@ -108,6 +123,7 @@ class BiophysicsTrait:
     """Mixin for Biophysics data"""
 
     def compartment_for_id(self, id: str) -> "Compartment":
+        """Return the compartment matching the given id."""
         compartments = get_attributes_or_error(self, "compartments")
         x = next((compartment for compartment in compartments if compartment.id == id), None)
         if x is None:
@@ -116,6 +132,7 @@ class BiophysicsTrait:
 
     @property
     def compartment_ids(self) -> List[str]:
+        """The ids of all compartments in the biophysics data."""
         compartments = get_attributes_or_error(self, "compartments")
         return [compartment.id for compartment in compartments]
 
@@ -144,6 +161,7 @@ class TopologyTrait:
     """Mixin for Biophysics data"""
 
     def section_for_id(self, id: str) -> "Section":
+        """Return the section matching the given id."""
         sections = get_attributes_or_error(self, "sections")
         x = next((sec for sec in sections if sec.id == id), None)
         if x is None:
@@ -152,6 +170,7 @@ class TopologyTrait:
 
     @property
     def section_ids(self) -> List[str]:
+        """The ids of all sections in the topology."""
         compartments = get_attributes_or_error(self, "sections")
         return [compartment.id for compartment in compartments]
 
@@ -184,6 +203,7 @@ class CompartmentTrait:
     """Mixin for Biophysics data"""
 
     def section_param_for_id(self, id: str) -> "SectionParamMap":
+        """Return the section param mapping matching the given param id."""
         compartments = get_attributes_or_error(self, "section_params")
         x = next(
             (compartment for compartment in compartments if compartment.param == id),
@@ -194,6 +214,7 @@ class CompartmentTrait:
         return x
 
     def global_param_for_id(self, id: str) -> "GlobalParamMap":
+        """Return the global param mapping matching the given param id."""
         compartments = get_attributes_or_error(self, "global_params")
         x = next(
             (compartment for compartment in compartments if compartment.param == id),
@@ -205,8 +226,11 @@ class CompartmentTrait:
 
 
 class ExperimentTrait(BaseModel):
+    """Mixin for Experiment data."""
+
     @property
     def data(self) -> xr.Dataset:
+        """The experiment as an xarray Dataset of recordings and stimulations."""
         from elektro.api.schema import Experiment
 
         self = cast(Experiment, self)
@@ -276,6 +300,7 @@ class HasZarrStoreTrait(BaseModel):
 
     @property
     def data(self) -> xr.DataArray:
+        """The data of the representation as an xr.DataArray."""
         store = get_attributes_or_error(self, "store")
 
         array: zarr.Array = from_zarr(store.zarr_store)
@@ -285,6 +310,7 @@ class HasZarrStoreTrait(BaseModel):
 
     @property
     def multi_scale_data(self) -> List[xr.DataArray]:
+        """The derived scale views as a list of xr.DataArrays, ordered by scale."""
         scale_views = get_attributes_or_error(self, "derived_scale_views")
 
         if len(scale_views) == 0:
@@ -310,6 +336,8 @@ V = TypeVar("V")
 
 
 class SimulationTrait(BaseModel):
+    """Mixin for Simulation data."""
+
     def export_csv(self, file_path: str) -> None:
         """Export the simulation data to a zarr file
 
@@ -322,10 +350,13 @@ class SimulationTrait(BaseModel):
 
 
 class HasZarrStoreAccessor(BaseModel):
+    """Accessor mixin exposing the object's zarr store."""
+
     _openstore: Any = None
 
     @property
-    def zarr_store(self):
+    def zarr_store(self) -> "StorePath":
+        """The opened zarr store of this object, cached after first access."""
         from elektro.io.download import open_zarr_store
 
         if self._openstore is None:
@@ -346,7 +377,7 @@ class HasParquetStoreAccesor(BaseModel):
     _duckdb_rel: Any = None
 
     @property
-    def parquet_dataset(self):
+    def parquet_dataset(self) -> "ParquetDatasetViaObstore":
         """The pyarrow Parquet Dataset of the ParquetStore object."""
         from elektro.io.download import open_parquet_filesystem
 
@@ -356,7 +387,7 @@ class HasParquetStoreAccesor(BaseModel):
         return self._dataset
 
     @property
-    def duckdb_relation(self):
+    def duckdb_relation(self) -> "DuckDBPyRelation":
         """A lazy DuckDB relation over the parquet object, queried directly on S3.
 
         Reads through DuckDB's ``httpfs`` extension so the object is never fully
@@ -371,7 +402,7 @@ class HasParquetStoreAccesor(BaseModel):
         return self._duckdb_rel
 
     @property
-    def data(self):
+    def data(self) -> "DuckDBPyRelation":
         """The data of this table as a lazy DuckDB relation.
 
         Filter/aggregate on the relation and call ``.df()`` to materialise just
@@ -381,15 +412,19 @@ class HasParquetStoreAccesor(BaseModel):
 
 
 class HasDownloadAccessor(BaseModel):
+    """Accessor mixin for downloading the object's file by store id."""
+
     _dataset: Any = None
 
     def download(self, file_name: str | None = None) -> "str":
+        """Download the file and return the local path it was written to."""
         from elektro.io.download import download_file
 
         store_id, key = get_attributes_or_error(self, "id", "key")
         return download_file(store_id, file_name=file_name or key)
 
     async def adownload(self, file_name: str | None = None) -> Awaitable[str]:
+        """Download the file asynchronously and return the local path."""
         from elektro.io.download import adownload_file
 
         store_id, key = get_attributes_or_error(self, "id", "key")
@@ -397,15 +432,19 @@ class HasDownloadAccessor(BaseModel):
 
 
 class HasPresignedDownloadAccessor(BaseModel):
+    """Accessor mixin for downloading the object via its presigned URL."""
+
     _dataset: Any = None
 
     def download(self, file_name: str | None = None) -> str:
+        """Download the file from its presigned URL and return the local path."""
         from elektro.io.download import download_presigned_file
 
         url, key = get_attributes_or_error(self, "presigned_url", "key")
         return download_presigned_file(url, file_name=file_name or key)
 
     async def adownload(self, file_name: str | None = None) -> Awaitable[str]:
+        """Download the file from its presigned URL asynchronously."""
         from elektro.io.download import adownload_presigned_file
 
         url, key = get_attributes_or_error(self, "presigned_url", "key")
@@ -436,8 +475,12 @@ class Vector(Protocol):
         z: Optional[int] = None,
         t: Optional[int] = None,
         c: Optional[int] = None,
-    ) -> V: ...
+    ) -> V:
+        """Return a new vector with the given coordinates overridden."""
+        ...
 
 
 class IsVectorizableTrait:
+    """Mixin marking a type as vectorizable."""
+
     pass

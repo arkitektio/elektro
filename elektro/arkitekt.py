@@ -1,3 +1,5 @@
+"""Arkitekt service registration for the Elektro client."""
+
 import json
 import os
 from elektro.elektro import Elektro
@@ -24,18 +26,23 @@ from arkitekt_next.service_registry import (
 
 
 def build_relative_path(*path: str) -> str:
+    """Build an absolute path relative to this module's directory."""
     return os.path.join(os.path.dirname(__file__), *path)
 
 
 class ElektroService(BaseArkitektService):
-    def get_service_name(self):
+    """Arkitekt service definition that builds and registers an Elektro client."""
+
+    def get_service_name(self) -> str:
+        """Return the unique name of this service."""
         return "elektro"
 
     def build_service(
         self,
         fakts: Fakts,
         params: Params,
-    ):
+    ) -> Elektro:
+        """Build a configured Elektro client from the given fakts and params."""
         datalayer = FaktsDataLayer(fakts_group="datalayer", fakts=fakts)
 
         return Elektro(
@@ -67,7 +74,8 @@ class ElektroService(BaseArkitektService):
             datalayer=datalayer,
         )
 
-    def get_requirements(self):
+    def get_requirements(self) -> list[Requirement]:
+        """Return the service requirements needed to run Elektro."""
         return [
             Requirement(
                 key="elektro",
@@ -83,12 +91,14 @@ class ElektroService(BaseArkitektService):
             ),
         ]
 
-    def get_graphql_schema(self):
+    def get_graphql_schema(self) -> str:
+        """Return the GraphQL schema definition for this service."""
         schema_graphql_path = build_relative_path("api", "schema.graphql")
         with open(schema_graphql_path) as f:
             return f.read()
 
-    def get_turms_project(self):
+    def get_turms_project(self) -> dict:
+        """Return the Turms project configuration for code generation."""
         turms_prject = build_relative_path("api", "project.json")
         with open(turms_prject) as f:
             return json.loads(f.read())

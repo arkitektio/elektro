@@ -1,3 +1,9 @@
+input AddModelsToWorkspaceInput {
+  workspace: ID!
+  models: [ID!]!
+  workspaceGroup: String! = ""
+}
+
 type AnalogSignal implements Signal {
   name: String!
   segment: BlockSegment!
@@ -493,6 +499,11 @@ input CreateModEnvironmentInput {
 input CreateModelCollectionInput {
   name: String!
   models: [ID!]!
+  description: String = null
+}
+
+input CreateModelWorkspaceInput {
+  name: String!
   description: String = null
 }
 
@@ -1097,6 +1108,36 @@ input ModelConfigInput {
   label: String = null
 }
 
+type ModelWorkspace {
+  id: ID!
+  name: String!
+  description: String
+  creator: User
+  createdAt: DateTime!
+  mappings(filters: WorkspaceMappingFilter, ordering: [WorkspaceMappingOrder!]! = [], pagination: OffsetPaginationInput): [WorkspaceMapping!]!
+
+  """Whether the current user has pinned this workspace"""
+  pinned: Boolean!
+}
+
+input ModelWorkspaceFilter {
+  ids: [ID!]
+  search: String
+  createdBefore: DateTime
+  createdAfter: DateTime
+  id: ID
+  name: StrFilterLookup
+  AND: ModelWorkspaceFilter
+  OR: ModelWorkspaceFilter
+  NOT: ModelWorkspaceFilter
+  DISTINCT: Boolean
+}
+
+input ModelWorkspaceOrder @oneOf {
+  id: Ordering
+  createdAt: Ordering
+}
+
 type Mutation {
   """Create a new block"""
   createBlock(input: CreateBlockInput!): Block!
@@ -1182,6 +1223,12 @@ type Mutation {
   """Delete an existing model collection"""
   deleteModelCollection(input: DeleteInput!): ID!
 
+  """Delete an existing model workspace"""
+  deleteModelWorkspace(input: DeleteInput!): ID!
+
+  """Delete an existing workspace mapping"""
+  deleteWorkspaceMapping(input: DeleteInput!): ID!
+
   """Delete an existing mod environment"""
   deleteModEnvironment(input: DeleteInput!): ID!
 
@@ -1241,6 +1288,24 @@ type Mutation {
 
   """Create a new model collection"""
   createModelCollection(input: CreateModelCollectionInput!): ModelCollection!
+
+  """Create a new model workspace"""
+  createModelWorkspace(input: CreateModelWorkspaceInput!): ModelWorkspace!
+
+  """Update an existing model workspace"""
+  updateModelWorkspace(input: UpdateModelWorkspaceInput!): ModelWorkspace!
+
+  """Pin or unpin a model workspace for the current user"""
+  pinModelWorkspace(input: PinModelWorkspaceInput!): ModelWorkspace!
+
+  """Add neuron models to a workspace (optionally into a group)"""
+  addModelsToWorkspace(input: AddModelsToWorkspaceInput!): ModelWorkspace!
+
+  """Remove neuron models from a workspace"""
+  removeModelsFromWorkspace(input: DesociateInput!): ModelWorkspace!
+
+  """Update a workspace mapping (e.g. change its group)"""
+  updateWorkspaceMapping(input: UpdateWorkspaceMappingInput!): WorkspaceMapping!
 
   """Create a new dataset to organize data"""
   createDataset(input: CreateDatasetInput!): Dataset!
@@ -1429,6 +1494,7 @@ type NeuronModel {
   creator: User
   environment: ModEnvironment!
   modelCollections(filters: ModelCollectionFilter, ordering: [ModelCollectionOrder!]! = [], pagination: OffsetPaginationInput): [ModelCollection!]
+  mappings(filters: WorkspaceMappingFilter, ordering: [WorkspaceMappingOrder!]! = [], pagination: OffsetPaginationInput): [WorkspaceMapping!]!
   simulations(filters: SimulationFilter, ordering: [SimulationOrder!]! = [], pagination: OffsetPaginationInput): [Simulation!]!
   provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
   config: ModelConfig!
@@ -1559,6 +1625,11 @@ input PinImageInput {
   pin: Boolean!
 }
 
+input PinModelWorkspaceInput {
+  id: ID!
+  pin: Boolean!
+}
+
 input PinROIInput {
   id: ID!
   pin: Boolean!
@@ -1600,6 +1671,8 @@ type Query {
   experiments(filters: ExperimentFilter, ordering: [ExperimentOrder!]! = [], pagination: OffsetPaginationInput): [Experiment!]!
   neuronModels(filters: NeuronModelFilter, ordering: [NeuronModelOrder!]! = [], pagination: OffsetPaginationInput): [NeuronModel!]!
   modelCollections(filters: ModelCollectionFilter, ordering: [ModelCollectionOrder!]! = [], pagination: OffsetPaginationInput): [ModelCollection!]!
+  modelWorkspaces(filters: ModelWorkspaceFilter, ordering: [ModelWorkspaceOrder!]! = [], pagination: OffsetPaginationInput): [ModelWorkspace!]!
+  workspaceMappings(filters: WorkspaceMappingFilter, ordering: [WorkspaceMappingOrder!]! = [], pagination: OffsetPaginationInput): [WorkspaceMapping!]!
   recordings(filters: RecordingFilter, ordering: [RecordingOrder!]! = [], pagination: OffsetPaginationInput): [Recording!]!
   stimuli(filters: StimulusFilter, ordering: [StimulusOrder!]! = [], pagination: OffsetPaginationInput): [Stimulus!]!
   files(filters: FileFilter, ordering: [FileOrder!]! = [], pagination: OffsetPaginationInput): [File!]!
@@ -1666,22 +1739,30 @@ type Query {
     """The unique identifier of an object"""
     id: ID!
   ): ModelCollection!
+  modelWorkspace(
+    """The unique identifier of an object"""
+    id: ID!
+  ): ModelWorkspace!
+  workspaceMapping(
+    """The unique identifier of an object"""
+    id: ID!
+  ): WorkspaceMapping!
   simulation(
     """The unique identifier of an object"""
     id: ID!
   ): Simulation!
 
   """Returns a single image by ID"""
-  neuronModel(
-    """The unique identifier of an object"""
-    id: ID!
-  ): NeuronModel!
-
-  """Returns a single image by ID"""
   trace(
     """The unique identifier of an object"""
     id: ID!
   ): Trace!
+
+  """Returns a single neuron model by ID"""
+  neuronModel(
+    """The unique identifier of an object"""
+    id: ID!
+  ): NeuronModel!
   roi(
     """The unique identifier of an object"""
     id: ID!
@@ -2157,18 +2238,18 @@ type SynapticConnection implements NetConnection {
   synapse: ID!
 }
 
-"""A verified provenance assignation under which changes were made."""
+"""A verified provenance task under which changes were made."""
 type Task {
   id: ID!
 
-  """This assignation id."""
-  assignationId: String!
+  """This task id."""
+  taskId: String!
 
-  """The immediate parent assignation id, if any."""
-  parentAssignationId: String
+  """The immediate parent task id, if any."""
+  parentTaskId: String
 
-  """The root assignation id of the whole causal tree."""
-  rootAssignationId: String!
+  """The root task id of the whole causal tree."""
+  rootTaskId: String!
 
   """The root human causer."""
   assigner: User
@@ -2289,6 +2370,12 @@ input TraceOrder @oneOf {
 """The `Vector` scalar type represents a matrix values as specified by"""
 scalar TwoDVector
 
+input UpdateModelWorkspaceInput {
+  id: ID!
+  name: String = null
+  description: String = null
+}
+
 input UpdateRoiInput {
   roi: ID!
   label: String = null
@@ -2302,11 +2389,38 @@ input UpdateTraceInput {
   name: String = null
 }
 
+input UpdateWorkspaceMappingInput {
+  id: ID!
+  workspaceGroup: String!
+}
+
 type User {
   id: ID!
   sub: String!
   preferredUsername: String!
   activeOrganization: Organization
+}
+
+type WorkspaceMapping {
+  id: ID!
+  workspace: ModelWorkspace!
+  model: NeuronModel!
+  workspaceGroup: String!
+  createdAt: DateTime!
+}
+
+input WorkspaceMappingFilter {
+  ids: [ID!]
+  id: ID
+  AND: WorkspaceMappingFilter
+  OR: WorkspaceMappingFilter
+  NOT: WorkspaceMappingFilter
+  DISTINCT: Boolean
+}
+
+input WorkspaceMappingOrder @oneOf {
+  id: Ordering
+  createdAt: Ordering
 }
 
 """Temporary S3 credentials for reading a Zarr store."""

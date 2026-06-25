@@ -1,3 +1,5 @@
+"""The Elektro GraphQL transport layer (Rath) and its link configuration."""
+
 from types import TracebackType
 from typing import List, Optional
 from pydantic import Field
@@ -12,8 +14,8 @@ from kanne.contrib.rath.coerce_pint import CoercePintLink
 from elektro.middleware.base import FuncsMiddleware
 
 
-current_elektro_rath: contextvars.ContextVar[Optional["ElektroRath"]] = (
-    contextvars.ContextVar("current_elektro_rath")
+current_elektro_rath: contextvars.ContextVar[Optional["ElektroRath"]] = contextvars.ContextVar(
+    "current_elektro_rath"
 )
 
 

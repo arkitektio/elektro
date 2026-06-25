@@ -1,15 +1,14 @@
-from ast import mod
+"""Compile NEURON mechanisms and run cell/network simulations."""
+
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing as mp
 from dataclasses import dataclass
-import time
 import numpy as np
 import logging
 import uuid
 import os
 import platform
-import subprocess
 import zipfile
 from pathlib import Path
 from filelock import FileLock, Timeout
@@ -50,7 +49,7 @@ _LOADED_DLLS = set()
 # --------------------------------------------------------
 
 
-def _extract_zip(zip_path: Path, extract_dir: Path):
+def _extract_zip(zip_path: Path, extract_dir: Path) -> None:
     """Synchronous zip extraction to be run in a thread."""
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
         zip_ref.extractall(extract_dir)
@@ -58,7 +57,7 @@ def _extract_zip(zip_path: Path, extract_dir: Path):
 
 async def aensure_compiled_mechanisms(
     environment: ModEnvironment, base_cache_dir: str = "/tmp/neuron_cache"
-):
+) -> None:
     """
     PHASE 1: Natively async mechanism compiler.
     Downloads the single ModEnvironment zip, extracts it, and compiles it.
@@ -95,9 +94,7 @@ async def aensure_compiled_mechanisms(
     try:
         # 2. Check Cache
         if not dll_path.exists():
-            logger.info(
-                f"Cache miss for environment {env_hash}. Downloading asynchronously..."
-            )
+            logger.info(f"Cache miss for environment {env_hash}. Downloading asynchronously...")
             cache_dir.mkdir(parents=True, exist_ok=True)
             zip_path = cache_dir / "mechanisms.zip"
 
@@ -133,7 +130,7 @@ async def aensure_compiled_mechanisms(
 
 def load_compiled_mechanisms(
     h: Any, environment: ModEnvironment, base_cache_dir: str = "/tmp/neuron_cache"
-):
+) -> None:
     """
     PHASE 2: Synchronous loader.
     Runs strictly inside the ProcessPool worker to inject the single C-library into its memory space.
@@ -171,6 +168,8 @@ def load_compiled_mechanisms(
 
 
 class RecordBase(BaseModel):
+    """Base configuration for a recording attached to a cell location."""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: Optional[str] = None
     cell: str
@@ -180,10 +179,14 @@ class RecordBase(BaseModel):
 
 
 class VRecord(RecordBase):
+    """A recording of the membrane voltage at a cell location."""
+
     kind: Literal[RecordingKind.VOLTAGE] = RecordingKind.VOLTAGE  # type: ignore[assignment]
 
 
 class StimulusBase(BaseModel):
+    """Base configuration for a stimulus injected into a cell location."""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: Optional[str] = None
     kind: StimulusKind
@@ -194,23 +197,30 @@ class StimulusBase(BaseModel):
 
 
 class CurrentClampStimulus(StimulusBase):
+    """A constant current step injected via a current clamp."""
+
     kind: Literal[StimulusKind.VOLTAGE] = StimulusKind.VOLTAGE  # type: ignore[assignment]
     delay: Duration = Duration("100 ms")
     amp: ElectricCurrent = ElectricCurrent("0.1 nanoampere")
 
 
 class WhiteNoiseStimulus(StimulusBase):
+    """A white-noise current stimulus."""
+
     kind: Literal[StimulusKind.VOLTAGE] = StimulusKind.VOLTAGE  # type: ignore[assignment]
     noise_level: ElectricCurrent = ElectricCurrent("0.05 nanoampere")
 
 
 class SineWaveStimulus(StimulusBase):
+    """A sinusoidal current stimulus."""
+
     kind: Literal[StimulusKind.VOLTAGE] = StimulusKind.VOLTAGE  # type: ignore[assignment]
     frequency: Frequency = Frequency("10 Hz")
     amplitude: ElectricCurrent = ElectricCurrent("0.1 nanoampere")
 
 
-def instantiate_cell(h: Any, cell: Cell):
+def instantiate_cell(h: Any, cell: Cell) -> Dict[str, Any]:
+    """Build NEURON sections for a cell and return them keyed by section id."""
     h_sections: Dict[str, Any] = {}
 
     for sec_def in cell.topology.sections:
@@ -235,9 +245,7 @@ def instantiate_cell(h: Any, cell: Cell):
         elif sec_def.length is not None:
             sec.L = sec_def.length.to("micrometer").magnitude
         else:
-            raise ValueError(
-                "Either coords or length must be provided for section geometry"
-            )
+            raise ValueError("Either coords or length must be provided for section geometry")
 
     for sec_def in cell.topology.sections:
         for conn in sec_def.connections:
@@ -254,9 +262,7 @@ def instantiate_cell(h: Any, cell: Cell):
             try:
                 sec.insert(mechanism)
             except Exception as e:
-                raise ValueError(
-                    f"Failed add mechanism {mechanism} to section {sec_def.id}"
-                ) from e
+                raise ValueError(f"Failed add mechanism {mechanism} to section {sec_def.id}") from e
 
         for param in comp.section_params:
             assert param.mechanism in comp.mechanisms
@@ -271,15 +277,15 @@ def instantiate_cell(h: Any, cell: Cell):
             try:
                 setattr(sec, gparam.param, gparam.value)
             except Exception as e:
-                raise ValueError(
-                    f"Failed to set global parameter {gparam.param}"
-                ) from e
+                raise ValueError(f"Failed to set global parameter {gparam.param}") from e
 
     return h_sections
 
 
 @dataclass
 class NeuronModelInstance:
+    """Holds the instantiated NEURON objects for a model."""
+
     h: object
     cell_h_sections: Dict[str, Dict[str, Any]]
     net_stimulations: Dict[str, Any]
@@ -289,6 +295,8 @@ class NeuronModelInstance:
 
 @dataclass
 class SimulationResults:
+    """Results produced by running a NEURON simulation."""
+
     time_trace: np.ndarray[Any, Any]
     recordings: List[RecordingInput]
     stimuli: List[StimulusInput]
@@ -300,7 +308,8 @@ class SimulationResults:
     raw_stimulations: dict[str, Any] | None = None
 
 
-def instantiate_model(h: Any, model: NeuronModelConfig):
+def instantiate_model(h: Any, model: NeuronModelConfig) -> NeuronModelInstance:
+    """Instantiate all cells, synapses and connections of a model in NEURON."""
     cell_h_sections: Dict[str, Dict[str, Any]] = {}
     net_stimulations: Dict[str, Any] = {}
     net_connections: Dict[str, Any] = {}
@@ -363,6 +372,7 @@ def run_simulation_processed(
     name: str,
     dt: DurationCoercible,
 ) -> SimulationResults:
+    """Run a NEURON simulation of the model and return the recorded results."""
     from neuron import h
 
     h.load_file("stdrun.hoc")

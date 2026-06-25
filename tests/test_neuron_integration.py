@@ -7,6 +7,10 @@ and assemble an Experiment.
 Requires the Docker stack via the ``deployed_app`` session fixture (conftest.py).
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pytest
 
@@ -24,6 +28,13 @@ from elektro.api.schema import (
     create_neuronmodel,
 )
 from elektro.neuron.parse import build_and_zip_environment
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from elektro.api.schema import MechanismInput
+
+    from .conftest import DeployedElektro
 
 LEAK_MOD = """
 TITLE Simple passive leak channel
@@ -50,7 +61,8 @@ BREAKPOINT {
 """
 
 
-def _build_environment(tmp_path):
+def _build_environment(tmp_path: Path) -> tuple[str, list[MechanismInput]]:
+    """Write a leak .mod file under ``tmp_path`` and build/zip its environment."""
     model_dir = tmp_path / "models"
     model_dir.mkdir()
     (model_dir / "customleak.mod").write_text(LEAK_MOD, encoding="utf-8")
@@ -59,7 +71,7 @@ def _build_environment(tmp_path):
     )
 
 
-def _config(environment_id) -> ModelConfigInput:
+def _config(environment_id: str) -> ModelConfigInput:
     topology = TopologyInput(
         sections=[
             SectionInput(
@@ -71,9 +83,7 @@ def _config(environment_id) -> ModelConfigInput:
         compartments=[CompartmentInput(id="soma", mechanisms=["customleak"])]
     )
     return ModelConfigInput(
-        cells=[
-            CellInput(id="cell_1", biophysics=biophysics, topology=topology)
-        ],
+        cells=[CellInput(id="cell_1", biophysics=biophysics, topology=topology)],
         netSynapses=[],
         netStimulators=[],
         netConnections=[],
@@ -83,21 +93,21 @@ def _config(environment_id) -> ModelConfigInput:
 
 
 @pytest.mark.integration
-def test_create_mod_environment(deployed_app, tmp_path):
+def test_create_mod_environment(deployed_app: DeployedElektro, tmp_path: Path) -> None:
+    """Creating a ModEnvironment registers the custom leak mechanism."""
     zip_file, mechanisms = _build_environment(tmp_path)
-    env = create_mod_environment(
-        name="customleak-env", zip_file=zip_file, mechanisms=mechanisms
-    )
+    env = create_mod_environment(name="customleak-env", zip_file=zip_file, mechanisms=mechanisms)
     assert env.id
     assert any(m.name == "customleak" for m in env.mechanisms)
 
 
 @pytest.mark.integration
-def test_create_neuronmodel_and_config_roundtrip(deployed_app, tmp_path):
+def test_create_neuronmodel_and_config_roundtrip(
+    deployed_app: DeployedElektro, tmp_path: Path
+) -> None:
+    """A created NeuronModel's config round-trips back to a ModelConfigInput."""
     zip_file, mechanisms = _build_environment(tmp_path)
-    env = create_mod_environment(
-        name="customleak-env-2", zip_file=zip_file, mechanisms=mechanisms
-    )
+    env = create_mod_environment(name="customleak-env-2", zip_file=zip_file, mechanisms=mechanisms)
 
     model = create_neuronmodel(
         name="single-soma",
@@ -112,7 +122,8 @@ def test_create_neuronmodel_and_config_roundtrip(deployed_app, tmp_path):
 
 
 @pytest.mark.integration
-def test_run_simulation_and_experiment(deployed_app, tmp_path):
+def test_run_simulation_and_experiment(deployed_app: DeployedElektro, tmp_path: Path) -> None:
+    """End-to-end: run a NEURON simulation and assemble an Experiment from it."""
     pytest.importorskip("neuron")  # end-to-end run compiles & executes locally
 
     from kanne.scalars import ElectricCurrent
@@ -125,12 +136,8 @@ def test_run_simulation_and_experiment(deployed_app, tmp_path):
     from koil import unkoil
 
     zip_file, mechanisms = _build_environment(tmp_path)
-    env = create_mod_environment(
-        name="customleak-env-3", zip_file=zip_file, mechanisms=mechanisms
-    )
-    model = create_neuronmodel(
-        name="single-soma-sim", config=_config(env.id), environment=env.id
-    )
+    env = create_mod_environment(name="customleak-env-3", zip_file=zip_file, mechanisms=mechanisms)
+    model = create_neuronmodel(name="single-soma-sim", config=_config(env.id), environment=env.id)
 
     simulation = unkoil(
         arun_simulation,

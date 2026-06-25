@@ -1,3 +1,5 @@
+"""NEURON model environment parsing and simulation helpers."""
+
 from .parse import (
     build_and_zip_environment,
     parse_mod_file_to_schema,

@@ -1,3 +1,5 @@
+"""Helpers for downloading Zarr, Parquet and big-file data from the DataLayer."""
+
 from elektro.api.schema import (
     ZarrAccessGrant,
     arequest_zarr_access,
@@ -83,9 +85,7 @@ async def aopen_parquet_filesytem(store_id: str) -> ParquetDatasetViaObstore:
     except ImportError as e:
         raise ImportError("You need to install pyarrow to use this function") from e
     credentials, endpoint_url = await aget_table_credentials_and_endpoint(store_id)
-    return ParquetDatasetViaObstore(
-        create_s3_store(endpoint_url, credentials), credentials.key
-    )
+    return ParquetDatasetViaObstore(create_s3_store(endpoint_url, credentials), credentials.key)
 
 
 def open_parquet_filesystem(store_id: str) -> ParquetDatasetViaObstore:
@@ -95,9 +95,7 @@ def open_parquet_filesystem(store_id: str) -> ParquetDatasetViaObstore:
     except ImportError as e:
         raise ImportError("You need to install pyarrow to use this function") from e
     credentials, endpoint_url = unkoil(aget_table_credentials_and_endpoint, store_id)
-    return ParquetDatasetViaObstore(
-        create_s3_store(endpoint_url, credentials), credentials.key
-    )
+    return ParquetDatasetViaObstore(create_s3_store(endpoint_url, credentials), credentials.key)
 
 
 async def aopen_parquet_duckdb(
@@ -215,9 +213,7 @@ async def adownload_file(
         token = None
 
     try:
-        credentials, endpoint_url = await aget_bigfile_credentials_and_endpoint(
-            store_id
-        )
+        credentials, endpoint_url = await aget_bigfile_credentials_and_endpoint(store_id)
     finally:
         if token is not None:
             current_elektro_datalayer.reset(token)

@@ -1,3 +1,5 @@
+"""Protocol definitions for naming, uploading and downloading DataLayer files."""
+
 from typing import (
     Protocol,
     Any,
@@ -28,7 +30,9 @@ class Namer(Protocol):
     def __call__(
         self,
         file: Any,
-    ) -> Awaitable[Tuple[str, str]]: ...
+    ) -> Awaitable[Tuple[str, str]]:
+        """Return the s3 path (bucket and key) for the given file."""
+        ...
 
 
 @runtime_checkable
@@ -63,4 +67,6 @@ class Uploader(Protocol):
         credentials: "Credentials",
         endpoint_url: str,
         executor: Optional[ThreadPoolExecutor] = None,
-    ) -> str: ...
+    ) -> str:
+        """Upload the file to the DataLayer and return its s3 path."""
+        ...

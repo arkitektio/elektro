@@ -94,7 +94,9 @@ async def acreate_s3_store(
 _CTZYX_DIMS = {"c", "t", "z", "y", "x"}
 
 
-def _generic_chunk_shape(array: xr.DataArray, chunksize_in_bytes: int = 20_000_000) -> tuple[int, ...]:
+def _generic_chunk_shape(
+    array: xr.DataArray, chunksize_in_bytes: int = 20_000_000
+) -> tuple[int, ...]:
     """Compute a ~20MB zarr chunk shape for an arbitrarily-labelled DataArray.
 
     Used for the generic dataset path where dims are not the canonical ``ctzyx``
