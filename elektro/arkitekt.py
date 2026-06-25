@@ -1,3 +1,5 @@
+"""Arkitekt service registration for the Elektro client."""
+
 import json
 import os
 from elektro.elektro import Elektro
@@ -7,6 +9,7 @@ from fakts_next.models import Requirement
 from kanne.contrib.rath.coerce_pint import CoercePintLink
 from rath.links import compose
 from rath.links.split import SplitLink
+from rekuest_next.links.context import ContextLink
 from fakts_next import Fakts
 from arkitekt_next.service_registry import BaseArkitektService, Params
 
@@ -23,18 +26,23 @@ from arkitekt_next.service_registry import (
 
 
 def build_relative_path(*path: str) -> str:
+    """Build an absolute path relative to this module's directory."""
     return os.path.join(os.path.dirname(__file__), *path)
 
 
 class ElektroService(BaseArkitektService):
-    def get_service_name(self):
+    """Arkitekt service definition that builds and registers an Elektro client."""
+
+    def get_service_name(self) -> str:
+        """Return the unique name of this service."""
         return "elektro"
 
     def build_service(
         self,
         fakts: Fakts,
         params: Params,
-    ):
+    ) -> Elektro:
+        """Build a configured Elektro client from the given fakts and params."""
         datalayer = FaktsDataLayer(fakts_group="datalayer", fakts=fakts)
 
         return Elektro(
@@ -46,6 +54,7 @@ class ElektroService(BaseArkitektService):
                     FaktsAuthLink(
                         fakts=fakts,
                     ),
+                    ContextLink(),
                     SplitLink(
                         left=FaktsAIOHttpLink(
                             fakts_group="elektro", fakts=fakts, endpoint_url="FAKE_URL"
@@ -65,28 +74,31 @@ class ElektroService(BaseArkitektService):
             datalayer=datalayer,
         )
 
-    def get_requirements(self):
+    def get_requirements(self) -> list[Requirement]:
+        """Return the service requirements needed to run Elektro."""
         return [
             Requirement(
                 key="elektro",
                 service="live.arkitekt.elektro",
                 description="An instance of ArkitektNext Mikro to make requests to the user's data",
-                optional=True,
+                optional=False,
             ),
             Requirement(
                 key="datalayer",
                 service="live.arkitekt.s3",
                 description="An instance of ArkitektNext Datalayer to make requests to the user's data",
-                optional=True,
+                optional=False,
             ),
         ]
 
-    def get_graphql_schema(self):
+    def get_graphql_schema(self) -> str:
+        """Return the GraphQL schema definition for this service."""
         schema_graphql_path = build_relative_path("api", "schema.graphql")
         with open(schema_graphql_path) as f:
             return f.read()
 
-    def get_turms_project(self):
+    def get_turms_project(self) -> dict:
+        """Return the Turms project configuration for code generation."""
         turms_prject = build_relative_path("api", "project.json")
         with open(turms_prject) as f:
             return json.loads(f.read())

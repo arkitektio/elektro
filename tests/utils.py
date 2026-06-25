@@ -1,8 +1,11 @@
+"""Helper utilities for locating test fixture files."""
+
 import os
 
 
 DIR_NAME = os.path.dirname(os.path.realpath(__file__))
 
 
-def build_relative(path):
+def build_relative(path: str) -> str:
+    """Return the absolute path of ``path`` resolved relative to the tests directory."""
     return os.path.join(DIR_NAME, path)

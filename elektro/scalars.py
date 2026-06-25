@@ -8,6 +8,8 @@ import io
 import os
 import mimetypes
 from typing import Any, IO, List, Optional
+from pydantic import GetCoreSchemaHandler
+from pydantic_core import CoreSchema, core_schema
 import xarray as xr
 import pandas as pd
 import numpy as np
@@ -31,11 +33,16 @@ class AssignationID(str):
     """A custom scalar to represent an affine matrix."""
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_before_validator_function(cls.validate, handler(str))
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "AssignationID":
         """Validate the input array and convert it to a xr.DataArray."""
         return cls(v)
 
@@ -44,11 +51,16 @@ class RGBAColor(list):
     """A custom scalar to represent an affine matrix."""
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_plain_validator_function(cls.validate)
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "RGBAColor":
         """Validate the input array and convert it to a xr.DataArray."""
         return cls(v)
 
@@ -63,6 +75,7 @@ MetricValue = Any
 FeatureValue = Any
 
 TraceCoercible = xr.DataArray | np.ndarray | list | tuple
+ArrayLikeCoercible = xr.DataArray | np.ndarray | list | tuple
 
 
 class Upload:
@@ -73,25 +86,30 @@ class Upload:
 
     __file__ = True
 
-    def __init__(self, value) -> None:
+    def __init__(self, value: Any) -> None:
+        """Initialize the upload with the underlying file value."""
         self.value = value
 
     @classmethod
-    def __get_validators__(cls):
-        # one or more validators may be yielded which will be called in the
-        # order to validate the input, each validator will receive as an input
-        # the value returned from the previous validator
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "Upload":
+        """Validate the input value and wrap it in an Upload."""
         # you could also return a string here which would mean model.post_code
         # would be a string, pydantic won't care but you could end up with some
         # confusion since the value's type won't match the type annotation
         # exactly
         return cls(v)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the Upload."""
         return f"Upload({self.value})"
 
 
@@ -99,11 +117,16 @@ class Micrometers(float):
     """A custom scalar to represent a micrometer."""
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_before_validator_function(cls.validate, handler(float))
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "Micrometers":
         """Validate the input array and convert it to a xr.DataArray."""
         return cls(v)
 
@@ -112,11 +135,16 @@ class Microliters(float):
     """A custom scalar to represent a a microliter."""
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_before_validator_function(cls.validate, handler(float))
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "Microliters":
         """Validate the input array and convert it to a xr.DataArray."""
         return cls(v)
 
@@ -125,11 +153,16 @@ class Micrograms(float):
     """A custom scalar to represent a a microgram."""
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_before_validator_function(cls.validate, handler(float))
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "Micrograms":
         """Validate the input array and convert it to a xr.DataArray."""
         return cls(v)
 
@@ -138,11 +171,16 @@ class Milliseconds(float):
     """A custom scalar to represent a micrometer."""
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_before_validator_function(cls.validate, handler(float))
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "Milliseconds":
         """Validate the input array and convert it to a xr.DataArray."""
         return cls(v)
 
@@ -151,11 +189,16 @@ class TwoDVector(list):
     """A custom scalar to represent a vector."""
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_plain_validator_function(cls.validate)
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "TwoDVector":
         """Validate the input array and convert it to a xr.DataArray."""
         if isinstance(v, np.ndarray):
             assert v.ndim == 1
@@ -185,7 +228,8 @@ class TwoDVector(list):
             )
         return cls(validated_list)
 
-    def as_vector(self):
+    def as_vector(self) -> np.ndarray:
+        """Return the vector as a flattened numpy array."""
         return np.array(self).reshape(-1)
 
 
@@ -193,11 +237,16 @@ class ThreeDVector(list):
     """A custom scalar to represent a vector."""
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_plain_validator_function(cls.validate)
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "ThreeDVector":
         """Validate the input array and convert it to a xr.DataArray."""
         if isinstance(v, np.ndarray):
             assert v.ndim == 1
@@ -207,7 +256,8 @@ class ThreeDVector(list):
         assert len(v) == 3
         return cls(v)
 
-    def as_vector(self):
+    def as_vector(self) -> np.ndarray:
+        """Return the vector as a flattened numpy array."""
         return np.array(self).reshape(-1)
 
 
@@ -215,11 +265,16 @@ class FourDVector(list):
     """A custom scalar to represent a vector."""
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_plain_validator_function(cls.validate)
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "FourDVector":
         """Validate the input array and convert it to a xr.DataArray."""
         if isinstance(v, np.ndarray):
             assert v.ndim == 1
@@ -229,7 +284,8 @@ class FourDVector(list):
         assert len(v) == 4
         return cls(v)
 
-    def as_vector(self):
+    def as_vector(self) -> np.ndarray:
+        """Return the vector as a flattened numpy array."""
         return np.array(self).reshape(-1)
 
 
@@ -237,11 +293,16 @@ class FiveDVector(list):
     """A custom scalar to represent a vector."""
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_plain_validator_function(cls.validate)
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> list:
         """Validate the input array and convert it to a xr.DataArray."""
 
         if isinstance(v, np.ndarray):
@@ -300,7 +361,8 @@ class FiveDVector(list):
                 f"Incompatible shape {x.shape} of {x}. List dimension needs to either be of size 2 or 3"
             )
 
-    def as_vector(self):
+    def as_vector(self) -> np.ndarray:
+        """Return the vector as a flattened numpy array."""
         return np.array(self).reshape(-1)
 
 
@@ -308,11 +370,16 @@ class Matrix(list):
     """A custom scalar to represent an affine matrix."""
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_plain_validator_function(cls.validate)
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "Matrix":
         """Validate the input array and convert it to a xr.DataArray."""
         if isinstance(v, np.ndarray):
             assert v.ndim == 2
@@ -323,7 +390,8 @@ class Matrix(list):
         assert isinstance(v, list)
         return cls(v)
 
-    def as_matrix(self):
+    def as_matrix(self) -> np.ndarray:
+        """Return the matrix as a 3x3 numpy array."""
         return np.array(self).reshape(3, 3)
 
 
@@ -331,11 +399,16 @@ class FourByFourMatrix(list):
     """A custom scalar to represent a four by four matrix (e.g 3D affine matrix.)"""
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_plain_validator_function(cls.validate)
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "FourByFourMatrix":
         """Validate the input array and convert it to a xr.DataArray."""
         if isinstance(v, np.ndarray):
             assert v.ndim == 2
@@ -346,11 +419,12 @@ class FourByFourMatrix(list):
         assert isinstance(v, list)
         return cls(v)
 
-    def as_matrix(self):
+    def as_matrix(self) -> np.ndarray:
+        """Return the matrix as a 3x3 numpy array."""
         return np.array(self).reshape(3, 3)
 
     @classmethod
-    def from_np(cls, v: np.ndarray):
+    def from_np(cls, v: np.ndarray) -> "FourByFourMatrix":
         """Validate the input array and convert it to a xr.DataArray."""
         assert v.ndim == 2
         assert v.shape[0] == v.shape[1]
@@ -365,17 +439,24 @@ class TraceLike:
     into a mikro api compliant xr.DataArray.."""
 
     def __init__(self, value: xr.DataArray) -> None:
+        """Initialize the trace with the wrapped xr.DataArray value."""
         self.value = value
         self.key = str(uuid.uuid4())
 
-    def __set__(self, instance, value: TraceCoercible): ...
+    def __set__(self, instance: Any, value: TraceCoercible) -> None:
+        """Set the descriptor value on the owning instance."""
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v: TraceCoercible, *info):
+    def validate(cls, v: TraceCoercible) -> "TraceLike":
         """Validate the input array and convert it to a xr.DataArray."""
         # initial coercion checks, if a numpy array is passed, we need to convert it to a xarray
         # but that means the user didnt pass the dimensions explicitly so we need to add them
@@ -392,7 +473,8 @@ class TraceLike:
 
         return cls(v)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the TraceLike."""
         return f"TraceLike({self.value})"
 
 
@@ -402,15 +484,21 @@ class BigFile:
     into a mikro api compliant xr.DataArray.."""
 
     def __init__(self, value: IO) -> None:
+        """Initialize the big file with the wrapped file object."""
         self.value = value
         self.key = str(value.name)
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "BigFile":
         """Validate the input array and convert it to a xr.DataArray."""
 
         if isinstance(v, str):
@@ -421,7 +509,8 @@ class BigFile:
 
         return cls(v)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the BigFile."""
         return f"BigFile({self.value})"
 
 
@@ -431,24 +520,29 @@ class ParquetLike:
     a compliant format.."""
 
     def __init__(self, value: pd.DataFrame) -> None:
+        """Initialize the parquet wrapper with the source DataFrame."""
         self.value = value
         self.key = str(uuid.uuid4())
 
     @classmethod
-    def __get_validators__(cls):
-        # one or more validators may be yielded which will be called in the
-        # order to validate the input, each validator will receive as an input
-        # the value returned from the previous validator
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "ParquetLike":
+        """Validate the input value and wrap it as a ParquetLike."""
         if not isinstance(v, pd.DataFrame):
             raise ValueError("This needs to be a instance of pandas DataFrame")
 
         return cls(v)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the ParquetLike."""
         return f"ParquetInput({self.value})"
 
 
@@ -457,16 +551,22 @@ class FileLike:
     parquet api supported by elektro It converts the passed value into
     a compliant format.."""
 
-    def __init__(self, value: IO, name="") -> None:
+    def __init__(self, value: IO, name: str = "") -> None:
+        """Initialize the file wrapper with the file object and its name."""
         self.value = value
         self.key = str(name)
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "FileLike":
         """Validate the input array and convert it to a xr.DataArray."""
 
         if isinstance(v, str):
@@ -481,7 +581,8 @@ class FileLike:
 
         return cls(file, name=name)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the FileLike."""
         return f"FileLikeInput({self.value})"
 
 
@@ -490,16 +591,22 @@ class MeshLike:
     mesh api supported by elektro It converts the passed value into
     a compliant format.."""
 
-    def __init__(self, value: IO, name="") -> None:
+    def __init__(self, value: IO, name: str = "") -> None:
+        """Initialize the mesh wrapper with the file object and its name."""
         self.value = value
         self.key = str(name)
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "MeshLike":
         """Validate the input array and convert it to a xr.DataArray."""
 
         if isinstance(v, str):
@@ -514,7 +621,8 @@ class MeshLike:
 
         return cls(file, name=name)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the MeshLike."""
         return f"MeshLike({self.value})"
 
 
@@ -525,15 +633,21 @@ class ArrayLike:
     the caller's labelled dimensions (and arbitrary dimensionality) verbatim."""
 
     def __init__(self, value: xr.DataArray) -> None:
+        """Initialize the array wrapper with the wrapped xr.DataArray value."""
         self.value = value
         self.key = str(uuid.uuid4())
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "ArrayLike":
         """Validate the input array and convert it to a xr.DataArray."""
         if isinstance(v, xr.DataArray):
             return cls(v)
@@ -546,7 +660,8 @@ class ArrayLike:
             "xr.DataArray, numpy.ndarray and dask.array.Array"
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the ArrayLike."""
         return f"ArrayLike({self.value})"
 
 
@@ -556,17 +671,23 @@ class BigFileLike:
     a compliant format.."""
 
     def __init__(self, value: IO, name: str = "") -> None:
+        """Initialize the big file wrapper from the file object and its name."""
         self.value = value
         self.file_name = os.path.basename(name)
         self.key = self.file_name
         self.mime_type = mimetypes.guess_type(self.file_name)[0]
 
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v, *info):
+    def validate(cls, v: Any) -> "BigFileLike":
         """Validate the input file and convert it to a compliant format."""
 
         if isinstance(v, str):
@@ -581,5 +702,6 @@ class BigFileLike:
 
         return cls(file, name=name)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the BigFileLike."""
         return f"BigFileLike({self.value})"

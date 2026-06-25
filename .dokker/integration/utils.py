@@ -1,13 +1,23 @@
+"""Helpers for waiting on HTTP services during integration tests."""
+
 import requests
 from requests.exceptions import ConnectionError
 import time
 
 
 class RetryExceededError(Exception):
+    """Raised when the maximum number of retries has been exceeded."""
+
     pass
 
 
-def wait_for_http_response(url, status_code=200, retry=0, max_retries=10):
+def wait_for_http_response(
+    url: str,
+    status_code: int = 200,
+    retry: int = 0,
+    max_retries: int = 10,
+) -> requests.Response:
+    """Poll ``url`` until it returns ``status_code``, retrying with backoff."""
     if retry > max_retries:
         raise RetryExceededError("Max retries exceeded")
     time.sleep(retry * retry * 0.5)
@@ -16,6 +26,4 @@ def wait_for_http_response(url, status_code=200, retry=0, max_retries=10):
         assert response.status_code == status_code, "Did not get expected response code"
         return response
     except (ConnectionResetError, AssertionError, ConnectionError):
-        return wait_for_http_response(
-            url, status_code, retry + 1, max_retries=max_retries
-        )
+        return wait_for_http_response(url, status_code, retry + 1, max_retries=max_retries)

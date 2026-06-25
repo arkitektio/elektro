@@ -1,3 +1,5 @@
+"""Shared pytest fixtures and configuration for the elektro test suite."""
+
 import sys
 from typing import Generator
 import pytest

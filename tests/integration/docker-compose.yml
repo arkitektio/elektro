@@ -13,7 +13,7 @@ services:
       - redis
       - db
       - minio
-    image: jhnnsrs/elektro:dev
+    image: jhnnsrs/elektro:next
     command: bash run-debug.sh
     stop_grace_period: 1s
     ports:

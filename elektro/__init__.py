@@ -1,3 +1,5 @@
+"""Elektro client package for interacting with the Elektro backend service."""
+
 import logging
 from .elektro import Elektro
 

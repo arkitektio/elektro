@@ -1,3 +1,5 @@
+"""The top-level Elektro client composition."""
+
 from pydantic import Field
 from koil.composition import Composition
 from elektro.rath import ElektroRath

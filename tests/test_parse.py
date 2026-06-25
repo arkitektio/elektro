@@ -1,6 +1,9 @@
 """Unit tests for ``elektro.neuron.parse`` (pure, no NEURON / no network)."""
 
+from __future__ import annotations
+
 import zipfile
+from pathlib import Path
 
 import pytest
 
@@ -43,13 +46,15 @@ PARAMETER {
 """
 
 
-def _write(tmp_path, name: str, content: str):
+def _write(tmp_path: Path, name: str, content: str) -> Path:
+    """Write ``content`` to ``name`` under ``tmp_path`` and return the path."""
     path = tmp_path / name
     path.write_text(content, encoding="utf-8")
     return path
 
 
-def test_parse_suffix_mechanism(tmp_path):
+def test_parse_suffix_mechanism(tmp_path: Path) -> None:
+    """A SUFFIX .mod file parses with namespaced parameter keys and TITLE description."""
     mech = parse_mod_file_to_schema(_write(tmp_path, "kdr.mod", SUFFIX_MOD))
 
     assert mech.name == "kdr"
@@ -68,7 +73,8 @@ def test_parse_suffix_mechanism(tmp_path):
     assert by_key["novalue_kdr"].default is None
 
 
-def test_parse_point_process_mechanism(tmp_path):
+def test_parse_point_process_mechanism(tmp_path: Path) -> None:
+    """A POINT_PROCESS .mod file without TITLE falls back to a file-name description."""
     mech = parse_mod_file_to_schema(_write(tmp_path, "shunt.mod", POINT_PROCESS_MOD))
 
     assert mech.name == "MyShunt"
@@ -78,7 +84,8 @@ def test_parse_point_process_mechanism(tmp_path):
     assert mech.parameters[0].default == pytest.approx(-70.0)
 
 
-def test_build_and_zip_environment(tmp_path):
+def test_build_and_zip_environment(tmp_path: Path) -> None:
+    """Building a zip includes .mod files but excludes ignored extensions and build dirs."""
     model_dir = tmp_path / "models"
     model_dir.mkdir()
 
@@ -93,9 +100,7 @@ def test_build_and_zip_environment(tmp_path):
     (arch / "special").write_bytes(b"\x00")
 
     out_zip = tmp_path / "mechanisms.zip"
-    zip_path, mechanisms = build_and_zip_environment(
-        str(model_dir), output_zip_path=str(out_zip)
-    )
+    zip_path, mechanisms = build_and_zip_environment(str(model_dir), output_zip_path=str(out_zip))
 
     assert zip_path == str(out_zip)
     # One MechanismInput per .mod file.
@@ -112,6 +117,7 @@ def test_build_and_zip_environment(tmp_path):
     assert not any(n.startswith("x86_64") for n in names)
 
 
-def test_build_and_zip_environment_missing_dir(tmp_path):
+def test_build_and_zip_environment_missing_dir(tmp_path: Path) -> None:
+    """Building from a non-existent directory raises FileNotFoundError."""
     with pytest.raises(FileNotFoundError):
         build_and_zip_environment(str(tmp_path / "does_not_exist"))

@@ -1,0 +1,126 @@
+projects:
+  elektro:
+    schema: http://jhnnsrs-lab/elektro/schema
+    documents: graphql/**/**.graphql
+    extensions:
+      turms:
+        out_dir: elektro/api
+        exclude_typenames: true
+        dump_configuration: true
+        dump_schema: true
+        freeze:
+          enabled: false
+        options:
+          enabled: true
+          use_enum_values: true
+          allow_population_by_field_name: true
+          validate_assignment: true
+          extra: forbid
+          types:
+            - input
+        coercible_scalars:
+          TraceLike: elektro.scalars.TraceCoercible
+          ID: rath.scalars.IDCoercible
+        stylers:
+          - type: turms.stylers.default.DefaultStyler
+          - type: turms.stylers.appender.AppenderStyler
+            append_fragment: ""
+        plugins:
+          - type: turms.plugins.enums.EnumsPlugin
+          - type: turms.plugins.inputs.InputsPlugin
+          - type: turms.plugins.fragments.FragmentsPlugin
+          - type: turms.plugins.operations.OperationsPlugin
+          - type: turms.plugins.input_funcs.InputFuncsPlugin
+          - type: turms.plugins.funcs.FuncsPlugin
+            expand_input_types:
+              - input
+            global_kwargs:
+              - type: elektro.rath.ElektroRath
+                key: rath
+                description: The elektro rath client
+            definitions:
+              - type: subscription
+                is_async: true
+                use: elektro.funcs.asubscribe
+              - type: query
+                is_async: true
+                use: elektro.funcs.aexecute
+              - type: mutation
+                is_async: true
+                use: elektro.funcs.aexecute
+              - type: subscription
+                use: elektro.funcs.subscribe
+              - type: query
+                use: elektro.funcs.execute
+              - type: mutation
+                use: elektro.funcs.execute
+        processors:
+          - type: turms.processors.disclaimer.DisclaimerProcessor
+        scalar_definitions:
+          Any: typing.Any
+          AnyDefault: typing.Any
+          SearchQuery: str
+          Arg: typing.Any
+          ValidatorFunction: str
+          StructureString: str
+          TraceLike: elektro.scalars.TraceLike
+          FileLike: elektro.scalars.FileLike
+          BigFileLike: elektro.scalars.BigFileLike
+          Upload: elektro.scalars.Upload
+          Vector: elektro.scalars.Vector
+          ArrayLike: elektro.scalars.ArrayLike
+          TwoDVector: elektro.scalars.TwoDVector
+          ThreeDVector: elektro.scalars.ThreeDVector
+          FourDVector: elektro.scalars.FourDVector
+          FiveDVector: elektro.scalars.FiveDVector
+          Matrix: elektro.scalars.Matrix
+          Metric: typing.Any
+          Ampere: kanne.scalars.Ampere
+          ID: rath.scalars.ID
+          RGBAColor: elektro.scalars.RGBAColor
+
+          # Scalars
+          Frequency: kanne.scalars.Frequency
+          Duration: kanne.scalars.Duration
+          Length: kanne.scalars.Length
+          ElectricPotential: kanne.scalars.ElectricPotential
+          ElectricalConductance: kanne.scalars.ElectricalConductance
+          Temperature: kanne.scalars.Temperature
+
+
+        additional_bases:
+          Trace:
+            - elektro.traits.HasZarrStoreTrait
+          Biophysics:
+            - elektro.traits.BiophysicsTrait
+          Topology:
+            - elektro.traits.TopologyTrait
+          Simulation:
+            - elektro.traits.SimulationTrait
+          Compartment:
+            - elektro.traits.CompartmentTrait
+          SectionInput:
+            - elektro.traits.SectionInputTrait
+          ModelConfig:
+            - elektro.traits.ModelConfigTrait
+          Experiment:
+            - elektro.traits.ExperimentTrait
+          BiophysicsInput:
+            - elektro.traits.BiophysicsInputTrait
+          CompartmentInput:
+            - elektro.traits.CompartmentInputTrait
+          ModelConfigInput:
+            - elektro.traits.ModelConfigInputTrait
+          TopologyInput:
+            - elektro.traits.TopologyInputTrait
+          ZarrStore:
+            - elektro.traits.HasZarrStoreAccessor
+          ParquetStore:
+            - elektro.traits.HasParquetStoreAccesor
+          BigFileStore:
+            - elektro.traits.HasDownloadAccessor
+          MediaStore:
+            - elektro.traits.HasPresignedDownloadAccessor
+          ROI:
+            - elektro.traits.IsVectorizableTrait
+  

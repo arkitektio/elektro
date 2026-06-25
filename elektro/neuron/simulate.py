@@ -1,15 +1,14 @@
-from ast import mod
+"""Compile NEURON mechanisms and run cell/network simulations."""
+
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing as mp
 from dataclasses import dataclass
-import time
 import numpy as np
 import logging
 import uuid
 import os
 import platform
-import subprocess
 import zipfile
 from pathlib import Path
 from filelock import FileLock, Timeout
@@ -31,7 +30,12 @@ from elektro.api.schema import (
     acreate_simulation,
 )
 
-from kanne.scalars import Ampere, Hertz, Millisecond, MillisecondCoercible, PintQuantity
+from kanne.scalars import (
+    Duration,
+    DurationCoercible,
+    ElectricCurrent,
+    Frequency,
+)
 from rath.scalars import ID
 from collections import defaultdict
 
@@ -45,7 +49,7 @@ _LOADED_DLLS = set()
 # --------------------------------------------------------
 
 
-def _extract_zip(zip_path: Path, extract_dir: Path):
+def _extract_zip(zip_path: Path, extract_dir: Path) -> None:
     """Synchronous zip extraction to be run in a thread."""
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
         zip_ref.extractall(extract_dir)
@@ -53,7 +57,7 @@ def _extract_zip(zip_path: Path, extract_dir: Path):
 
 async def aensure_compiled_mechanisms(
     environment: ModEnvironment, base_cache_dir: str = "/tmp/neuron_cache"
-):
+) -> None:
     """
     PHASE 1: Natively async mechanism compiler.
     Downloads the single ModEnvironment zip, extracts it, and compiles it.
@@ -90,9 +94,7 @@ async def aensure_compiled_mechanisms(
     try:
         # 2. Check Cache
         if not dll_path.exists():
-            logger.info(
-                f"Cache miss for environment {env_hash}. Downloading asynchronously..."
-            )
+            logger.info(f"Cache miss for environment {env_hash}. Downloading asynchronously...")
             cache_dir.mkdir(parents=True, exist_ok=True)
             zip_path = cache_dir / "mechanisms.zip"
 
@@ -128,7 +130,7 @@ async def aensure_compiled_mechanisms(
 
 def load_compiled_mechanisms(
     h: Any, environment: ModEnvironment, base_cache_dir: str = "/tmp/neuron_cache"
-):
+) -> None:
     """
     PHASE 2: Synchronous loader.
     Runs strictly inside the ProcessPool worker to inject the single C-library into its memory space.
@@ -166,6 +168,8 @@ def load_compiled_mechanisms(
 
 
 class RecordBase(BaseModel):
+    """Base configuration for a recording attached to a cell location."""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: Optional[str] = None
     cell: str
@@ -175,55 +179,73 @@ class RecordBase(BaseModel):
 
 
 class VRecord(RecordBase):
+    """A recording of the membrane voltage at a cell location."""
+
     kind: Literal[RecordingKind.VOLTAGE] = RecordingKind.VOLTAGE  # type: ignore[assignment]
 
 
 class StimulusBase(BaseModel):
+    """Base configuration for a stimulus injected into a cell location."""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: Optional[str] = None
     kind: StimulusKind
     cell: str
     location: str
     position: float = 0.5
-    duration: Millisecond | None = None
+    duration: Duration | None = None
 
 
 class CurrentClampStimulus(StimulusBase):
+    """A constant current step injected via a current clamp."""
+
     kind: Literal[StimulusKind.VOLTAGE] = StimulusKind.VOLTAGE  # type: ignore[assignment]
-    delay: Millisecond = Millisecond(100.0, "millisecond")
-    amp: Ampere = Ampere(0.1, "nanoampere")
+    delay: Duration = Duration("100 ms")
+    amp: ElectricCurrent = ElectricCurrent("0.1 nanoampere")
 
 
 class WhiteNoiseStimulus(StimulusBase):
+    """A white-noise current stimulus."""
+
     kind: Literal[StimulusKind.VOLTAGE] = StimulusKind.VOLTAGE  # type: ignore[assignment]
-    noise_level: Ampere = Ampere(0.05, "nanoampere")
+    noise_level: ElectricCurrent = ElectricCurrent("0.05 nanoampere")
 
 
 class SineWaveStimulus(StimulusBase):
+    """A sinusoidal current stimulus."""
+
     kind: Literal[StimulusKind.VOLTAGE] = StimulusKind.VOLTAGE  # type: ignore[assignment]
-    frequency: Hertz = Hertz(10.0, "hertz")
-    amplitude: Ampere = Ampere(0.1, "nanoampere")
+    frequency: Frequency = Frequency("10 Hz")
+    amplitude: ElectricCurrent = ElectricCurrent("0.1 nanoampere")
 
 
-def instantiate_cell(h: Any, cell: Cell):
+def instantiate_cell(h: Any, cell: Cell) -> Dict[str, Any]:
+    """Build NEURON sections for a cell and return them keyed by section id."""
     h_sections: Dict[str, Any] = {}
 
     for sec_def in cell.topology.sections:
         sec = h.Section(name=f"{cell.id}_{sec_def.id}")
         sec.nseg = sec_def.nseg
-        sec.diam = sec_def.diam
+        # NEURON geometry is expressed in micrometers; convert from the section's
+        # labelled Length quantities regardless of the unit they were supplied in.
+        diam_um = sec_def.diam.to("micrometer").magnitude
+        sec.diam = diam_um
         h_sections[sec_def.id] = sec
 
         if sec_def.coords is not None:
             h.pt3dclear(sec=sec)
             for pt in sec_def.coords:
-                h.pt3dadd(pt.x, pt.y, pt.z, sec_def.diam, sec=sec)
+                h.pt3dadd(
+                    pt.x.to("micrometer").magnitude,
+                    pt.y.to("micrometer").magnitude,
+                    pt.z.to("micrometer").magnitude,
+                    diam_um,
+                    sec=sec,
+                )
         elif sec_def.length is not None:
-            sec.L = sec_def.length
+            sec.L = sec_def.length.to("micrometer").magnitude
         else:
-            raise ValueError(
-                "Either coords or length must be provided for section geometry"
-            )
+            raise ValueError("Either coords or length must be provided for section geometry")
 
     for sec_def in cell.topology.sections:
         for conn in sec_def.connections:
@@ -240,9 +262,7 @@ def instantiate_cell(h: Any, cell: Cell):
             try:
                 sec.insert(mechanism)
             except Exception as e:
-                raise ValueError(
-                    f"Failed add mechanism {mechanism} to section {sec_def.id}"
-                ) from e
+                raise ValueError(f"Failed add mechanism {mechanism} to section {sec_def.id}") from e
 
         for param in comp.section_params:
             assert param.mechanism in comp.mechanisms
@@ -257,15 +277,15 @@ def instantiate_cell(h: Any, cell: Cell):
             try:
                 setattr(sec, gparam.param, gparam.value)
             except Exception as e:
-                raise ValueError(
-                    f"Failed to set global parameter {gparam.param}"
-                ) from e
+                raise ValueError(f"Failed to set global parameter {gparam.param}") from e
 
     return h_sections
 
 
 @dataclass
 class NeuronModelInstance:
+    """Holds the instantiated NEURON objects for a model."""
+
     h: object
     cell_h_sections: Dict[str, Dict[str, Any]]
     net_stimulations: Dict[str, Any]
@@ -275,18 +295,21 @@ class NeuronModelInstance:
 
 @dataclass
 class SimulationResults:
+    """Results produced by running a NEURON simulation."""
+
     time_trace: np.ndarray[Any, Any]
     recordings: List[RecordingInput]
     stimuli: List[StimulusInput]
     model: NeuronModel
-    duration: Millisecond
-    dt: Millisecond
+    duration: Duration
+    dt: Duration
     name: str
     raw_results: dict[str, Any] | None = None
     raw_stimulations: dict[str, Any] | None = None
 
 
-def instantiate_model(h: Any, model: NeuronModelConfig):
+def instantiate_model(h: Any, model: NeuronModelConfig) -> NeuronModelInstance:
+    """Instantiate all cells, synapses and connections of a model in NEURON."""
     cell_h_sections: Dict[str, Dict[str, Any]] = {}
     net_stimulations: Dict[str, Any] = {}
     net_connections: Dict[str, Any] = {}
@@ -302,18 +325,19 @@ def instantiate_model(h: Any, model: NeuronModelConfig):
             if isinstance(synapse, ExpTwoSynapse):
                 hsec = cell_h_sections[synapse.cell][synapse.location]
                 hsyn = h.Exp2Syn(hsec(synapse.position))
-                hsyn.tau1 = synapse.tau1
-                hsyn.tau2 = synapse.tau2
-                hsyn.e = synapse.e
+                # NEURON time constants are in ms, reversal potential in mV.
+                hsyn.tau1 = synapse.tau1.to("millisecond").magnitude
+                hsyn.tau2 = synapse.tau2.to("millisecond").magnitude
+                hsyn.e = synapse.e.to("millivolt").magnitude
                 net_synapses[synapse.id] = hsyn
 
     if model.net_stimulators:
         for net_stim in model.net_stimulators:
             hnet_stim = h.NetStim()
             hnet_stim.number = net_stim.number
-            hnet_stim.start = net_stim.start
+            hnet_stim.start = net_stim.start.to("millisecond").magnitude
             if net_stim.interval is not None:
-                hnet_stim.interval = net_stim.interval
+                hnet_stim.interval = net_stim.interval.to("millisecond").magnitude
             net_stimulations[net_stim.id] = hnet_stim
 
     if model.net_connections:
@@ -322,11 +346,13 @@ def instantiate_model(h: Any, model: NeuronModelConfig):
                 hnet_syn = net_synapses[net_conn.synapse]
                 hnet_stim = net_stimulations[net_conn.net_stimulator]
                 hnet_conn = h.NetCon(hnet_stim, hnet_syn)
-                hnet_conn.weight[0] = net_conn.weight
+                # NetCon weight for Exp2Syn is a peak conductance in microsiemens.
+                if net_conn.weight is not None:
+                    hnet_conn.weight[0] = net_conn.weight.to("microsiemens").magnitude
                 if net_conn.delay is not None:
-                    hnet_conn.delay = net_conn.delay
+                    hnet_conn.delay = net_conn.delay.to("millisecond").magnitude
                 if net_conn.threshold is not None:
-                    hnet_conn.threshold = net_conn.threshold
+                    hnet_conn.threshold = net_conn.threshold.to("millivolt").magnitude
                 net_connections[net_conn.id] = hnet_conn
 
     return NeuronModelInstance(
@@ -340,12 +366,13 @@ def instantiate_model(h: Any, model: NeuronModelConfig):
 
 def run_simulation_processed(
     model: NeuronModel,
-    duration: Millisecond,
+    duration: DurationCoercible,
     stims: List[Union[CurrentClampStimulus, SineWaveStimulus, WhiteNoiseStimulus]],
     records: List[Union[VRecord]],
     name: str,
-    dt: Millisecond,
+    dt: DurationCoercible,
 ) -> SimulationResults:
+    """Run a NEURON simulation of the model and return the recorded results."""
     from neuron import h
 
     h.load_file("stdrun.hoc")
@@ -357,9 +384,9 @@ def run_simulation_processed(
     hmodel = instantiate_model(h, model.config)
 
     # --- Time grid: snap the requested duration to an integer number of dt steps ---
-    dt_obj = Millisecond.validate(dt)
+    dt_obj = Duration.validate(dt)
     dt_ms = dt_obj.to("millisecond").magnitude
-    requested_duration = Millisecond.validate(duration).to("millisecond").magnitude
+    requested_duration = Duration.validate(duration).to("millisecond").magnitude
     n_steps = int(round(requested_duration / dt_ms))
     total_ms = n_steps * dt_ms
     times = np.linspace(0.0, total_ms, n_steps + 1)
@@ -449,9 +476,10 @@ def run_simulation_processed(
     h.steps_per_ms = 1.0 / dt_ms
     h.tstop = total_ms
     h.CVode().active(0)
-    h.celsius = model.config.celsius
-    h.v_init = model.config.v_init
-    h.finitialize(model.config.v_init)
+    h.celsius = model.config.temperature.to("degC").magnitude
+    v_init_mv = model.config.v_init.to("millivolt").magnitude
+    h.v_init = v_init_mv
+    h.finitialize(v_init_mv)
     h.continuerun(total_ms)
 
     # --- Collect outputs (copy out of NEURON-owned buffers) ---
@@ -493,7 +521,7 @@ def run_simulation_processed(
         recordings=recordings_out,
         stimuli=stimuli_out,
         model=model,
-        duration=Millisecond(total_ms, "millisecond"),
+        duration=Duration(f"{total_ms} ms"),
         dt=dt_obj,
         name=name or f"Simulation for {model.name}",
         raw_results={},
@@ -511,11 +539,11 @@ def _get_isolated_pool() -> ProcessPoolExecutor:
 
 async def asimulate(
     model: NeuronModel,
-    duration: MillisecondCoercible,
+    duration: DurationCoercible,
     stims: List[Union[CurrentClampStimulus]],  # type: ignore[no-untyped-call]
     records: List[Union[VRecord]],  # type: ignore[no-untyped-call]
     name: str | None = None,
-    dt: MillisecondCoercible = 1,
+    dt: DurationCoercible = "1 ms",
     process_pool: ProcessPoolExecutor | None = None,
 ) -> SimulationResults:
     """
@@ -552,11 +580,11 @@ async def asimulate(
 
 async def arun_simulation(
     model: NeuronModel,
-    duration: MillisecondCoercible,
-    stims: List[Union[CurrentClampStimulus]],  # type: ignore[no-untyped-call]
+    duration: DurationCoercible,
+    stims: List[Union[CurrentClampStimulus, WhiteNoiseStimulus, SineWaveStimulus]],  # type: ignore[no-untyped-call]
     records: List[Union[VRecord]],  # type: ignore[no-untyped-call]
     name: str | None = None,
-    dt: MillisecondCoercible = 0.05,
+    dt: DurationCoercible = "0.05 ms",
     process_pool: ProcessPoolExecutor | None = None,
 ) -> Simulation:
     """

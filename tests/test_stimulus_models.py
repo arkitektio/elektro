@@ -21,20 +21,23 @@ Hz = 1 / ureg.second
 ms = ureg.millisecond
 
 
-def test_vrecord_defaults():
+def test_vrecord_defaults() -> None:
+    """VRecord defaults to position 0.5, voltage kind, and an auto-generated id."""
     rec = VRecord(cell="cell_1", location="soma")
     assert rec.position == 0.5
     assert rec.kind == RecordingKind.VOLTAGE
     assert rec.id  # auto-generated
 
 
-def test_unique_ids():
+def test_unique_ids() -> None:
+    """Two VRecord instances receive distinct auto-generated ids."""
     a = VRecord(cell="c", location="soma")
     b = VRecord(cell="c", location="soma")
     assert a.id != b.id
 
 
-def test_current_clamp_defaults_and_units():
+def test_current_clamp_defaults_and_units() -> None:
+    """CurrentClampStimulus defaults carry explicit units convertible via ``.to``."""
     stim = CurrentClampStimulus(cell="cell_1", location="soma")
     assert stim.kind == StimulusKind.VOLTAGE
     # Defaults carry explicit units (not dimensionless), so .to(...) works.
@@ -42,7 +45,8 @@ def test_current_clamp_defaults_and_units():
     assert stim.delay.to("millisecond").magnitude == pytest.approx(100.0)
 
 
-def test_current_clamp_with_pint_quantities():
+def test_current_clamp_with_pint_quantities() -> None:
+    """CurrentClampStimulus accepts pint quantities and converts amp/delay units."""
     stim = CurrentClampStimulus(
         cell="cell_1", location="soma", position=0.5, amp=100 * pA, delay=20 * ms
     )
@@ -51,28 +55,31 @@ def test_current_clamp_with_pint_quantities():
     assert stim.delay.to("millisecond").magnitude == pytest.approx(20.0)
 
 
-def test_current_clamp_plain_number_delay_is_milliseconds():
-    # A bare number is interpreted as milliseconds by the Millisecond validator
-    # (this is the path the simulation script uses, e.g. ``delay=100``).
-    stim = CurrentClampStimulus(cell="cell_1", location="soma", delay=100)
+def test_current_clamp_unit_bearing_string_delay() -> None:
+    """CurrentClampStimulus parses a unit-bearing string delay like ``"100 ms"``."""
+    # The Duration dimension type requires a unit-bearing value; a unit-bearing
+    # string is parsed (this is the path the simulation script uses, e.g.
+    # ``delay="100 ms"``). Bare numbers are intentionally rejected.
+    stim = CurrentClampStimulus(cell="cell_1", location="soma", delay="100 ms")
     assert stim.delay.to("millisecond").magnitude == pytest.approx(100.0)
 
 
-def test_sine_wave_stimulus_units():
-    stim = SineWaveStimulus(
-        cell="cell_1", location="soma", amplitude=80 * pA, frequency=200 * Hz
-    )
+def test_sine_wave_stimulus_units() -> None:
+    """SineWaveStimulus converts pint amplitude and frequency to expected units."""
+    stim = SineWaveStimulus(cell="cell_1", location="soma", amplitude=80 * pA, frequency=200 * Hz)
     assert stim.amplitude.to("nanoampere").magnitude == pytest.approx(0.08)
     assert stim.frequency.to("hertz").magnitude == pytest.approx(200.0)
 
 
-def test_sine_wave_stimulus_defaults():
+def test_sine_wave_stimulus_defaults() -> None:
+    """SineWaveStimulus defaults carry explicit hertz and ampere units."""
     stim = SineWaveStimulus(cell="cell_1", location="soma")
     # Default frequency carries explicit hertz units.
     assert stim.frequency.to("hertz").magnitude == pytest.approx(10.0)
     assert stim.amplitude.to("nanoampere").magnitude == pytest.approx(0.1)
 
 
-def test_white_noise_stimulus_defaults():
+def test_white_noise_stimulus_defaults() -> None:
+    """WhiteNoiseStimulus defaults to a 0.05 nA noise level."""
     stim = WhiteNoiseStimulus(cell="cell_1", location="soma")
     assert stim.noise_level.to("nanoampere").magnitude == pytest.approx(0.05)

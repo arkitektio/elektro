@@ -10,9 +10,11 @@ The whole module is skipped when the optional ``neuron`` package is not installe
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.neuron
+
 pytest.importorskip("neuron")
 
-from kanne.scalars import Ampere  # noqa: E402
+from kanne.scalars import Duration, ElectricCurrent  # noqa: E402
 
 from elektro.api.schema import (  # noqa: E402
     Cell,
@@ -27,6 +29,7 @@ from elektro.api.schema import (  # noqa: E402
 )
 from elektro.neuron.simulate import (  # noqa: E402
     CurrentClampStimulus,
+    SimulationResults,
     VRecord,
     run_simulation_processed,
 )
@@ -40,8 +43,8 @@ def _single_soma_model() -> NeuronModel:
                 id="soma",
                 category="soma",
                 nseg=1,
-                diam=20.0,
-                length=20.0,
+                diam="20 um",
+                length="20 um",
                 connections=[],
             )
         ]
@@ -57,8 +60,8 @@ def _single_soma_model() -> NeuronModel:
         ]
     )
     config = NeuronModelConfig(
-        vInit=-65.0,
-        celsius=37.0,
+        vInit="-65 mV",
+        temperature="310.15 K",
         cells=[Cell(id="cell_1", biophysics=biophysics, topology=topology)],
     )
     # ``environment`` is a required field on NeuronModel; bypass validation so we can
@@ -73,34 +76,36 @@ DT_MS = 0.025
 N_STEPS = int(round(DURATION_MS / DT_MS))
 
 
-def _run():
+def _run() -> SimulationResults:
     model = _single_soma_model()
     return run_simulation_processed(
         model=model,
-        duration=DURATION_MS,
+        duration=Duration(f"{DURATION_MS} ms"),
         stims=[
             CurrentClampStimulus(
                 cell="cell_1",
                 location="soma",
                 position=0.5,
-                amp=Ampere(0.1, "nanoampere"),
-                delay=10,
+                amp=ElectricCurrent("0.1 nanoampere"),
+                delay=Duration("10 ms"),
             )
         ],
         records=[VRecord(cell="cell_1", location="soma", position=0.5)],
         name="unit-sim",
-        dt=DT_MS,
+        dt=Duration(f"{DT_MS} ms"),
     )
 
 
-def test_time_trace_grid():
+def test_time_trace_grid() -> None:
+    """The time trace has ``N_STEPS + 1`` points and the snapped duration."""
     result = _run()
     # The engine snaps to an integer number of dt steps and records n_steps + 1 points.
     assert len(result.time_trace) == N_STEPS + 1
     assert result.duration.to("millisecond").magnitude == pytest.approx(N_STEPS * DT_MS)
 
 
-def test_recordings_shape_and_kind():
+def test_recordings_shape_and_kind() -> None:
+    """The single recording is a voltage trace matching the time-trace length."""
     result = _run()
     assert len(result.recordings) == 1
     rec = result.recordings[0]
@@ -108,7 +113,8 @@ def test_recordings_shape_and_kind():
     assert np.asarray(rec.trace.value).shape[0] == len(result.time_trace)
 
 
-def test_stimulus_grouped_and_waveform():
+def test_stimulus_grouped_and_waveform() -> None:
+    """The stimulus is a single CURRENT waveform that is zero before the 10 ms delay."""
     result = _run()
     # One stimulus location -> one combined StimulusInput tagged as CURRENT.
     assert len(result.stimuli) == 1

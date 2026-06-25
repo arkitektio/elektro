@@ -1,6 +1,6 @@
 {
     "schema_url": "http://jhnnsrs-lab/elektro/schema",
-    "documents": "graphql/elektro/**/**.graphql",
+    "documents": "graphql/**/**.graphql",
     "extensions": {
         "turms": {
             "pydantic_version": "v2",
@@ -11,7 +11,7 @@
             "dump_schema": true,
             "schema_name": "schema.graphql",
             "generated_name": "schema.py",
-            "documents": "graphql/elektro/**/**.graphql",
+            "documents": "graphql/**/**.graphql",
             "verbose": false,
             "exit_on_error": true,
             "allow_introspection": true,
@@ -40,11 +40,25 @@
                 "FiveDVector": "elektro.scalars.FiveDVector",
                 "Matrix": "elektro.scalars.Matrix",
                 "Metric": "typing.Any",
-                "Milliseconds": "kanne.scalars.Millisecond",
                 "Ampere": "kanne.scalars.Ampere",
                 "ID": "rath.scalars.ID",
-                "RGBAColor": "elektro.scalars.RGBAColor"
+                "RGBAColor": "elektro.scalars.RGBAColor",
+                "Frequency": "kanne.scalars.Frequency",
+                "Duration": "kanne.scalars.Duration",
+                "Length": "kanne.scalars.Length",
+                "ElectricPotential": "kanne.scalars.ElectricPotential",
+                "ElectricalConductance": "kanne.scalars.ElectricalConductance",
+                "Temperature": "kanne.scalars.Temperature"
             },
+            "coercible_scalars": {
+                "TraceLike": "elektro.scalars.TraceCoercible",
+                "ID": "rath.scalars.IDCoercible"
+            },
+            "graphql_default_class": null,
+            "deprecated_class": null,
+            "document_field_metadata": true,
+            "unset_type_class": null,
+            "unset_instance": null,
             "freeze": {
                 "enabled": false,
                 "types": [
@@ -66,7 +80,7 @@
                 "allow_population_by_field_name": true,
                 "orm_mode": null,
                 "use_enum_values": true,
-                "validate_assignment": null,
+                "validate_assignment": true,
                 "types": [
                     "input"
                 ],
@@ -114,6 +128,9 @@
                 "ZarrStore": [
                     "elektro.traits.HasZarrStoreAccessor"
                 ],
+                "ParquetStore": [
+                    "elektro.traits.HasParquetStoreAccesor"
+                ],
                 "BigFileStore": [
                     "elektro.traits.HasDownloadAccessor"
                 ],
@@ -142,11 +159,10 @@
                     "type": "turms.plugins.operations.OperationsPlugin"
                 },
                 {
+                    "type": "turms.plugins.input_funcs.InputFuncsPlugin"
+                },
+                {
                     "type": "turms.plugins.funcs.FuncsPlugin",
-                    "coercible_scalars": {
-                        "TraceLike": "elektro.scalars.TraceCoercible",
-                        "ID": "rath.scalars.IDCoercible"
-                    },
                     "expand_input_types": [
                         "input"
                     ],
@@ -190,7 +206,7 @@
             ],
             "processors": [
                 {
-                    "type": "turms.processors.black.BlackProcessor"
+                    "type": "turms.processors.disclaimer.DisclaimerProcessor"
                 }
             ],
             "stylers": [

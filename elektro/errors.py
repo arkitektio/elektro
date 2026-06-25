@@ -1,3 +1,6 @@
+"""Exception types raised by the Elektro client."""
+
+
 class ElektroError(Exception):
     """Base class for all Mikro errors."""
 

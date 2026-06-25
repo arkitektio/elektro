@@ -1,3 +1,5 @@
+"""Fakts-backed DataLayer implementation for resolving endpoints at runtime."""
+
 from typing import Any, Dict
 
 from fakts_next.fakts import Fakts
@@ -6,6 +8,8 @@ from pydantic import BaseModel
 
 
 class DataLayerFakt(BaseModel):
+    """Fakts configuration describing a datalayer endpoint."""
+
     endpoint_url: str
 
 

@@ -1,4 +1,7 @@
+"""Tests for obstore-backed zarr/parquet storage and the download helper."""
+
 from io import BytesIO
+from pathlib import Path
 from types import SimpleNamespace
 
 import dask.array as da
@@ -23,6 +26,7 @@ from elektro.scalars import ArrayLike, TraceLike
 
 
 def test_parquet_dataset_via_obstore_reads_dataframe() -> None:
+    """A parquet file written to an obstore store reads back as the original dataframe."""
     store = MemoryStore()
     dataframe = pd.DataFrame({"x": [1, 2], "y": [3, 4]})
     buffer = BytesIO()
@@ -35,7 +39,10 @@ def test_parquet_dataset_via_obstore_reads_dataframe() -> None:
     assert dataset.read_pandas().to_pandas().equals(dataframe)
 
 
-def test_download_file_reads_bytes_via_obstore(tmp_path, monkeypatch) -> None:
+def test_download_file_reads_bytes_via_obstore(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``download_file`` fetches bytes via obstore and writes them to the target path."""
     store = MemoryStore()
     payload = b"hello via obstore"
     target = tmp_path / "download.bin"
@@ -67,6 +74,7 @@ def _store_path(key: str = "arr") -> StorePath:
 
 
 def test_write_dataarray_to_zarr_numpy_roundtrips_with_chunks() -> None:
+    """A numpy-backed 1-D trace round-trips through zarr with its dim name and chunks."""
     # A 1-D trace, the canonical elektro payload, written and read back via obstore.
     array = xr.DataArray(np.arange(1000, dtype="float32"), dims=["c"])
     sp = _store_path()
@@ -80,6 +88,7 @@ def test_write_dataarray_to_zarr_numpy_roundtrips_with_chunks() -> None:
 
 
 def test_write_dataarray_to_zarr_streams_dask_arrays() -> None:
+    """A large dask-backed trace is split into multiple on-disk chunks on write."""
     # A large 1-D trace so the generic chunker actually splits it into multiple
     # on-disk chunks rather than writing the whole array at once.
     source = np.arange(40_000_000, dtype="uint16")
@@ -96,6 +105,7 @@ def test_write_dataarray_to_zarr_streams_dask_arrays() -> None:
 
 @pytest.mark.asyncio
 async def test_awrite_dataarray_to_zarr_roundtrips() -> None:
+    """The async writer round-trips a numpy-backed trace through zarr."""
     array = xr.DataArray(np.arange(2048, dtype="float32"), dims=["c"])
     sp = _store_path("async")
 
@@ -106,7 +116,10 @@ async def test_awrite_dataarray_to_zarr_roundtrips() -> None:
 
 
 @pytest.mark.asyncio
-async def test_awrite_dataarray_to_zarr_streams_dask_arrays(monkeypatch) -> None:
+async def test_awrite_dataarray_to_zarr_streams_dask_arrays(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The async writer streams a large dask trace without computing it fully in memory."""
     # A large 1-D trace so the generic chunker splits it into multiple chunks.
     source = np.arange(40_000_000, dtype="uint16")
     array = xr.DataArray(da.from_array(source, chunks=(5_000_000,)), dims=["c"])
@@ -119,7 +132,7 @@ async def test_awrite_dataarray_to_zarr_streams_dask_arrays(monkeypatch) -> None
 
     original_compute = dac.Array.compute
 
-    def _fail_on_full_compute(self, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+    def _fail_on_full_compute(self, *args, **kwargs) -> None:  # noqa: ANN001, ANN002, ANN003
         raise AssertionError(
             "dask array was fully computed into memory; out-of-core streaming was broken"
         )
@@ -136,6 +149,7 @@ async def test_awrite_dataarray_to_zarr_streams_dask_arrays(monkeypatch) -> None
 
 
 def test_array_like_preserves_labels() -> None:
+    """``ArrayLike`` keeps labelled dims and assigns defaults to bare arrays."""
     # ArrayLike preserves the caller's labelled dims/order verbatim.
     labeled = xr.DataArray(np.zeros((4, 8), dtype="uint16"), dims=["sweep", "c"])
     arr = ArrayLike.validate(labeled)
@@ -149,6 +163,7 @@ def test_array_like_preserves_labels() -> None:
 
 
 def test_trace_like_coerces_to_c() -> None:
+    """``TraceLike`` coerces a bare array to the canonical 1-D ``c`` layout."""
     # TraceLike forces the canonical 1-D ``c`` layout.
     trace = TraceLike.validate(np.zeros((1000,), dtype="float32"))
     assert trace.value.dims == ("c",)
@@ -156,6 +171,7 @@ def test_trace_like_coerces_to_c() -> None:
 
 
 def test_write_dataarray_to_zarr_streams_arbitrary_dims() -> None:
+    """A large 2-D array chunks and round-trips via the generic chunker preserving dims."""
     # A large 2-D array must chunk and round-trip via the generic chunker.
     source = np.arange(50 * 2048, dtype="uint16").reshape(50, 2048)
     array = xr.DataArray(da.from_array(source, chunks=(10, 2048)), dims=["sweep", "c"])
