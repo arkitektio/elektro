@@ -23,7 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 turms = ["turms"]
-neuron = ["neuron>=8.0.0"]
+neuron = ["neuron>=8.0.0; sys_platform != 'win32'"]
 table = ["pyarrow>=12.0.1", "pandas>=2.2", "duckdb>=1.0"]
 
 [tool.uv]
