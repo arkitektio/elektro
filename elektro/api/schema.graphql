@@ -540,7 +540,7 @@ input CreateSimulationInput {
 
 type Dataset {
   id: ID!
-  images(filters: TraceFilter, ordering: [TraceOrder!]! = [], pagination: OffsetPaginationInput): [Trace!]!
+  traces(filters: TraceFilter, ordering: [TraceOrder!]! = [], pagination: OffsetPaginationInput): [Trace!]!
   files(filters: FileFilter, ordering: [FileOrder!]! = [], pagination: OffsetPaginationInput): [File!]!
 
   """The parent dataset of this dataset"""
@@ -557,6 +557,10 @@ type Dataset {
 }
 
 input DatasetFilter {
+  ids: [ID!]!
+  search: String
+  createdBefore: DateTime
+  createdAfter: DateTime
   id: ID
   name: StrFilterLookup
   parent: ID = null

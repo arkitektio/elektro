@@ -1,4 +1,9 @@
 fragment Dataset on Dataset {
+  id
   name
   description
+  parent {
+    id
+    name
+  }
 }

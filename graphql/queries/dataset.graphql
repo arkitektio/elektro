@@ -3,3 +3,13 @@ query GetDataset($id: ID!) {
         ...Dataset
     }
 }
+
+query SearchDatasets($search: String, $values: [ID!]!) {
+  options: datasets(
+    filters: { search: $search, ids: $values }
+    pagination: { limit: 10 }
+  ) {
+    value: id
+    label: name
+  }
+}
