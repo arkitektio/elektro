@@ -77,6 +77,13 @@ FeatureValue = Any
 TraceCoercible = xr.DataArray | np.ndarray | list | tuple
 ArrayLikeCoercible = xr.DataArray | np.ndarray | list | tuple
 
+# Raw inputs accepted by the ``FileLike``/``BigFileLike`` scalar validators: either a
+# path string (opened in binary mode on validation) or an already-opened file object.
+# Used as the argument type in generated resolvers so callers do not need to construct
+# the scalar wrapper themselves (see ``coercible_scalars`` in graphql.config.yaml).
+FileLikeCoercible = str | IO
+BigFileLikeCoercible = str | IO
+
 
 class Upload:
     """A custom scalar for ensuring an interface to files api supported by elektro It converts the graphql value
