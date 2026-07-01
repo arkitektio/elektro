@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.0-rc.2 (2026-07-01)
+
+### Bug Fixes
+
+- With elektro
+  ([`9068e2f`](https://github.com/arkitektio/elektro/commit/9068e2f1ae61a339a35b83794cec9a300c83eeeb))
+
+
 ## v1.2.0-rc.1 (2026-07-01)
 
 
