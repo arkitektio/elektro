@@ -49,10 +49,10 @@ dev-dependencies =  [
 
 
 [tool.hatch.build.targets.sdist]
-include = ["mikro_next"]
+include = ["elektro"]
 
 [tool.hatch.build.targets.wheel]
-include = ["mikro_next"]
+include = ["elektro"]
 
 [build-system]
 requires = ["hatchling"]
@@ -106,7 +106,7 @@ markers = [
 
 [[tool.pydoc-markdown.loaders]]
 type = "python"
-search_path = ["mikro"]
+search_path = ["elektro"]
 
 [tool.pydoc-markdown.renderer]
 type = "docusaurus"

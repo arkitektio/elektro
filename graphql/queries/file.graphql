@@ -7,11 +7,12 @@ query GetFile($id: ID!) {
 query SearchFiles(
   $search: String
   $values: [ID!]
-  $pagination: OffsetPaginationInput
+  $offset: Int
+  $limit: Int
 ) {
   options: files(
     filters: { search: $search, ids: $values }
-    pagination: $pagination
+    pagination: {offset: $offset, limit: $limit}
   ) {
     value: id
     label: name
