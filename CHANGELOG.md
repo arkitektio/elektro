@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.0 (2026-07-01)
+
+### Features
+
+- Update to newest elektro
+  ([`61ece96`](https://github.com/arkitektio/elektro/commit/61ece9664e50d4e32e46119fef8581dba41e125b))
+
+
 ## v1.2.2 (2026-07-01)
 
 ### Bug Fixes
