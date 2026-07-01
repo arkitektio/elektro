@@ -86,3 +86,19 @@ structure_reg.register_as_structure(
     ashrink=id_shrink,
     default_widget=SearchWidget(query=SearchNeuronModelsQuery.Meta.document, ward="elektro"),
 )
+
+structure_reg.register_as_structure(
+    Dataset,
+    identifier="@elektro/dataset",
+    aexpand=aget_dataset,
+    ashrink=id_shrink,
+    default_widget=SearchWidget(query=SearchDatasetsQuery.Meta.document, ward="elektro"),
+)
+
+structure_reg.register_as_structure(
+    File,
+    identifier="@elektro/file",
+    aexpand=aget_file,
+    ashrink=id_shrink,
+    default_widget=SearchWidget(query=SearchFilesQuery.Meta.document, ward="elektro"),
+)
