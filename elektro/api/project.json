@@ -52,7 +52,10 @@
             },
             "coercible_scalars": {
                 "TraceLike": "elektro.scalars.TraceCoercible",
-                "ID": "rath.scalars.IDCoercible"
+                "ID": "rath.scalars.IDCoercible",
+                "FileLike": "elektro.scalars.FileLikeCoercible",
+                "BigFileLike": "elektro.scalars.BigFileLikeCoercible",
+                "ArrayLike": "elektro.scalars.ArrayLikeCoercible"
             },
             "graphql_default_class": null,
             "deprecated_class": null,

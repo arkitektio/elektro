@@ -21,6 +21,9 @@ projects:
         coercible_scalars:
           TraceLike: elektro.scalars.TraceCoercible
           ID: rath.scalars.IDCoercible
+          FileLike: elektro.scalars.FileLikeCoercible
+          BigFileLike: elektro.scalars.BigFileLikeCoercible
+          ArrayLike: elektro.scalars.ArrayLikeCoercible
         stylers:
           - type: turms.stylers.default.DefaultStyler
           - type: turms.stylers.appender.AppenderStyler

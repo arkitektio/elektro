@@ -488,6 +488,19 @@ input CreateExperimentInput {
   description: String = null
 }
 
+input CreateFileViewInput {
+  file: ID!
+  trace: ID!
+  seriesIdentifier: String = null
+  aMin: Int = null
+  aMax: Int = null
+  tMin: Int = null
+  tMax: Int = null
+  cMin: Int = null
+  cMax: Int = null
+  isGlobal: Boolean! = false
+}
+
 """Input for creating a mod environment"""
 input CreateModEnvironmentInput {
   name: String!
@@ -529,6 +542,9 @@ type Dataset {
   id: ID!
   images(filters: TraceFilter, ordering: [TraceOrder!]! = [], pagination: OffsetPaginationInput): [Trace!]!
   files(filters: FileFilter, ordering: [FileOrder!]! = [], pagination: OffsetPaginationInput): [File!]!
+
+  """The parent dataset of this dataset"""
+  parent: Dataset
   children(filters: DatasetFilter, ordering: [DatasetOrder!]! = [], pagination: OffsetPaginationInput): [Dataset!]!
   description: String
   name: String!
@@ -543,6 +559,8 @@ type Dataset {
 input DatasetFilter {
   id: ID
   name: StrFilterLookup
+  parent: ID = null
+  parentless: Boolean = null
   AND: DatasetFilter
   OR: DatasetFilter
   NOT: DatasetFilter
@@ -715,6 +733,19 @@ type File {
   name: String!
   origins(filters: TraceFilter, ordering: [TraceOrder!]! = [], pagination: OffsetPaginationInput): [Trace!]!
   store: BigFileStore!
+
+  """The file views of this file"""
+  views: [FileView!]!
+
+  """Who created this file"""
+  creator: User
+
+  """The size of the file in bytes"""
+  size: Float
+
+  """The content type of the file"""
+  contentType: String
+  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
 }
 
 type FileEvent {
@@ -729,6 +760,9 @@ input FileFilter {
   search: String
   id: ID
   name: StrFilterLookup
+  size: IntFilterLookup
+  contentType: StrFilterLookup
+  dataset: DatasetFilter = null
   AND: FileFilter
   OR: FileFilter
   NOT: FileFilter
@@ -743,6 +777,29 @@ scalar FileLike
 input FileOrder @oneOf {
   id: Ordering
   createdAt: Ordering
+  size: Ordering
+}
+
+type FileView implements View {
+  image: Trace!
+  zMin: Int
+  zMax: Int
+  xMin: Int
+  xMax: Int
+  yMin: Int
+  yMax: Int
+  tMin: Int
+  tMax: Int
+  cMin: Int
+  cMax: Int
+  isGlobal: Boolean!
+
+  """The accessor"""
+  accessor: [String!]!
+  id: ID!
+  trace: Trace!
+  file: File!
+  seriesIdentifier: String
 }
 
 input FinishBigFileUploadInput {
@@ -874,6 +931,26 @@ enum HistoryKind {
   CREATE
   UPDATE
   DELETE
+}
+
+input IntFilterLookup {
+  exact: Int
+  iExact: Int
+  contains: Int
+  iContains: Int
+  inList: [Int!]
+  gt: Int
+  gte: Int
+  lt: Int
+  lte: Int
+  startsWith: Int
+  iStartsWith: Int
+  endsWith: Int
+  iEndsWith: Int
+  range: [Int!]
+  isNull: Boolean
+  regex: String
+  iRegex: String
 }
 
 type IrregularlySampledSignal implements Signal {
@@ -1285,6 +1362,12 @@ type Mutation {
 
   """Delete an existing file"""
   deleteFile(input: DeleteFileInput!): ID!
+
+  """Create a file view linking a file to a trace"""
+  createFileView(input: CreateFileViewInput!): FileView!
+
+  """Delete an existing file view"""
+  deleteFileView(input: DeleteInput!): ID!
 
   """Create a new model collection"""
   createModelCollection(input: CreateModelCollectionInput!): ModelCollection!
@@ -2296,6 +2379,27 @@ type TimeBucket {
   sum: Float
 }
 
+type TimelineView implements View {
+  image: Trace!
+  zMin: Int
+  zMax: Int
+  xMin: Int
+  xMax: Int
+  yMin: Int
+  yMax: Int
+  tMin: Int
+  tMax: Int
+  cMin: Int
+  cMax: Int
+  isGlobal: Boolean!
+
+  """The accessor"""
+  accessor: [String!]!
+  id: ID!
+  trace: Trace!
+  label: String!
+}
+
 """
 Represents the topology of a cell, which defines its structure as a set of connected sections.
 """
@@ -2399,6 +2503,24 @@ type User {
   sub: String!
   preferredUsername: String!
   activeOrganization: Organization
+}
+
+interface View {
+  image: Trace!
+  zMin: Int
+  zMax: Int
+  xMin: Int
+  xMax: Int
+  yMin: Int
+  yMax: Int
+  tMin: Int
+  tMax: Int
+  cMin: Int
+  cMax: Int
+  isGlobal: Boolean!
+
+  """The accessor"""
+  accessor: [String!]!
 }
 
 type WorkspaceMapping {
