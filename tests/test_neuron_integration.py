@@ -75,7 +75,7 @@ def _config(environment_id: str) -> ModelConfigInput:
     topology = TopologyInput(
         sections=[
             SectionInput(
-                category="soma", id="soma", nseg=1, diam="20 um", length="20 um", connections=[]
+                category="soma", id="soma", nseg=1, diam="20 um", length="20 um"
             )
         ]
     )

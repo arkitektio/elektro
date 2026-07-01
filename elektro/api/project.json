@@ -48,7 +48,9 @@
                 "Length": "kanne.scalars.Length",
                 "ElectricPotential": "kanne.scalars.ElectricPotential",
                 "ElectricalConductance": "kanne.scalars.ElectricalConductance",
-                "Temperature": "kanne.scalars.Temperature"
+                "Temperature": "kanne.scalars.Temperature",
+                "Resistivity": "kanne.scalars.Resistivity",
+                "SpecificCapacitance": "kanne.scalars.SpecificCapacitance"
             },
             "coercible_scalars": {
                 "TraceLike": "elektro.scalars.TraceCoercible",

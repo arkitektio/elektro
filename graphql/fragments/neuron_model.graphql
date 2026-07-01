@@ -28,16 +28,24 @@ fragment Section on Section {
   }
   category
   nseg
-  connections {
+  parent {
     parent
-    location
+    parentLocation
+    childEnd
   }
 }
 
 fragment SectionParamMap on SectionParamMap {
   param
   mechanism
-  value
+  distribution {
+    kind
+    value
+    proximalValue
+    distalValue
+    expression
+  }
+  description
 }
 
 fragment GlobalParamMap on GlobalParamMap {

@@ -14,6 +14,7 @@ from elektro.api.schema import (
     CellInput,
     CompartmentInput,
     ConnectionInput,
+    DistributionInput,
     ModelConfigInput,
     SectionInput,
     SectionParamMapInput,
@@ -25,7 +26,7 @@ def _topology() -> TopologyInput:
     return TopologyInput(
         sections=[
             SectionInput(
-                category="soma", id="soma", nseg=1, diam="30 um", length="30 um", connections=[]
+                category="soma", id="soma", nseg=1, diam="30 um", length="30 um"
             ),
             SectionInput(
                 category="dend",
@@ -33,7 +34,7 @@ def _topology() -> TopologyInput:
                 nseg=10,
                 diam="1 um",
                 length="120 um",
-                connections=[ConnectionInput(parent="soma", location=0.0)],
+                parent=ConnectionInput(parent="soma", parentLocation=0.0),
             ),
         ]
     )
@@ -47,7 +48,10 @@ def _biophysics() -> BiophysicsInput:
                 mechanisms=["pas", "hh"],
                 sectionParams=[
                     SectionParamMapInput(
-                        param="g_pas", mechanism="pas", value=0.001, description="leak"
+                        param="g_pas",
+                        mechanism="pas",
+                        distribution=DistributionInput(value=0.001),
+                        description="leak",
                     )
                 ],
             )
@@ -86,7 +90,7 @@ def test_biophysics_get_compartment_for_id() -> None:
 def test_compartment_get_section_param_for_id() -> None:
     """``get_section_param_for_id`` returns the matching param and raises for unknown ids."""
     comp = _biophysics().get_compartment_for_id("soma")
-    assert comp.get_section_param_for_id("g_pas").value == pytest.approx(0.001)
+    assert comp.get_section_param_for_id("g_pas").distribution.value == pytest.approx(0.001)
     with pytest.raises(ValueError):
         comp.get_section_param_for_id("missing")
 
@@ -118,7 +122,6 @@ def test_extra_fields_forbidden() -> None:
             nseg=1,
             diam="30 um",
             length="30 um",
-            connections=[],
             bogus=1,
         )
 

@@ -89,6 +89,8 @@ projects:
           ElectricPotential: kanne.scalars.ElectricPotential
           ElectricalConductance: kanne.scalars.ElectricalConductance
           Temperature: kanne.scalars.Temperature
+          Resistivity: kanne.scalars.Resistivity
+          SpecificCapacitance: kanne.scalars.SpecificCapacitance
 
 
         additional_bases:

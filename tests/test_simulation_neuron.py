@@ -45,7 +45,6 @@ def _single_soma_model() -> NeuronModel:
                 nseg=1,
                 diam="20 um",
                 length="20 um",
-                connections=[],
             )
         ]
     )

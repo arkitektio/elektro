@@ -396,6 +396,11 @@ type Compartment {
 
   """The non-mechanistic (global) parameters applied to this compartment."""
   globalParams: [GlobalParamMap!]!
+
+  """
+  An optional RGBA color (list of 4 values) used to render this compartment in the UI.
+  """
+  color: RGBAColor
 }
 
 """Input for a compartment in a biophysics model."""
@@ -409,14 +414,19 @@ input CompartmentInput {
   """
   The mechanism-specific parameters applied to the sections of this compartment.
   """
-  sectionParams: [SectionParamMapInput!]
+  sectionParams: [SectionParamMapInput!] = []
 
   """The non-mechanistic (global) parameters applied to this compartment."""
-  globalParams: [GlobalParamMapInput!]
+  globalParams: [GlobalParamMapInput!] = []
+
+  """
+  An optional RGBA color (list of 4 values) used to render this compartment in the UI.
+  """
+  color: RGBAColor = null
 }
 
 """
-Represents a connection of a section to its parent section, defining the morphology tree.
+Represents a connection of a section to its (single) parent section, defining the morphology tree.
 """
 type Connection {
   """The ID of the parent section this section connects to."""
@@ -425,11 +435,14 @@ type Connection {
   """
   The position along the parent section where this section attaches, between 0 and 1.
   """
-  location: Float!
+  parentLocation: Float!
+
+  """Which end of this section attaches to the parent: 0 (default) or 1."""
+  childEnd: Float!
 }
 
 """
-Input for a connection of a section to its parent section, defining the morphology tree.
+Input for a connection of a section to its (single) parent section, defining the morphology tree.
 """
 input ConnectionInput {
   """The ID of the parent section this section connects to."""
@@ -438,7 +451,10 @@ input ConnectionInput {
   """
   The position along the parent section where this section attaches, between 0 and 1.
   """
-  location: Float! = 1
+  parentLocation: Float! = 1
+
+  """Which end of this section attaches to the parent: 0 (default) or 1."""
+  childEnd: Float! = 0
 }
 
 enum ConnectionKind {
@@ -455,6 +471,11 @@ type Coord {
 
   """The z coordinate of the point."""
   z: Length!
+
+  """
+  The diameter of the section at this point (NEURON pt3d). Falls back to the section diameter when omitted.
+  """
+  diam: Length
 }
 
 """Input for a 3D coordinate (in space) of a point along a section."""
@@ -467,6 +488,11 @@ input CoordInput {
 
   """The z coordinate of the point."""
   z: Length!
+
+  """
+  The diameter of the section at this point (NEURON pt3d). Falls back to the section diameter when omitted.
+  """
+  diam: Length = null
 }
 
 input CreateBlockInput {
@@ -557,7 +583,7 @@ type Dataset {
 }
 
 input DatasetFilter {
-  ids: [ID!]!
+  ids: [ID!]
   search: String
   createdBefore: DateTime
   createdAfter: DateTime
@@ -611,6 +637,56 @@ input DeleteTraceInput {
 input DesociateInput {
   selfs: [ID!]!
   other: ID!
+}
+
+"""
+Represents how a section parameter is distributed along a section (NEURON range variable).
+"""
+type Distribution {
+  """The kind of spatial distribution."""
+  kind: DistributionKind!
+
+  """The uniform value applied to every segment (required for 'uniform')."""
+  value: Float
+
+  """The value at path distance 0 (required for 'linear')."""
+  proximalValue: Float
+
+  """The value at the most distal segment (required for 'linear')."""
+  distalValue: Float
+
+  """
+  An expression in `x` (normalized position) and `d` (path distance) (required for 'expression').
+  """
+  expression: String
+}
+
+"""
+Input for how a section parameter is distributed along a section (NEURON range variable). Supply the fields matching the chosen kind: 'uniform' -> value; 'linear' -> proximal_value & distal_value; 'expression' -> expression.
+"""
+input DistributionInput {
+  """The kind of spatial distribution."""
+  kind: DistributionKind! = UNIFORM
+
+  """The uniform value applied to every segment (required for 'uniform')."""
+  value: Float = null
+
+  """The value at path distance 0 (required for 'linear')."""
+  proximalValue: Float = null
+
+  """The value at the most distal segment (required for 'linear')."""
+  distalValue: Float = null
+
+  """
+  An expression in `x` (normalized position) and `d` (path distance) (required for 'expression').
+  """
+  expression: String = null
+}
+
+enum DistributionKind {
+  UNIFORM
+  LINEAR
+  EXPRESSION
 }
 
 """A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``)."""
@@ -1864,6 +1940,9 @@ type Query {
   ): Dataset!
 }
 
+"""The Color scalar type represents a color as a list of 4 values RGBA"""
+scalar RGBAColor
+
 type ROI {
   id: ID!
   trace: Trace!
@@ -2009,6 +2088,11 @@ input RequestZarrUploadInput {
   port: Int = null
 }
 
+"""
+An axial resistivity (NEURON ``Ra``; ``"35.4 ohm*cm"``, ``"100 ohm*cm"``).
+"""
+scalar Resistivity
+
 input RevertInput {
   id: ID!
   historyId: ID!
@@ -2055,8 +2139,10 @@ type Section {
   """The unique identifier of the section within the cell."""
   id: String!
 
-  """An optional category for the section (e.g. 'soma', 'axon', 'dend')."""
-  category: String!
+  """
+  An optional category for the section (e.g. 'soma', 'axon', 'dend'). Biophysics compartments are matched to sections by this category.
+  """
+  category: String
 
   """The number of segments the section is discretized into."""
   nseg: Int!
@@ -2067,13 +2153,21 @@ type Section {
   """Length of the section. Required if coords is not provided."""
   length: Length
 
+  """Axial resistivity (NEURON Ra)."""
+  ra: Resistivity!
+
+  """Specific membrane capacitance (NEURON cm)."""
+  cm: SpecificCapacitance!
+
   """
   The 3D coordinates describing the section's geometry. Required if length is not provided.
   """
   coords: [Coord!]
 
-  """The connections of this section to its parent section(s)."""
-  connections: [Connection!]!
+  """
+  The connection to this section's parent section. None for the root section of the cell.
+  """
+  parent: Connection
 }
 
 """
@@ -2083,7 +2177,9 @@ input SectionInput {
   """The unique identifier of the section within the cell."""
   id: String!
 
-  """An optional category for the section (e.g. 'soma', 'axon', 'dend')."""
+  """
+  An optional category for the section (e.g. 'soma', 'axon', 'dend'). Biophysics compartments are matched to sections by this category.
+  """
   category: String = null
 
   """The number of segments the section is discretized into."""
@@ -2095,13 +2191,21 @@ input SectionInput {
   """Length of the section. Required if coords is not provided."""
   length: Length = null
 
+  """Axial resistivity (NEURON Ra)."""
+  ra: Resistivity! = "35.4 cm * Ω"
+
+  """Specific membrane capacitance (NEURON cm)."""
+  cm: SpecificCapacitance! = "1 µF / cm ** 2"
+
   """
   The 3D coordinates describing the section's geometry. Required if length is not provided.
   """
   coords: [CoordInput!] = null
 
-  """The connections of this section to its parent section(s)."""
-  connections: [ConnectionInput!] = []
+  """
+  The connection to this section's parent section. None for the root section of the cell.
+  """
+  parent: ConnectionInput = null
 }
 
 """
@@ -2114,8 +2218,10 @@ type SectionParamMap {
   """The governing mechanism"""
   mechanism: String!
 
-  """The value of the parameter"""
-  value: Float!
+  """
+  How the parameter is distributed along the section (uniform by default).
+  """
+  distribution: Distribution!
 
   """Description of the parameter"""
   description: String
@@ -2131,8 +2237,10 @@ input SectionParamMapInput {
   """The governing mechanism"""
   mechanism: String!
 
-  """The value of the parameter"""
-  value: Float!
+  """
+  How the parameter is distributed along the section (uniform by default).
+  """
+  distribution: DistributionInput!
 
   """Description of the parameter"""
   description: String = null
@@ -2178,6 +2286,9 @@ input SimulationOrder @oneOf {
   id: Ordering
   createdAt: Ordering
 }
+
+"""A specific membrane capacitance (NEURON ``cm``; ``"1 uF/cm^2"``)."""
+scalar SpecificCapacitance
 
 type SpikeTrain implements Signal {
   name: String!

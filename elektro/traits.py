@@ -148,7 +148,7 @@ class BiophysicsTrait:
             data = {
                 "id": compartment.id,
                 "mechanisms": " ".join(([mechanism for mechanism in compartment.mechanisms])),
-                **{param.param: param.value for param in compartment.section_params},
+                **{param.param: param.distribution.value for param in compartment.section_params},
                 **{param.param: param.value for param in compartment.global_params},
             }
 

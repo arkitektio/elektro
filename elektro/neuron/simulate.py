@@ -1,7 +1,9 @@
 """Compile NEURON mechanisms and run cell/network simulations."""
 
+import ast
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
+import math
 import multiprocessing as mp
 from dataclasses import dataclass
 import numpy as np
@@ -219,6 +221,134 @@ class SineWaveStimulus(StimulusBase):
     amplitude: ElectricCurrent = ElectricCurrent("0.1 nanoampere")
 
 
+# Whitelisted names available to distribution expressions. Only pure, total math
+# helpers — no I/O, no attribute access, no builtins.
+_EXPR_FUNCTIONS: Dict[str, Any] = {
+    "exp": math.exp,
+    "log": math.log,
+    "log10": math.log10,
+    "sqrt": math.sqrt,
+    "sin": math.sin,
+    "cos": math.cos,
+    "tan": math.tan,
+    "sinh": math.sinh,
+    "cosh": math.cosh,
+    "tanh": math.tanh,
+    "abs": abs,
+    "min": min,
+    "max": max,
+    "pow": pow,
+}
+_EXPR_CONSTANTS: Dict[str, float] = {"pi": math.pi, "e": math.e}
+
+# AST node types permitted inside a distribution expression. Anything else
+# (attribute access, comprehensions, lambdas, subscripts, calls to non-whitelisted
+# names, etc.) is rejected before evaluation.
+_EXPR_ALLOWED_NODES = (
+    ast.Expression,
+    ast.BinOp,
+    ast.UnaryOp,
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.FloorDiv,
+    ast.Mod,
+    ast.Pow,
+    ast.USub,
+    ast.UAdd,
+    ast.Constant,
+    ast.Name,
+    ast.Load,
+    ast.Call,
+)
+
+
+def _safe_eval_expression(expression: str, variables: Dict[str, float]) -> float:
+    """Evaluate a distribution ``expression`` in a restricted, side-effect-free sandbox.
+
+    Only arithmetic over numeric literals, the supplied ``variables`` (``x``, ``d``),
+    a small whitelist of math functions/constants, and function calls to those
+    functions are allowed. Any other construct raises ``ValueError`` so untrusted
+    expressions cannot reach arbitrary code.
+    """
+    try:
+        tree = ast.parse(expression, mode="eval")
+    except SyntaxError as e:
+        raise ValueError(f"Invalid distribution expression {expression!r}: {e}") from e
+
+    for node in ast.walk(tree):
+        if not isinstance(node, _EXPR_ALLOWED_NODES):
+            raise ValueError(
+                f"Disallowed syntax {type(node).__name__} in distribution expression "
+                f"{expression!r}."
+            )
+        if isinstance(node, ast.Call):
+            # Only direct calls to whitelisted function names, no keyword/star args.
+            if not isinstance(node.func, ast.Name) or node.func.id not in _EXPR_FUNCTIONS:
+                raise ValueError(
+                    f"Disallowed function call in distribution expression {expression!r}."
+                )
+            if node.keywords:
+                raise ValueError(
+                    f"Keyword arguments are not allowed in distribution expression "
+                    f"{expression!r}."
+                )
+        if isinstance(node, ast.Name) and node.id not in variables and (
+            node.id not in _EXPR_FUNCTIONS and node.id not in _EXPR_CONSTANTS
+        ):
+            raise ValueError(
+                f"Unknown name {node.id!r} in distribution expression {expression!r}."
+            )
+        if isinstance(node, ast.Constant) and not isinstance(node.value, (int, float)):
+            raise ValueError(
+                f"Only numeric literals are allowed in distribution expression "
+                f"{expression!r}."
+            )
+
+    names = {**_EXPR_CONSTANTS, **_EXPR_FUNCTIONS, **variables}
+    return float(eval(compile(tree, "<distribution>", "eval"), {"__builtins__": {}}, names))
+
+
+def _apply_section_param(h: Any, sec: Any, param: str, dist: Any) -> None:
+    """Set a range variable on ``sec`` according to its spatial ``distribution``.
+
+    ``uniform`` sets a single value on every segment; ``linear`` interpolates
+    between ``proximal_value`` (path distance 0) and ``distal_value`` (the most
+    distal segment) by path distance; ``expression`` evaluates a Python
+    expression in ``x`` (normalized position) and ``d`` (path distance).
+    """
+    kind = str(dist.kind)
+
+    if kind == "UNIFORM" or kind.endswith("UNIFORM"):
+        if dist.value is None:
+            raise ValueError("A 'uniform' distribution requires a value.")
+        setattr(sec, param, dist.value)
+        return
+
+    # Non-uniform distributions are evaluated per segment, so establish a path
+    # distance origin at the start of this section.
+    h.distance(0, 0.0, sec=sec)
+    max_dist = max((h.distance(seg.x, sec=sec) for seg in sec), default=0.0) or 1.0
+
+    for seg in sec:
+        d = h.distance(seg.x, sec=sec)
+        if kind.endswith("LINEAR"):
+            if dist.proximal_value is None or dist.distal_value is None:
+                raise ValueError(
+                    "A 'linear' distribution requires proximal_value and distal_value."
+                )
+            frac = d / max_dist
+            value = dist.proximal_value + (dist.distal_value - dist.proximal_value) * frac
+        elif kind.endswith("EXPRESSION"):
+            if dist.expression is None:
+                raise ValueError("An 'expression' distribution requires an expression.")
+            value = _safe_eval_expression(dist.expression, {"x": seg.x, "d": d})
+        else:
+            raise ValueError(f"Unknown distribution kind: {dist.kind}")
+        setattr(seg, param, value)
+
+
 def instantiate_cell(h: Any, cell: Cell) -> Dict[str, Any]:
     """Build NEURON sections for a cell and return them keyed by section id."""
     h_sections: Dict[str, Any] = {}
@@ -248,10 +378,12 @@ def instantiate_cell(h: Any, cell: Cell) -> Dict[str, Any]:
             raise ValueError("Either coords or length must be provided for section geometry")
 
     for sec_def in cell.topology.sections:
-        for conn in sec_def.connections:
-            parent = h_sections[conn.parent]
-            child = h_sections[sec_def.id]
-            child.connect(parent(conn.location))
+        conn = sec_def.parent
+        if conn is None:
+            continue
+        parent = h_sections[conn.parent]
+        child = h_sections[sec_def.id]
+        child.connect(parent(conn.parent_location), conn.child_end)
 
     for sec_def in cell.topology.sections:
         sec = h_sections[sec_def.id]
@@ -266,12 +398,10 @@ def instantiate_cell(h: Any, cell: Cell) -> Dict[str, Any]:
 
         for param in comp.section_params:
             assert param.mechanism in comp.mechanisms
-            value = param.value
-            for seg in sec.allseg():
-                try:
-                    setattr(sec, param.param, value)
-                except Exception as e:
-                    raise ValueError(f"Failed to set parameter {param.param}") from e
+            try:
+                _apply_section_param(h, sec, param.param, param.distribution)
+            except Exception as e:
+                raise ValueError(f"Failed to set parameter {param.param}") from e
 
         for gparam in comp.global_params:
             try:
