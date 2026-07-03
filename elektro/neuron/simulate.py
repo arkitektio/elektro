@@ -28,6 +28,7 @@ from elektro.api.schema import (
     StimulusInput,
     StimulusKind,
     RecordingKind,
+    IonStyle,
     NeuronModel,
     acreate_simulation,
 )
@@ -57,6 +58,19 @@ def _extract_zip(zip_path: Path, extract_dir: Path) -> None:
         zip_ref.extractall(extract_dir)
 
 
+def _environment_cache_key(environment: ModEnvironment) -> str:
+    """Return a filesystem-safe, collision-free cache key for a ModEnvironment.
+
+    Uses the environment's S3 store key (a globally-unique content object key) rather
+    than its database id, which can be recycled when the backing database is reset.
+    Falls back to the id if no store key is available. Any path separators are
+    flattened so the key is safe to use as a single directory name.
+    """
+    store = getattr(environment, "store", None)
+    raw = getattr(store, "key", None) or str(environment.id)
+    return raw.replace("/", "_").replace(os.sep, "_")
+
+
 async def aensure_compiled_mechanisms(
     environment: ModEnvironment, base_cache_dir: str = "/tmp/neuron_cache"
 ) -> None:
@@ -72,8 +86,13 @@ async def aensure_compiled_mechanisms(
     machine = platform.machine()
     is_windows = platform.system() == "Windows"
 
-    # Use the environment's unique ID to isolate its cache directory
-    env_hash = str(environment.id)
+    # Isolate the cache directory by the environment's S3 store key rather than its
+    # database id. Ids are recycled whenever the backing database is reset (e.g. the
+    # integration stack calls `down()` between sessions), which would let a stale
+    # compiled library from a previous environment satisfy a cache hit for an
+    # unrelated one. The store key is a globally-unique content object key, so a new
+    # environment always compiles its own mechanisms.
+    env_hash = _environment_cache_key(environment)
     cache_dir = Path(base_cache_dir) / env_hash
     lock_path = Path(base_cache_dir) / f"{env_hash}.lock"
 
@@ -143,7 +162,7 @@ def load_compiled_mechanisms(
 
     machine = platform.machine()
     is_windows = platform.system() == "Windows"
-    env_hash = str(environment.id)
+    env_hash = _environment_cache_key(environment)
     cache_dir = Path(base_cache_dir) / env_hash
 
     if is_windows:
@@ -165,7 +184,20 @@ def load_compiled_mechanisms(
         return
 
     logger.debug(f"Loading environment library: {str_dll_path}")
-    h.nrn_load_dll(str_dll_path)
+    try:
+        h.nrn_load_dll(str_dll_path)
+    except RuntimeError as exc:
+        # NEURON registers mechanism names (e.g. "cad") process-globally and refuses to
+        # register the same name twice. Our _LOADED_DLLS set can fall out of sync with
+        # NEURON's real state when a ProcessPool worker is reused across tasks, or when
+        # NEURON auto-loads mechanisms at `import neuron` time from a compiled arch dir.
+        # In those cases the mechanisms are already present, so the collision is benign.
+        if "already exists" not in str(exc):
+            raise
+        logger.debug(
+            f"Mechanisms from {str_dll_path} are already registered in this worker; "
+            f"treating as loaded ({exc})."
+        )
     _LOADED_DLLS.add(str_dll_path)
 
 
@@ -349,13 +381,97 @@ def _apply_section_param(h: Any, sec: Any, param: str, dist: Any) -> None:
         setattr(seg, param, value)
 
 
-def instantiate_cell(h: Any, cell: Cell) -> Dict[str, Any]:
-    """Build NEURON sections for a cell and return them keyed by section id."""
+# NEURON ``ion_style(name_ion, c_style, e_style, einit, eadvance, cinit)`` argument
+# tuples for each ion treatment. See the NEURON docs for the meaning of each flag:
+#   - FIXED_REVERSAL: e<ion> is a fixed parameter you set directly.
+#   - NERNST: e<ion> is computed once (at init) from fixed concentrations via Nernst.
+#   - ACCUMULATED: concentrations are states advanced by an accumulation mechanism and
+#     e<ion> follows them via Nernst on every step.
+_ION_STYLE_ARGS: Dict[str, tuple[int, int, int, int, int]] = {
+    "FIXED_REVERSAL": (1, 1, 0, 0, 1),
+    "NERNST": (1, 2, 1, 0, 1),
+    "ACCUMULATED": (3, 2, 1, 1, 1),
+}
+
+
+def _lambda_f(h: Any, sec: Any, freq: float) -> float:
+    """The AC length constant of ``sec`` at ``freq`` Hz, in micrometers.
+
+    Mirrors NEURON's stdlib ``lambda_f``: when the section carries 3D points the
+    constant is integrated over them, otherwise it falls back to the stylized
+    ``diam``. ``Ra`` (Ω·cm) and ``cm`` (µF/cm²) are read off the section, which
+    always have NEURON defaults even when unset.
+    """
+    n3d = int(h.n3d(sec=sec))
+    if n3d < 2:
+        return 1e5 * math.sqrt(sec.diam / (4 * math.pi * freq * sec.Ra * sec.cm))
+
+    x1 = h.arc3d(0, sec=sec)
+    d1 = h.diam3d(0, sec=sec)
+    lam = 0.0
+    for i in range(1, n3d):
+        x2 = h.arc3d(i, sec=sec)
+        d2 = h.diam3d(i, sec=sec)
+        lam += (x2 - x1) / math.sqrt(d1 + d2)
+        x1, d1 = x2, d2
+    lam *= math.sqrt(2) * 1e-5 * math.sqrt(4 * math.pi * freq * sec.Ra * sec.cm)
+    return sec.L / lam
+
+
+def _nseg_from_dlambda(h: Any, sec: Any, d_lambda: float) -> int:
+    """Number of segments for ``sec`` under NEURON's d_lambda rule (odd count).
+
+    ``d_lambda`` is the target fraction of the 100 Hz AC length constant per
+    segment. Requires the section's geometry (and Ra/cm) to already be set.
+    """
+    return int((sec.L / (d_lambda * _lambda_f(h, sec, 100.0)) + 0.9) / 2) * 2 + 1
+
+
+def _apply_ions(h: Any, sec: Any, ions: List[Any]) -> None:
+    """Apply per-section ion settings (reversal potential / concentrations / style).
+
+    An ion can only be configured on a section where a mechanism actually uses it
+    (NEURON creates the ``<ion>_ion`` mechanism on demand). Ions that are not
+    present in the section — e.g. a model-wide default that does not apply to this
+    compartment — are skipped rather than raising.
+    """
+    for ion in ions:
+        ion_mech = f"{ion.ion}_ion"
+        try:
+            present = bool(h.ismembrane(ion_mech, sec=sec))
+        except Exception:
+            present = False
+        if not present:
+            logger.debug(
+                "Ion %s is not used by any mechanism in section %s; skipping its settings.",
+                ion.ion,
+                sec.name(),
+            )
+            continue
+
+        style_args = _ION_STYLE_ARGS[str(IonStyle(ion.style).value)]
+        try:
+            h.ion_style(ion_mech, *style_args, sec=sec)
+            if ion.reversal_potential is not None:
+                setattr(sec, f"e{ion.ion}", ion.reversal_potential.to("millivolt").magnitude)
+            if ion.internal_concentration is not None:
+                setattr(sec, f"{ion.ion}i", ion.internal_concentration.to("millimolar").magnitude)
+            if ion.external_concentration is not None:
+                setattr(sec, f"{ion.ion}o", ion.external_concentration.to("millimolar").magnitude)
+        except Exception as e:
+            raise ValueError(f"Failed to set ion {ion.ion} on section {sec.name()}") from e
+
+
+def instantiate_cell(h: Any, cell: Cell, config: NeuronModelConfig) -> Dict[str, Any]:
+    """Build NEURON sections for a cell and return them keyed by section id.
+
+    ``config`` supplies the model-wide defaults (Ra, cm, ion settings) that a
+    section or compartment may override.
+    """
     h_sections: Dict[str, Any] = {}
 
     for sec_def in cell.topology.sections:
         sec = h.Section(name=f"{cell.id}_{sec_def.id}")
-        sec.nseg = sec_def.nseg
         # NEURON geometry is expressed in micrometers; convert from the section's
         # labelled Length quantities regardless of the unit they were supplied in.
         diam_um = sec_def.diam.to("micrometer").magnitude
@@ -376,6 +492,22 @@ def instantiate_cell(h: Any, cell: Cell) -> Dict[str, Any]:
             sec.L = sec_def.length.to("micrometer").magnitude
         else:
             raise ValueError("Either coords or length must be provided for section geometry")
+
+        # Passive cable properties: a section's own value wins, then the model-wide
+        # default, otherwise NEURON's built-in default is left untouched.
+        ra = sec_def.ra if sec_def.ra is not None else config.ra
+        if ra is not None:
+            sec.Ra = ra.to("ohm*cm").magnitude
+        cm = sec_def.cm if sec_def.cm is not None else config.cm
+        if cm is not None:
+            sec.cm = cm.to("microfarad/cm**2").magnitude
+
+        # Discretization: the d_lambda rule (which depends on the geometry and
+        # Ra/cm set above) overrides a fixed nseg when supplied.
+        if sec_def.d_lambda is not None:
+            sec.nseg = _nseg_from_dlambda(h, sec, sec_def.d_lambda)
+        else:
+            sec.nseg = sec_def.nseg
 
     for sec_def in cell.topology.sections:
         conn = sec_def.parent
@@ -403,11 +535,11 @@ def instantiate_cell(h: Any, cell: Cell) -> Dict[str, Any]:
             except Exception as e:
                 raise ValueError(f"Failed to set parameter {param.param}") from e
 
-        for gparam in comp.global_params:
-            try:
-                setattr(sec, gparam.param, gparam.value)
-            except Exception as e:
-                raise ValueError(f"Failed to set global parameter {gparam.param}") from e
+        # Ion settings: model-wide defaults first, overridden per ion species by the
+        # compartment's own ions. Applied after mechanisms so the ion is present.
+        ions_by_species: Dict[str, Any] = {ion.ion: ion for ion in config.ions}
+        ions_by_species.update({ion.ion: ion for ion in comp.ions})
+        _apply_ions(h, sec, list(ions_by_species.values()))
 
     return h_sections
 
@@ -446,7 +578,16 @@ def instantiate_model(h: Any, model: NeuronModelConfig) -> NeuronModelInstance:
     net_synapses: Dict[str, Any] = {}
 
     for cell in model.cells:
-        cell_h_sections[cell.id] = instantiate_cell(h, cell)
+        cell_h_sections[cell.id] = instantiate_cell(h, cell, model)
+
+    # GLOBAL mechanism parameters (NEURON GLOBAL variables, e.g. q10_hh) are shared
+    # across every instance of a mechanism, so they are set once on the interpreter.
+    for mech_global in model.mechanism_globals or []:
+        name = f"{mech_global.param}_{mech_global.mechanism}"
+        try:
+            setattr(h, name, mech_global.value)
+        except Exception as e:
+            raise ValueError(f"Failed to set global mechanism parameter {name}") from e
 
     h.define_shape()
 

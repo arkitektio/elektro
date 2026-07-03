@@ -50,7 +50,11 @@
                 "ElectricalConductance": "kanne.scalars.ElectricalConductance",
                 "Temperature": "kanne.scalars.Temperature",
                 "Resistivity": "kanne.scalars.Resistivity",
-                "SpecificCapacitance": "kanne.scalars.SpecificCapacitance"
+                "SpecificCapacitance": "kanne.scalars.SpecificCapacitance",
+                "Concentration": "kanne.scalars.Concentration",
+                "GenericQuantity": "kanne.scalars.GenericQuantity",
+                "Unit": "kanne.scalars.Unit",
+                "Dimension": "kanne.scalars.Dimension"
             },
             "coercible_scalars": {
                 "TraceLike": "elektro.scalars.TraceCoercible",

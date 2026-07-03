@@ -50,7 +50,7 @@ def _biophysics() -> BiophysicsInput:
                     SectionParamMapInput(
                         param="g_pas",
                         mechanism="pas",
-                        distribution=DistributionInput(value=0.001),
+                        distribution=DistributionInput(value="0.001 S/cm2"),
                         description="leak",
                     )
                 ],
@@ -90,7 +90,9 @@ def test_biophysics_get_compartment_for_id() -> None:
 def test_compartment_get_section_param_for_id() -> None:
     """``get_section_param_for_id`` returns the matching param and raises for unknown ids."""
     comp = _biophysics().get_compartment_for_id("soma")
-    assert comp.get_section_param_for_id("g_pas").distribution.value == pytest.approx(0.001)
+    assert comp.get_section_param_for_id("g_pas").distribution.value.to(
+        "S/cm**2"
+    ).magnitude == pytest.approx(0.001)
     with pytest.raises(ValueError):
         comp.get_section_param_for_id("missing")
 

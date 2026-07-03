@@ -54,7 +54,7 @@ def _single_soma_model() -> NeuronModel:
                 id="soma",
                 mechanisms=["pas", "hh"],
                 sectionParams=[],
-                globalParams=[],
+                ions=[],
             )
         ]
     )
@@ -62,6 +62,8 @@ def _single_soma_model() -> NeuronModel:
         vInit="-65 mV",
         temperature="310.15 K",
         cells=[Cell(id="cell_1", biophysics=biophysics, topology=topology)],
+        ions=[],
+        mechanismGlobals=[],
     )
     # ``environment`` is a required field on NeuronModel; bypass validation so we can
     # leave it ``None`` and skip the download/compile path in run_simulation_processed.

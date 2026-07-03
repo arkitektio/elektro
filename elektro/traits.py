@@ -27,7 +27,7 @@ if TYPE_CHECKING:
         Compartment,
         Section,
         SectionParamMap,
-        GlobalParamMap,
+        Ion,
         SectionInput,
         ModelConfigInput,
         CellInput,
@@ -149,7 +149,11 @@ class BiophysicsTrait:
                 "id": compartment.id,
                 "mechanisms": " ".join(([mechanism for mechanism in compartment.mechanisms])),
                 **{param.param: param.distribution.value for param in compartment.section_params},
-                **{param.param: param.value for param in compartment.global_params},
+                **{
+                    f"e{ion.ion}": ion.reversal_potential
+                    for ion in compartment.ions
+                    if ion.reversal_potential is not None
+                },
             }
 
             records.append(data)
@@ -213,15 +217,12 @@ class CompartmentTrait:
             raise ValueError(f"SectionParam with id {id} not found")
         return x
 
-    def global_param_for_id(self, id: str) -> "GlobalParamMap":
-        """Return the global param mapping matching the given param id."""
-        compartments = get_attributes_or_error(self, "global_params")
-        x = next(
-            (compartment for compartment in compartments if compartment.param == id),
-            None,
-        )
+    def ion_for_id(self, id: str) -> "Ion":
+        """Return the ion setting matching the given ion species name (e.g. 'na')."""
+        ions = get_attributes_or_error(self, "ions")
+        x = next((ion for ion in ions if ion.ion == id), None)
         if x is None:
-            raise ValueError(f"GlobalParam with id {id} not found")
+            raise ValueError(f"Ion with name {id} not found")
         return x
 
 

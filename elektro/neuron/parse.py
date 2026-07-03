@@ -6,6 +6,7 @@ import zipfile
 from pathlib import Path
 from typing import List, Optional, Tuple, TYPE_CHECKING
 from elektro.api.schema import MechanismInput, ParameterInput
+from kanne.scalars import parse_dimension, parse_unit
 
 if TYPE_CHECKING:
     from elektro.api.schema import ModEnvironment
@@ -15,6 +16,35 @@ if TYPE_CHECKING:
 # ==========================================
 # 2. Parsing & Packaging Logic
 # ==========================================
+
+
+def _neuron_units_to_schema(
+    raw_unit: Optional[str],
+) -> Tuple[Optional[str], Optional[str]]:
+    """Turn a NEURON parameter unit token into a ``(reference_unit, dimension)`` pair.
+
+    NEURON declares a parameter's unit in parentheses, e.g. ``gbar = 0.05 (S/cm2)``.
+    We keep the original spelling for ``reference_unit`` (so the UI shows ``S/cm2``)
+    and reduce it to its canonical physical dimension (``"[current] ** 2 * ..."``) for
+    ``dimension`` -- together they let the platform validate that any value later
+    assigned to the parameter is dimensionally compatible.
+
+    A unit NEURON uses that pint can't parse degrades gracefully to ``(None, None)``
+    rather than aborting the whole mechanism parse. NEURON's bare-rate spelling
+    ``(/ms)`` is normalised to ``1/ms`` first so it parses.
+    """
+    if raw_unit is None:
+        return None, None
+    text = raw_unit.strip()
+    if text.startswith("/"):
+        # "/ms" is a rate; pint needs an explicit numerator ("1/ms").
+        text = "1" + text
+    if not text:
+        return None, None
+    try:
+        return parse_unit(text), parse_dimension(text)
+    except ValueError:
+        return None, None
 
 
 def parse_mod_file_to_schema(file_path: Path) -> MechanismInput:
@@ -44,6 +74,12 @@ def parse_mod_file_to_schema(file_path: Path) -> MechanismInput:
             if not line or line.startswith(":"):
                 continue
 
+            # Drop any inline ": comment" so a stray "(...)" in a comment can't be
+            # mistaken for the unit below.
+            line = line.split(":", 1)[0].strip()
+            if not line:
+                continue
+
             # Regex captures the variable name (Group 1) and an optional default value (Group 2)
             # e.g., "gbar = 0.05 (S/cm2)" -> Group 1: "gbar", Group 2: "0.05"
             var_match = re.match(r"^([a-zA-Z0-9_]+(?:\[\d+\])?)\s*(?:=\s*([\d\.\-eE]+))?", line)
@@ -54,6 +90,14 @@ def parse_mod_file_to_schema(file_path: Path) -> MechanismInput:
 
                 # Convert default to float if it exists
                 default_val = float(default_val_str) if default_val_str else None
+
+                # NEURON declares the unit in parentheses, e.g. "gbar = 0.05 (S/cm2)".
+                # Capture it and split into the reference unit + physical dimension so
+                # the platform can validate values assigned to this parameter.
+                unit_match = re.search(r"\(([^)]*)\)", line)
+                reference_unit, dimension = _neuron_units_to_schema(
+                    unit_match.group(1) if unit_match else None
+                )
 
                 # Append the suffix to the parameter to match NEURON's Python namespace
                 # e.g., "gbar" in "NaTs2_t" becomes "gbar_NaTs2_t"
@@ -66,6 +110,8 @@ def parse_mod_file_to_schema(file_path: Path) -> MechanismInput:
                         kind="FLOAT",
                         nullable=False,
                         default=default_val,
+                        reference_unit=reference_unit,
+                        dimension=dimension,
                         description=f"Parameter {raw_param_name} for {mechanism_name}",
                     )
                 )

@@ -394,8 +394,10 @@ type Compartment {
   """
   sectionParams: [SectionParamMap!]!
 
-  """The non-mechanistic (global) parameters applied to this compartment."""
-  globalParams: [GlobalParamMap!]!
+  """
+  Ion species settings (reversal potentials and concentrations) applied to this compartment.
+  """
+  ions: [Ion!]!
 
   """
   An optional RGBA color (list of 4 values) used to render this compartment in the UI.
@@ -416,14 +418,19 @@ input CompartmentInput {
   """
   sectionParams: [SectionParamMapInput!] = []
 
-  """The non-mechanistic (global) parameters applied to this compartment."""
-  globalParams: [GlobalParamMapInput!] = []
+  """
+  Ion species settings (reversal potentials and concentrations) applied to this compartment.
+  """
+  ions: [IonInput!] = []
 
   """
   An optional RGBA color (list of 4 values) used to render this compartment in the UI.
   """
   color: RGBAColor = null
 }
+
+"""A molar concentration (``"5 nM"``, ``"2 µM"``, ``"1 mM"``)."""
+scalar Concentration
 
 """
 Represents a connection of a section to its (single) parent section, defining the morphology tree.
@@ -640,20 +647,35 @@ input DesociateInput {
 }
 
 """
+A physical dimension (``"[length]"``, ``"[current] / [length] ** 2"``, ``"dimensionless"``).
+
+A string scalar validating that the value is a parseable pint dimensionality and
+serializing it to a canonical, order-stable string (the quantity-compatibility
+key). A unit expression is accepted and reduced to its dimensionality.
+"""
+scalar Dimension
+
+"""
 Represents how a section parameter is distributed along a section (NEURON range variable).
 """
 type Distribution {
   """The kind of spatial distribution."""
   kind: DistributionKind!
 
-  """The uniform value applied to every segment (required for 'uniform')."""
-  value: Float
+  """
+  The uniform value applied to every segment (required for 'uniform'). A unit-bearing quantity, e.g. '0.12 S/cm2'.
+  """
+  value: GenericQuantity
 
-  """The value at path distance 0 (required for 'linear')."""
-  proximalValue: Float
+  """
+  The value at path distance 0 (required for 'linear'). A unit-bearing quantity.
+  """
+  proximalValue: GenericQuantity
 
-  """The value at the most distal segment (required for 'linear')."""
-  distalValue: Float
+  """
+  The value at the most distal segment (required for 'linear'). A unit-bearing quantity.
+  """
+  distalValue: GenericQuantity
 
   """
   An expression in `x` (normalized position) and `d` (path distance) (required for 'expression').
@@ -668,14 +690,20 @@ input DistributionInput {
   """The kind of spatial distribution."""
   kind: DistributionKind! = UNIFORM
 
-  """The uniform value applied to every segment (required for 'uniform')."""
-  value: Float = null
+  """
+  The uniform value applied to every segment (required for 'uniform'). A unit-bearing quantity, e.g. '0.12 S/cm2'.
+  """
+  value: GenericQuantity = null
 
-  """The value at path distance 0 (required for 'linear')."""
-  proximalValue: Float = null
+  """
+  The value at path distance 0 (required for 'linear'). A unit-bearing quantity.
+  """
+  proximalValue: GenericQuantity = null
 
-  """The value at the most distal segment (required for 'linear')."""
-  distalValue: Float = null
+  """
+  The value at the most distal segment (required for 'linear'). A unit-bearing quantity.
+  """
+  distalValue: GenericQuantity = null
 
   """
   An expression in `x` (normalized position) and `d` (path distance) (required for 'expression').
@@ -970,32 +998,15 @@ type GeneralZarrAccessGrant {
 }
 
 """
-Represents a global parameter mapping for a biophysics model. (this will be set on non-mechanistic parameters  (i.e PAS ) of the model)
+A physical quantity of any dimension (``"0.12 S/cm2"``, ``"-54.3 mV"``, ``"2 mM"``).
+
+Unlike the dimension-locked scalars, this keeps whatever unit the value
+carries and does not normalize to a canonical integer — its dimension is
+whatever the value has. A bare number without a unit is rejected. On the wire
+it is a string; validating it against an expected dimension (e.g. a declared
+mechanism parameter) is the caller's job.
 """
-type GlobalParamMap {
-  """The name of the parameter to set."""
-  param: String!
-
-  """The value of the parameter"""
-  value: Float!
-
-  """Description of the parameter"""
-  description: String
-}
-
-"""
-Input for a global parameter mapping of a biophysics model. (this will be set on non-mechanistic parameters (i.e PAS) of the model)
-"""
-input GlobalParamMapInput {
-  """The name of the parameter to set."""
-  param: String!
-
-  """The value of the parameter"""
-  value: Float!
-
-  """Description of the parameter"""
-  description: String = null
-}
+scalar GenericQuantity
 
 enum Granularity {
   HOUR
@@ -1031,6 +1042,72 @@ input IntFilterLookup {
   isNull: Boolean
   regex: String
   iRegex: String
+}
+
+"""
+Represents an ion species' intrinsic properties on a compartment (NEURON per-section ion settings, e.g. ena/nai/nao).
+"""
+type Ion {
+  """
+  The ion species name as NEURON knows it (e.g. 'na', 'k', 'ca'). Custom ions declared by mechanisms are allowed.
+  """
+  ion: String!
+
+  """
+  How the reversal potential and concentrations are treated (NEURON ion_style): a fixed reversal parameter, computed from fixed concentrations via Nernst, or with concentrations as states advanced by an accumulation mechanism.
+  """
+  style: IonStyle!
+
+  """
+  The reversal potential for this ion (NEURON e<ion>, e.g. ena). Unset leaves NEURON's default.
+  """
+  reversalPotential: ElectricPotential
+
+  """
+  The intracellular concentration for this ion (NEURON <ion>i, e.g. nai).
+  """
+  internalConcentration: Concentration
+
+  """
+  The extracellular concentration for this ion (NEURON <ion>o, e.g. nao).
+  """
+  externalConcentration: Concentration
+}
+
+"""
+Input for an ion species' intrinsic properties on a compartment (NEURON per-section ion settings, e.g. ena/nai/nao).
+"""
+input IonInput {
+  """
+  The ion species name as NEURON knows it (e.g. 'na', 'k', 'ca'). Custom ions declared by mechanisms are allowed.
+  """
+  ion: String!
+
+  """
+  How the reversal potential and concentrations are treated (NEURON ion_style): a fixed reversal parameter, computed from fixed concentrations via Nernst, or with concentrations as states advanced by an accumulation mechanism.
+  """
+  style: IonStyle! = FIXED_REVERSAL
+
+  """
+  The reversal potential for this ion (NEURON e<ion>, e.g. ena). Unset leaves NEURON's default.
+  """
+  reversalPotential: ElectricPotential = null
+
+  """
+  The intracellular concentration for this ion (NEURON <ion>i, e.g. nai).
+  """
+  internalConcentration: Concentration = null
+
+  """
+  The extracellular concentration for this ion (NEURON <ion>o, e.g. nao).
+  """
+  externalConcentration: Concentration = null
+}
+
+enum IonStyle {
+  FIXED_REVERSAL
+  NERNST
+  ACCUMULATED
 }
 
 type IrregularlySampledSignal implements Signal {
@@ -1093,6 +1170,44 @@ input MechanismFilter {
   OR: MechanismFilter
   NOT: MechanismFilter
   DISTINCT: Boolean
+}
+
+"""
+Represents a GLOBAL mechanism parameter (NEURON GLOBAL variable, e.g. q10_hh) — shared across every instance of the mechanism, set once at the model level.
+"""
+type MechanismGlobalParam {
+  """The mechanism that owns this GLOBAL parameter (e.g. 'hh')."""
+  mechanism: String!
+
+  """The name of the GLOBAL parameter to set (e.g. 'q10')."""
+  param: String!
+
+  """
+  The value of the parameter, as a unit-bearing quantity (e.g. '2 dimensionless', '10 mV').
+  """
+  value: GenericQuantity!
+
+  """Description of the parameter"""
+  description: String
+}
+
+"""
+Input for a GLOBAL mechanism parameter (NEURON GLOBAL variable, e.g. q10_hh) — shared across every instance of the mechanism, set once at the model level.
+"""
+input MechanismGlobalParamInput {
+  """The mechanism that owns this GLOBAL parameter (e.g. 'hh')."""
+  mechanism: String!
+
+  """The name of the GLOBAL parameter to set (e.g. 'q10')."""
+  param: String!
+
+  """
+  The value of the parameter, as a unit-bearing quantity (e.g. '2 dimensionless', '10 mV').
+  """
+  value: GenericQuantity!
+
+  """Description of the parameter"""
+  description: String = null
 }
 
 """Input for creating a mechanism"""
@@ -1231,6 +1346,26 @@ type ModelConfig {
   """The list of net synapses in the model."""
   netSynapses: [NetSynapse!]
 
+  """
+  Model-wide default ion settings (reversal potentials / concentrations). A compartment's own ions override these by ion name.
+  """
+  ions: [Ion!]!
+
+  """
+  GLOBAL mechanism parameters (NEURON GLOBAL variables, e.g. q10_hh), shared across every instance of the mechanism.
+  """
+  mechanismGlobals: [MechanismGlobalParam!]!
+
+  """
+  Model-wide default axial resistivity (NEURON Ra). A section's own ra overrides this; unset falls back to NEURON's built-in 35.4 Ω·cm.
+  """
+  ra: Resistivity
+
+  """
+  Model-wide default specific membrane capacitance (NEURON cm). A section's own cm overrides this; unset falls back to NEURON's built-in 1 µF/cm².
+  """
+  cm: SpecificCapacitance
+
   """Initial membrane potential."""
   vInit: ElectricPotential!
 
@@ -1254,6 +1389,26 @@ input ModelConfigInput {
 
   """The list of net synapses in the model."""
   netSynapses: [NetSynapseInput!] = []
+
+  """
+  Model-wide default ion settings (reversal potentials / concentrations). A compartment's own ions override these by ion name.
+  """
+  ions: [IonInput!] = []
+
+  """
+  GLOBAL mechanism parameters (NEURON GLOBAL variables, e.g. q10_hh), shared across every instance of the mechanism.
+  """
+  mechanismGlobals: [MechanismGlobalParamInput!] = []
+
+  """
+  Model-wide default axial resistivity (NEURON Ra). A section's own ra overrides this; unset falls back to NEURON's built-in 35.4 Ω·cm.
+  """
+  ra: Resistivity = null
+
+  """
+  Model-wide default specific membrane capacitance (NEURON cm). A section's own cm overrides this; unset falls back to NEURON's built-in 1 µF/cm².
+  """
+  cm: SpecificCapacitance = null
 
   """Initial membrane potential."""
   vInit: ElectricPotential! = "-67 mV"
@@ -1710,6 +1865,9 @@ type Parameter {
   description: String
   default: Any
   nullable: Boolean!
+  referenceUnit: Unit
+  proposedUnits: [Unit!]
+  dimension: Dimension
 }
 
 """A parameter port of a mechanism"""
@@ -1720,6 +1878,9 @@ input ParameterInput {
   description: String = null
   default: Any = null
   nullable: Boolean! = false
+  referenceUnit: Unit = null
+  proposedUnits: [Unit!] = null
+  dimension: Dimension = null
 }
 
 """The kind of a mechanism parameter."""
@@ -2144,23 +2305,38 @@ type Section {
   """
   category: String
 
-  """The number of segments the section is discretized into."""
+  """
+  The number of segments the section is discretized into (used when d_lambda is not set). NEURON convention prefers an odd count so the section has a true midpoint node.
+  """
   nseg: Int!
 
-  """The diameter of the section."""
-  diam: Length!
-
-  """Length of the section. Required if coords is not provided."""
-  length: Length
-
-  """Axial resistivity (NEURON Ra)."""
-  ra: Resistivity!
-
-  """Specific membrane capacitance (NEURON cm)."""
-  cm: SpecificCapacitance!
+  """
+  If set, nseg is computed from NEURON's d_lambda rule (target fraction of the AC length constant at 100 Hz per segment; 0.1 is typical) and overrides the fixed nseg.
+  """
+  dLambda: Float
 
   """
-  The 3D coordinates describing the section's geometry. Required if length is not provided.
+  The diameter of the section (stylized geometry). Overridden by per-point coord diameters when coords are supplied.
+  """
+  diam: Length!
+
+  """
+  Length of the section (stylized geometry). Required if coords is not provided; ignored when coords are supplied.
+  """
+  length: Length
+
+  """
+  Axial resistivity (NEURON Ra). Unset inherits the model-wide default, then NEURON's built-in 35.4 Ω·cm.
+  """
+  ra: Resistivity
+
+  """
+  Specific membrane capacitance (NEURON cm). Unset inherits the model-wide default, then NEURON's built-in 1 µF/cm².
+  """
+  cm: SpecificCapacitance
+
+  """
+  The 3D coordinates (NEURON pt3d) describing the section's geometry. Required if length is not provided; when supplied they take precedence over length/diam. At least two points are needed to define a cable.
   """
   coords: [Coord!]
 
@@ -2182,23 +2358,38 @@ input SectionInput {
   """
   category: String = null
 
-  """The number of segments the section is discretized into."""
+  """
+  The number of segments the section is discretized into (used when d_lambda is not set). NEURON convention prefers an odd count so the section has a true midpoint node.
+  """
   nseg: Int! = 1
 
-  """The diameter of the section."""
-  diam: Length! = "1 µm"
-
-  """Length of the section. Required if coords is not provided."""
-  length: Length = null
-
-  """Axial resistivity (NEURON Ra)."""
-  ra: Resistivity! = "35.4 cm * Ω"
-
-  """Specific membrane capacitance (NEURON cm)."""
-  cm: SpecificCapacitance! = "1 µF / cm ** 2"
+  """
+  If set, nseg is computed from NEURON's d_lambda rule (target fraction of the AC length constant at 100 Hz per segment; 0.1 is typical) and overrides the fixed nseg.
+  """
+  dLambda: Float = null
 
   """
-  The 3D coordinates describing the section's geometry. Required if length is not provided.
+  The diameter of the section (stylized geometry). Overridden by per-point coord diameters when coords are supplied.
+  """
+  diam: Length! = "1 µm"
+
+  """
+  Length of the section (stylized geometry). Required if coords is not provided; ignored when coords are supplied.
+  """
+  length: Length = null
+
+  """
+  Axial resistivity (NEURON Ra). Unset inherits the model-wide default, then NEURON's built-in 35.4 Ω·cm.
+  """
+  ra: Resistivity = null
+
+  """
+  Specific membrane capacitance (NEURON cm). Unset inherits the model-wide default, then NEURON's built-in 1 µF/cm².
+  """
+  cm: SpecificCapacitance = null
+
+  """
+  The 3D coordinates (NEURON pt3d) describing the section's geometry. Required if length is not provided; when supplied they take precedence over length/diam. At least two points are needed to define a cable.
   """
   coords: [CoordInput!] = null
 
@@ -2588,6 +2779,15 @@ input TraceOrder @oneOf {
 
 """The `Vector` scalar type represents a matrix values as specified by"""
 scalar TwoDVector
+
+"""
+A physical unit of measurement (``"mV"``, ``"S/cm2"``, ``"second"``).
+
+A string scalar validating that the value parses as a pint unit — a bad unit,
+a bare quantity (``"5 mV"``), or a dimension is rejected. Compact exponent
+spelling (``"cm2"``) is accepted and the given spelling is preserved.
+"""
+scalar Unit
 
 input UpdateModelWorkspaceInput {
   id: ID!

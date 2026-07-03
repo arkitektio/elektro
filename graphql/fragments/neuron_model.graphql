@@ -28,6 +28,9 @@ fragment Section on Section {
   }
   category
   nseg
+  dLambda
+  ra
+  cm
   parent {
     parent
     parentLocation
@@ -48,15 +51,25 @@ fragment SectionParamMap on SectionParamMap {
   description
 }
 
-fragment GlobalParamMap on GlobalParamMap {
+fragment Ion on Ion {
+  ion
+  style
+  reversalPotential
+  internalConcentration
+  externalConcentration
+}
+
+fragment MechanismGlobalParam on MechanismGlobalParam {
+  mechanism
   param
   value
 }
+
 fragment Compartment on Compartment {
   id
   mechanisms
-  globalParams {
-    ...GlobalParamMap
+  ions {
+    ...Ion
   }
   sectionParams {
     ...SectionParamMap
@@ -93,8 +106,16 @@ fragment NeuronModel on NeuronModel {
   config {
     vInit
     temperature
+    ra
+    cm
     cells {
       ...Cell
+    }
+    ions {
+      ...Ion
+    }
+    mechanismGlobals {
+      ...MechanismGlobalParam
     }
     netSynapses {
       ...ExpTwoSynapse

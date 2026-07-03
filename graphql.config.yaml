@@ -91,6 +91,10 @@ projects:
           Temperature: kanne.scalars.Temperature
           Resistivity: kanne.scalars.Resistivity
           SpecificCapacitance: kanne.scalars.SpecificCapacitance
+          Concentration: kanne.scalars.Concentration
+          GenericQuantity: kanne.scalars.GenericQuantity
+          Unit: kanne.scalars.Unit
+          Dimension: kanne.scalars.Dimension
 
 
         additional_bases:

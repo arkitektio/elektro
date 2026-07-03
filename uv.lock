@@ -710,7 +710,7 @@ requires-dist = [
     { name = "dask", specifier = ">=2024.12.1" },
     { name = "duckdb", marker = "extra == 'table'", specifier = ">=1.0" },
     { name = "filelock", specifier = ">=3.12" },
-    { name = "kanne", specifier = ">=2.3.0" },
+    { name = "kanne", specifier = ">=2.5.0" },
     { name = "neuron", marker = "sys_platform != 'win32' and extra == 'neuron'", specifier = ">=8.0.0" },
     { name = "numcodecs", specifier = ">=0.16.1" },
     { name = "numpy", marker = "python_full_version >= '3.12' and python_full_version < '4'", specifier = ">=1.26" },
@@ -1016,15 +1016,15 @@ wheels = [
 
 [[package]]
 name = "kanne"
-version = "2.3.0"
+version = "2.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pint" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/85/b7/9c10a22d959201e2aff20266365c3f6eb0a467559e8704820877f58c6c20/kanne-2.3.0.tar.gz", hash = "sha256:e89c0edb6ff1c841218ea473e407e32718888961365d44d72ab310dcefd85ca1", size = 13778, upload-time = "2026-07-01T16:49:49.455Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/23/60/fc7a38bf1ac1831cb5075f7b8dbe7c9a86ded15e103f4274bc63e8815807/kanne-2.5.0.tar.gz", hash = "sha256:303e40e8ae8bea726d1f96c988c3da266f2a682e149f740df62ef6a6879870ac", size = 18610, upload-time = "2026-07-03T14:41:03.636Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d5/1f/1fb97fba7700ee394d97eb051f92001eee90716af0918cc8b3ddb012ddfb/kanne-2.3.0-py3-none-any.whl", hash = "sha256:2ccc9c9c8e523a10154beb19f4b57cdb53fca288a47251be4b408442cf6c534e", size = 15217, upload-time = "2026-07-01T16:49:48.512Z" },
+    { url = "https://files.pythonhosted.org/packages/df/71/03f17b644c4d69088937460702d087f23d6bc9c94258c0dcfc8cfd32ab12/kanne-2.5.0-py3-none-any.whl", hash = "sha256:94b96291c52929c425bfe91610e861be89199463467b6eef6bad36b9b5673bf0", size = 19779, upload-time = "2026-07-03T14:41:02.75Z" },
 ]
 
 [[package]]
