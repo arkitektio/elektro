@@ -11,9 +11,10 @@ projects:
         freeze:
           enabled: false
         options:
+          # snake_case is the only python-facing spelling a type checker sees;
+          # the GraphQL name stays the wire name. Both still validate.
+          alias_mode: split
           enabled: true
-          use_enum_values: true
-          allow_population_by_field_name: true
           validate_assignment: true
           extra: forbid
           types:

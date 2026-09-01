@@ -1,3 +1,11 @@
+directive @oneOf on INPUT_OBJECT
+
+schema @link(url: "https://specs.apollo.dev/federation/v2.11", import: ["@key"]) {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
 input AddModelsToWorkspaceInput {
   workspace: ID!
   models: [ID!]!
@@ -54,6 +62,10 @@ input AnalogSignalChannelOrder @oneOf {
 input AnalogSignalFilter {
   ids: [ID!]
   search: String
+  provenanceTask: String
+  provenanceRootTask: String
+  createdWith: String
+  createdByAgent: Boolean
   id: ID
   label: StrFilterLookup
   session: ID = null
@@ -80,7 +92,7 @@ input AnalogSignalOrder @oneOf {
 """The `Any` scalar any type"""
 scalar Any
 
-type App {
+type App @key(fields: "id", resolvable: true) {
   id: ID!
   identifier: String!
 }
@@ -117,7 +129,7 @@ scalar BigFileLike
 """
 A BigFileStore represents a large object stored behind the S3 datalayer.
 """
-type BigFileStore {
+type BigFileStore @key(fields: "id", resolvable: true) {
   id: ID!
   path: String!
   bucket: String!
@@ -191,6 +203,12 @@ input BlockFilter {
   search: String
   createdBefore: DateTime
   createdAfter: DateTime
+  createdBy: ID
+  mine: Boolean
+  provenanceTask: String
+  provenanceRootTask: String
+  createdWith: String
+  createdByAgent: Boolean
   id: ID
   label: StrFilterLookup
   trace: ID = null
@@ -266,6 +284,10 @@ type BlockSegment {
 input BlockSegmentFilter {
   ids: [ID!]
   search: String
+  provenanceTask: String
+  provenanceRootTask: String
+  createdWith: String
+  createdByAgent: Boolean
   id: ID
   name: StrFilterLookup
   description: StrFilterLookup
@@ -369,7 +391,7 @@ enum ChangeType {
   CHANGED
 }
 
-type Client {
+type Client @key(fields: "id", resolvable: true) {
   id: ID!
   release: Release
   clientId: String!
@@ -594,6 +616,12 @@ input DatasetFilter {
   search: String
   createdBefore: DateTime
   createdAfter: DateTime
+  createdBy: ID
+  mine: Boolean
+  provenanceTask: String
+  provenanceRootTask: String
+  createdWith: String
+  createdByAgent: Boolean
   id: ID
   name: StrFilterLookup
   parent: ID = null
@@ -775,6 +803,12 @@ input ExperimentFilter {
   search: String
   createdBefore: DateTime
   createdAfter: DateTime
+  createdBy: ID
+  mine: Boolean
+  provenanceTask: String
+  provenanceRootTask: String
+  createdWith: String
+  createdByAgent: Boolean
   id: ID
   name: StrFilterLookup
   AND: ExperimentFilter
@@ -866,6 +900,12 @@ type FileEvent {
 input FileFilter {
   ids: [ID!]
   search: String
+  createdBy: ID
+  mine: Boolean
+  provenanceTask: String
+  provenanceRootTask: String
+  createdWith: String
+  createdByAgent: Boolean
   id: ID
   name: StrFilterLookup
   size: IntFilterLookup
@@ -1122,6 +1162,10 @@ type IrregularlySampledSignal implements Signal {
 input IrregularlySampledSignalFilter {
   ids: [ID!]
   search: String
+  provenanceTask: String
+  provenanceRootTask: String
+  createdWith: String
+  createdByAgent: Boolean
   id: ID
   label: StrFilterLookup
   session: ID = null
@@ -1236,7 +1280,7 @@ type MediaAccessGrant {
   store: String
 }
 
-type MediaStore {
+type MediaStore @key(fields: "id", resolvable: true) {
   id: ID!
   path: String!
   bucket: String!
@@ -1270,7 +1314,7 @@ type MediaUploadGrant {
   uploadFormField: String!
 }
 
-type ModEnvironment {
+type ModEnvironment @key(fields: "id", resolvable: true) {
   id: ID!
   name: String!
   description: String
@@ -1319,6 +1363,8 @@ input ModelCollectionFilter {
   search: String
   createdBefore: DateTime
   createdAfter: DateTime
+  createdBy: ID
+  mine: Boolean
   id: ID
   name: StrFilterLookup
   AND: ModelCollectionFilter
@@ -1437,6 +1483,8 @@ input ModelWorkspaceFilter {
   search: String
   createdBefore: DateTime
   createdAfter: DateTime
+  createdBy: ID
+  mine: Boolean
   id: ID
   name: StrFilterLookup
   AND: ModelWorkspaceFilter
@@ -1818,6 +1866,25 @@ type NeuronModel {
   config: ModelConfig!
   changes(to: ID = null): [Change!]!
   comparisons: [Comparison!]!
+  sectionDominance(
+    referenceCell: ID = null
+    referenceSection: ID = null
+
+    """
+    Weight of the conductance load factor (Σ gbar · area — driven by channel densities like g_pas / gnabar_hh). Defaults to the built-in blend when unset.
+    """
+    weightConductance: Float = null
+
+    """
+    Weight of the membrane capacitance factor (cm · area — driven by specific capacitance). Defaults to the built-in blend when unset.
+    """
+    weightCapacitance: Float = null
+
+    """
+    Weight of the axial coupling factor (∝ diam² / (Ra · length) — driven by section diameter, axial resistivity and length). Defaults to the built-in blend when unset.
+    """
+    weightAxial: Float = null
+  ): [SectionDominance!]!
 }
 
 input NeuronModelFilter {
@@ -1825,6 +1892,12 @@ input NeuronModelFilter {
   search: String
   createdBefore: DateTime
   createdAfter: DateTime
+  createdBy: ID
+  mine: Boolean
+  provenanceTask: String
+  provenanceRootTask: String
+  createdWith: String
+  createdByAgent: Boolean
   id: ID
   name: StrFilterLookup
   AND: NeuronModelFilter
@@ -1852,7 +1925,7 @@ enum Ordering {
   DESC_NULLS_LAST
 }
 
-type Organization {
+type Organization @key(fields: "id", resolvable: true) {
   id: ID!
   slug: String!
 }
@@ -1905,7 +1978,7 @@ type ParquetAccessGrant {
   store: String
 }
 
-type ParquetStore {
+type ParquetStore @key(fields: "id", resolvable: true) {
   id: ID!
   path: String!
   bucket: String!
@@ -2122,6 +2195,12 @@ input ROIFilter {
   search: String
   createdBefore: DateTime
   createdAfter: DateTime
+  createdBy: ID
+  mine: Boolean
+  provenanceTask: String
+  provenanceRootTask: String
+  createdWith: String
+  createdByAgent: Boolean
   id: ID
   kind: RoiKindChoices
   trace: ID = null
@@ -2187,7 +2266,7 @@ input RecordingViewInput {
   label: String = null
 }
 
-type Release {
+type Release @key(fields: "id", resolvable: true) {
   id: ID!
   app: App!
   version: String!
@@ -2346,6 +2425,23 @@ type Section {
   parent: Connection
 }
 
+type SectionDominance {
+  cellId: String!
+  sectionId: String!
+  category: String
+  globalScore: Float!
+  referenceScore: Float!
+  rawGlobal: Float!
+  rawReference: Float!
+  area: Float!
+  capacitance: Float!
+  axialConductance: Float!
+  conductanceLoad: Float!
+  electrotonicDistance: Float!
+  transferWeight: Float!
+  isReference: Boolean!
+}
+
 """
 Input for a section of a cell's morphology, the basic structural unit of the topology.
 """
@@ -2458,6 +2554,7 @@ type Simulation {
   createdAt: DateTime!
   recordingViews(filters: ExperimentRecordingViewFilter, ordering: [ExperimentRecordingViewOrder!]! = [], pagination: OffsetPaginationInput): [ExperimentRecordingView!]!
   stimulusViews(filters: ExperimentStimulusViewFilter, ordering: [ExperimentStimulusViewOrder!]! = [], pagination: OffsetPaginationInput): [ExperimentStimulusView!]!
+  provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
 }
 
 input SimulationFilter {
@@ -2465,6 +2562,12 @@ input SimulationFilter {
   search: String
   createdBefore: DateTime
   createdAfter: DateTime
+  createdBy: ID
+  mine: Boolean
+  provenanceTask: String
+  provenanceRootTask: String
+  createdWith: String
+  createdByAgent: Boolean
   id: ID
   name: StrFilterLookup
   AND: SimulationFilter
@@ -2492,6 +2595,10 @@ type SpikeTrain implements Signal {
 input SpikeTrainFilter {
   ids: [ID!]
   search: String
+  provenanceTask: String
+  provenanceRootTask: String
+  createdWith: String
+  createdByAgent: Boolean
   id: ID
   label: StrFilterLookup
   session: ID = null
@@ -2757,6 +2864,12 @@ type TraceEvent {
 
 input TraceFilter {
   search: String
+  createdBy: ID
+  mine: Boolean
+  provenanceTask: String
+  provenanceRootTask: String
+  createdWith: String
+  createdByAgent: Boolean
   name: StrFilterLookup
   ids: [ID!]
   dataset: DatasetFilter
@@ -2813,7 +2926,7 @@ input UpdateWorkspaceMappingInput {
   workspaceGroup: String!
 }
 
-type User {
+type User @key(fields: "id", resolvable: true) {
   id: ID!
   sub: String!
   preferredUsername: String!
@@ -2874,7 +2987,7 @@ type ZarrAccessGrant {
   store: String
 }
 
-type ZarrStore {
+type ZarrStore @key(fields: "id", resolvable: true) {
   id: ID!
   path: String!
   bucket: String!

@@ -171,7 +171,7 @@ class UploadMiddleware(FuncsMiddleware):
         rath.query(
             FinishZarrUploadMutation.Meta.document,
             FinishZarrUploadMutation.Arguments(
-                input=FinishZarrUploadInput(storeId=store_id, valid=True)
+                input=FinishZarrUploadInput(store_id=store_id, valid=True)
             ).model_dump(by_alias=True, exclude_unset=True),
         )
 
@@ -206,7 +206,7 @@ class UploadMiddleware(FuncsMiddleware):
         x = rath.query(
             RequestBigfileUploadMutation.Meta.document,
             RequestBigfileUploadMutation.Arguments(
-                input=RequestBigFileUploadInput(originalFileName=original_file_name)
+                input=RequestBigFileUploadInput(original_file_name=original_file_name)
             ).model_dump(by_alias=True, exclude_unset=True),
         )
         return RequestBigfileUploadMutation(**x.data).request_bigfile_upload
@@ -242,7 +242,7 @@ class UploadMiddleware(FuncsMiddleware):
         await rath.aquery(
             FinishZarrUploadMutation.Meta.document,
             FinishZarrUploadMutation.Arguments(
-                input=FinishZarrUploadInput(storeId=store_id, valid=True)
+                input=FinishZarrUploadInput(store_id=store_id, valid=True)
             ).model_dump(by_alias=True, exclude_unset=True),
         )
 
@@ -277,7 +277,7 @@ class UploadMiddleware(FuncsMiddleware):
         x = await rath.aquery(
             RequestBigfileUploadMutation.Meta.document,
             RequestBigfileUploadMutation.Arguments(
-                input=RequestBigFileUploadInput(originalFileName=original_file_name)
+                input=RequestBigFileUploadInput(original_file_name=original_file_name)
             ).model_dump(by_alias=True, exclude_unset=True),
         )
         return RequestBigfileUploadMutation(**x.data).request_bigfile_upload
