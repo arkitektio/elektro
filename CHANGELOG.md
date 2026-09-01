@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.1.0 (2026-09-01)
+
+### Features
+
+- Some examples
+  ([`fc11ca1`](https://github.com/arkitektio/elektro/commit/fc11ca1887e368b43f100879ce44163a6080ca52))
+
+
 ## v2.0.0 (2026-07-03)
 
 
