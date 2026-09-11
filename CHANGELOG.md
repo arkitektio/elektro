@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v2.1.1 (2026-09-11)
+
+### Bug Fixes
+
+- Import the renamed arkitekt service registry
+  ([`e5ec17e`](https://github.com/arkitektio/elektro/commit/e5ec17e35161fbe22fa09cdc961e9e81c56d4f11))
+
+- Move onto the renamed arkitekt packages
+  ([`26c57d7`](https://github.com/arkitektio/elektro/commit/26c57d7ac2ac1b68a3c188281cf6b54ead09167a))
+
+
 ## v2.1.0 (2026-09-01)
 
 ### Features
