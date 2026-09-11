@@ -2,7 +2,7 @@
 
 from typing import Any, Dict
 
-from fakts_next.fakts import Fakts
+from fakts.fakts import Fakts
 from elektro.datalayer import DataLayer
 from pydantic import BaseModel
 

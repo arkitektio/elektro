@@ -4,17 +4,17 @@ import json
 import os
 from elektro.elektro import Elektro
 from elektro.rath import ElektroRath
-from fakts_next.contrib.rath.auth import FaktsAuthLink
-from fakts_next.models import Requirement
+from fakts.contrib.rath.auth import FaktsAuthLink
+from fakts.models import Requirement
 from kanne.contrib.rath.coerce_pint import CoercePintLink
 from rath.links import compose
 from rath.links.split import SplitLink
-from rekuest_next.links.context import ContextLink
-from fakts_next import Fakts
+from rekuest.links.context import ContextLink
+from fakts import Fakts
 from arkitekt.service_registry import BaseArkitektService, Params
 
-from fakts_next.contrib.rath.aiohttp import FaktsAIOHttpLink
-from fakts_next.contrib.rath.graphql_ws import FaktsGraphQLWSLink
+from fakts.contrib.rath.aiohttp import FaktsAIOHttpLink
+from fakts.contrib.rath.graphql_ws import FaktsGraphQLWSLink
 from rath.links.dictinglink import DictingLink
 from rath.links.file import FileExtraction
 from elektro.contrib.fakts.datalayer import FaktsDataLayer

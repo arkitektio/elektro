@@ -5,11 +5,11 @@ elektro type (Trace, Simulation, Experiment, ...) into the default structure
 registry so it can be expanded, shrunk and searched within rekuest.
 """
 
-from rekuest_next.structures.default import (
+from rekuest.structures.default import (
     get_default_structure_registry,
     id_shrink,
 )
-from rekuest_next.widgets import SearchWidget
+from rekuest.widgets import SearchWidget
 from elektro.api.schema import *
 
 structure_reg = get_default_structure_registry()
