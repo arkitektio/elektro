@@ -11,7 +11,7 @@ from rath.links import compose
 from rath.links.split import SplitLink
 from rekuest_next.links.context import ContextLink
 from fakts_next import Fakts
-from arkitekt_next.service_registry import BaseArkitektService, Params
+from arkitekt.service_registry import BaseArkitektService, Params
 
 from fakts_next.contrib.rath.aiohttp import FaktsAIOHttpLink
 from fakts_next.contrib.rath.graphql_ws import FaktsGraphQLWSLink
@@ -20,7 +20,7 @@ from rath.links.file import FileExtraction
 from elektro.contrib.fakts.datalayer import FaktsDataLayer
 from elektro.middleware.upload import UploadMiddleware
 from graphql import OperationType
-from arkitekt_next.service_registry import (
+from arkitekt.service_registry import (
     get_default_service_registry,
 )
 
