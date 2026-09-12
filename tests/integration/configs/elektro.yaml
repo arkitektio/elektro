@@ -1,4 +1,7 @@
 authentikate:
+  # Required since authentikate 4.0: without it the server refuses to boot, and a
+  # token an issuer minted for some other service would otherwise be accepted here.
+  audience: elektro
   issuers:
     - kind: rsa
       iss: lok
@@ -8,7 +11,11 @@ authentikate:
     test:
       sub: 1
       iss: lok
-      active_org: org
+      org: test
+      client_id: test
+      client_app: test
+      client_release: v0.0.1
+      client_device: test
 django:
   admin:
     email: admin@admin.com
@@ -31,6 +38,11 @@ scopes:
   mikro_read: Read image from the database
   mikro_write: Write image to the database
 datalayer:
+  # The server mints scoped STS credentials per grant and refuses to hand out its own
+  # permanent key when it cannot. Without this the tests upload with the root key, which
+  # hides every request that strays outside a grant's prefix (zarr's bucket-root
+  # zarr.json probe, a 403 against any real deployment).
+  role_arn: arn:aws:iam::000000000000:role/elektro
   access_key: mikro_access_key
   secret_key: mikro_secret_key
   host: rustfs

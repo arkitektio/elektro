@@ -71,12 +71,12 @@ def integration_ports() -> Generator[dict[str, int], None, None]:
     an unpublished port reads back as ``None`` and the test URLs would quietly
     become ``http://localhost:None`` instead of failing loudly.
     """
-    elektro_port, minio_port = _reserve_free_ports(2)
-    env = {"ELEKTRO_HOST_PORT": str(elektro_port), "MINIO_HOST_PORT": str(minio_port)}
+    elektro_port, rustfs_port = _reserve_free_ports(2)
+    env = {"ELEKTRO_HOST_PORT": str(elektro_port), "RUSTFS_HOST_PORT": str(rustfs_port)}
     previous = {key: os.environ.get(key) for key in env}
     os.environ.update(env)
     try:
-        yield {"elektro": elektro_port, "minio": minio_port}
+        yield {"elektro": elektro_port, "rustfs": rustfs_port}
     finally:
         for key, value in previous.items():
             if value is None:
@@ -106,7 +106,7 @@ class DeployedElektro:
 
     deployment: Deployment
     elektro_watcher: LogWatcher
-    minio_watcher: LogWatcher
+    rustfs_watcher: LogWatcher
     elektro: Elektro
 
 
@@ -116,7 +116,7 @@ def deployed_app(integration_ports: dict[str, int]) -> Generator[DeployedElektro
 
     This fixture sets up the Elektro application using Docker Compose,
     configures health checks, and provides a deployed instance of Elektro
-    for testing purposes. It also includes watchers for the Elektro and MinIO
+    for testing purposes. It also includes watchers for the Elektro and RustFS
     services to monitor their logs, when performing requests against the application.
 
     Yields:
@@ -139,19 +139,19 @@ def deployed_app(integration_ports: dict[str, int]) -> Generator[DeployedElektro
     )
 
     watcher = setup.create_watcher("elektro")
-    minio_watcher = setup.create_watcher("minio")
+    rustfs_watcher = setup.create_watcher("rustfs")
 
     with setup:
         setup.down()
         setup.pull()
         setup.inspect()
 
-        minio_url = f"http://localhost:{setup.spec.find_service('minio').get_port_for_internal(9000).published}"
+        rustfs_url = f"http://localhost:{setup.spec.find_service('rustfs').get_port_for_internal(9000).published}"
         elektro_http_url = f"http://localhost:{setup.spec.find_service('elektro').get_port_for_internal(80).published}/graphql"
         elektro_ws_url = f"ws://localhost:{setup.spec.find_service('elektro').get_port_for_internal(80).published}/graphql"
 
         datalayer = DataLayer(
-            endpoint_url=minio_url,
+            endpoint_url=rustfs_url,
         )
 
         y = ElektroRath(
@@ -183,7 +183,7 @@ def deployed_app(integration_ports: dict[str, int]) -> Generator[DeployedElektro
             deployed = DeployedElektro(
                 deployment=setup,
                 elektro_watcher=watcher,
-                minio_watcher=minio_watcher,
+                rustfs_watcher=rustfs_watcher,
                 elektro=elektro,
             )
 

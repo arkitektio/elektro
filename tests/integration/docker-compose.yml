@@ -13,6 +13,7 @@ services:
       - redis
       - db
       - rustfs
+      - initc
     image: jhnnsrs/elektro:${ELEKTRO_SERVICE_TAG:-next}
     command: bash run-debug.sh
     stop_grace_period: 1s
