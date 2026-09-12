@@ -33,7 +33,7 @@ s3:
     parquet: grumpy-magnolia-capybara
     zarr: flaky-malachite-ragdoll
   dependency: minio
-  host: minio
+  host: rustfs
   name: lanky-green-dalmatian
   port: 9000
   protocol: http
