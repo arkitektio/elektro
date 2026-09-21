@@ -11,6 +11,7 @@ dependencies = [
     "xarray>=2024.11.0",
     "dask>=2024.12.1",
     "rath>=3.10",
+    "rekuest>=3",
     "numpy>=1.26; python_version ~= '3.12'",
     "websockets>=15.0.1",
     "pytest>=8.3.5",
@@ -25,6 +26,9 @@ dependencies = [
 turms = ["turms"]
 neuron = ["neuron>=8.0.0; sys_platform != 'win32'"]
 table = ["pyarrow>=12.0.1", "pandas>=2.2", "duckdb>=1.0"]
+# The sparse wire format a spike raster is uploaded in. An extra: a client that never uploads
+# a sparse dataset should not carry it.
+sparse = ["sporadik>=1.1"]
 
 [tool.uv]
 dev-dependencies =  [
@@ -41,6 +45,10 @@ dev-dependencies =  [
     "dokker>=2.8",
     "pillow>=11.2.1",
     "pyarrow>=18.1.0",
+    # `SporadikLike.validate` -- and so every sparse test -- cannot run without the format;
+    # scipy builds the test rasters.
+    "sporadik>=1.1",
+    "scipy>=1.11",
     "neuron>=9.0.1; sys_platform != 'win32'",
     "ruff>0.11",
     "basedpyright>=1.21",

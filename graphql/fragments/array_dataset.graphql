@@ -1,0 +1,101 @@
+fragment DataArray on DataArray {
+  id
+  level
+  shape
+  chunkShape
+  scaleMethod
+  store {
+    ...ZarrStore
+  }
+}
+
+# The data layer is mikro's: the store belongs to a pyramid *level*, not to the
+# dataset. `valueUnit` is a reading of the dataset-wide `ValueUnit` anchor.
+fragment ArrayDataset on ArrayDataset {
+  id
+  name
+  axisNames
+  shape
+  multiscale
+  valueUnit
+  intrinsicSystem {
+    ...CoordinateSystem
+  }
+  dataArrays {
+    ...DataArray
+  }
+}
+
+# The spokes pinned to coordinates of a dataset: `{}` is the whole dataset,
+# `{c: 3}` one channel. `rig` is the hardware truth at acquisition, typed by
+# rigkit; it reads back as a graph, not as the flat input.
+fragment CoordinateAnchor on CoordinateAnchor {
+  id
+  coordinates
+  valueUnit {
+    unit
+    dimension
+  }
+  channelLabel {
+    label
+  }
+  # Where a dataset was recorded or stimulated. A fact of the measurement, so a
+  # spoke on the data -- not a row of the run, which reads them back from here.
+  recordingSite {
+    id
+    kind
+    model {
+      id
+    }
+    cell
+    location
+    position
+    label
+  }
+  stimulusSite {
+    id
+    kind
+    model {
+      id
+    }
+    cell
+    location
+    position
+    label
+  }
+  # (simulated) the model and integrator parameters that computed these values.
+  simulation {
+    ...SimulationState
+  }
+  acquisitionMetadata {
+    metadata
+  }
+  rig {
+    id
+    state {
+      mode
+      holdingPotential
+      holdingCurrent
+      seriesResistance
+      membraneCapacitance
+      temperature
+      devices {
+        label
+        kind
+        settings {
+          name
+          quantity
+          number
+          text
+          flag
+        }
+      }
+    }
+  }
+  valueHistogram {
+    min
+    max
+    p1
+    p99
+  }
+}

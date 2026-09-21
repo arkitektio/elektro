@@ -1,0 +1,42 @@
+fragment SparseArray on SparseArray {
+  id
+  indexedAxis
+  indexedAxisName
+  # Where this layout sits inside the store's prefix. Both layouts of one matrix
+  # share a store -- one matrix is one upload -- so the path says which this is.
+  path
+  store {
+    ...SparseStore
+  }
+}
+
+fragment SparseAxisReference on SparseAxisReference {
+  id
+  axis
+  references {
+    id
+    name
+  }
+}
+
+# Vendored from mikro, with one divergence: an axis may be TIME (a raster's sample
+# axis, placed on a clock by a sampling law). A spike raster is `(unit, t)`.
+fragment SparseDataset on SparseDataset {
+  id
+  name
+  description
+  axisNames
+  shape
+  # The axes a stored layout indexes -- what this matrix answers in one
+  # contiguous read. An axis absent here can only be answered by scanning.
+  indexableAxes
+  arrays {
+    ...SparseArray
+  }
+  axisReferences {
+    ...SparseAxisReference
+  }
+  coordinateSystem {
+    ...CoordinateSystem
+  }
+}

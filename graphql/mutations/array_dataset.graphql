@@ -1,0 +1,19 @@
+mutation CreateArrayDataset($input: CreateArrayDatasetInput!) {
+  createArrayDataset(input: $input) {
+    ...ArrayDataset
+  }
+}
+
+mutation UpdateArrayDataset($input: UpdateArrayDatasetInput!) {
+  updateArrayDataset(input: $input) {
+    ...ArrayDataset
+  }
+}
+
+mutation DeleteArrayDataset($input: DeleteArrayDatasetInput!) {
+  deleteArrayDataset(input: $input)
+}
+
+mutation DeleteDataArray($input: DeleteDataArrayInput!) {
+  deleteDataArray(input: $input)
+}

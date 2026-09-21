@@ -1,19 +1,131 @@
-fragment Experiment on Experiment {
-  name
+# An experiment is elektro's scene: a world and the layers drawn on it. A layer
+# names its data (a lens, a raster, a table, a collection) and owns none of it;
+# where the data sits in time is the graph's answer (`placement`, `pathToWorld`),
+# never a column of the layer -- there is no `offset` any more, it is one
+# `createClockOffset` edge per clock, shared by every layer timed on that clock.
+#
+# The kinds are inlined rather than spread as named fragments: a nested fragment
+# spread inside an *interface* fragment breaks turms' generated import (the same
+# trap mikro's `Layer` fragment documents).
+fragment ExperimentLayer on ExperimentLayer {
   id
-  timeTrace {
-    ...Trace
+  kind
+  name
+  blending
+  opacity
+  visible
+  order
+  placement
+  experiment {
+    id
   }
-  recordingViews {
-    label
-    recording {
-      ...Recording
+  ... on TraceLayer {
+    lens {
+      id
+      slices {
+        axis
+        start
+        stop
+        step
+      }
+      dataset {
+        id
+        name
+        axisNames
+        shape
+      }
+    }
+    channelIndex
+    climMin
+    climMax
+    lineWidth
+    color
+    # The shown stretch over the sampling law's rate: a reading, never stored.
+    duration
+  }
+  ... on SpikesLayer {
+    sparseDataset {
+      id
+      name
+      axisNames
+      shape
+    }
+    tickHeight
+    rowOrderColumn
+    valueMode
+    rateBin
+    spikesColormap: colormap
+    climMin
+    climMax
+    color
+    unitTable {
+      id
+      name
+    }
+    activeColorBy
+    activeFilterBys
+    colorBys {
+      kind
+      table
+      column
+      joinPath {
+        table
+        column
+      }
+      colormap
+      min
+      max
+      label
+    }
+    filterBys {
+      kind
+      table
+      column
+      joinPath {
+        table
+        column
+      }
+      min
+      max
+      values
+      exclude
+      label
     }
   }
-  stimulusViews {
-    label
-    stimulus {
-      ...Stimulus
+  ... on EventsLayer {
+    tableDataset {
+      id
+      name
+      axisNames
     }
+    timeColumn
+    stopColumn
+    labelColumn
+    laneColumn
+    eventsColormap: colormap
+    color
+    activeColorBy
+    activeFilterBys
+  }
+  ... on AnnotationLayer {
+    annotationCollection {
+      id
+      name
+    }
+  }
+}
+
+fragment Experiment on Experiment {
+  id
+  name
+  description
+  world {
+    ...CoordinateSystem
+  }
+  layers {
+    ...ExperimentLayer
+  }
+  annotationCollection {
+    id
   }
 }

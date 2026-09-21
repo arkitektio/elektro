@@ -14,7 +14,8 @@ import xarray as xr
 import pandas as pd
 import numpy as np
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
+from pathlib import Path
 
 
 def is_dask_array(v: Any) -> bool:
@@ -74,8 +75,45 @@ class XArrayConversionException(Exception):
 MetricValue = Any
 FeatureValue = Any
 
-TraceCoercible = xr.DataArray | np.ndarray | list | tuple
-ArrayLikeCoercible = xr.DataArray | np.ndarray | list | tuple
+ArrayCoercible = xr.DataArray | np.ndarray | list | tuple
+
+
+def is_unlabeled(array: xr.DataArray) -> bool:
+    """True when no dimension of the array was named by the caller.
+
+    xarray calls the dimensions of a bare array ``dim_0``, ``dim_1``, ...; those
+    names state nothing, so they are neither written into the store nor checked
+    against declared axes.
+    """
+    return all(str(dim) == f"dim_{index}" for index, dim in enumerate(array.dims))
+
+
+def coerce_to_labeled_array(v: Any) -> xr.DataArray:
+    """Coerce array-like input into an ``xr.DataArray``, keeping its dimensions verbatim.
+
+    Nothing is added, removed, renamed or transposed. A bare numpy/dask array
+    (or a list) carries no labels and keeps xarray's placeholder names; the
+    input it is part of names them from its declared ``axes`` (see
+    ``elektro.traits.DeclaresAxesTrait``), or the server does. Dask chunks are
+    preserved so the upload path can stream the array to zarr.
+    """
+    if isinstance(v, (list, tuple)):
+        v = np.asarray(v)
+
+    if isinstance(v, np.ndarray) or is_dask_array(v):
+        v = xr.DataArray(v)
+
+    if not isinstance(v, xr.DataArray):
+        raise ValueError(
+            f"Unsupported type {type(v)} for ArrayLike. Supported types are "
+            "xr.DataArray, numpy.ndarray, dask.array.Array and (nested) lists"
+        )
+
+    if v.ndim == 0:
+        raise ValueError("An array dataset needs at least one dimension, got a scalar")
+
+    return v
+
 
 # Raw inputs accepted by the ``FileLike``/``BigFileLike`` scalar validators: either a
 # path string (opened in binary mode on validation) or an already-opened file object.
@@ -440,17 +478,20 @@ class FourByFourMatrix(list):
         return cls(v)
 
 
-class TraceLike:
-    """A custom scalar for wrapping of every supported array like structure on
-    the mikro platform. This scalar enables validation of various array formats
-    into a mikro api compliant xr.DataArray.."""
+class ArrayLike:
+    """The array of an array dataset: any labelled or bare array, of any rank.
+
+    An analog signal is one ``(t, c)`` dataset, a waveform set ``(spike, c, t)``,
+    so nothing here restricts the rank or names a dimension. The wrapped value
+    is always an ``xr.DataArray``; a bare array keeps placeholder dimension
+    names until the input it belongs to declares its ``axes``."""
 
     def __init__(self, value: xr.DataArray) -> None:
         """Initialize the trace with the wrapped xr.DataArray value."""
         self.value = value
         self.key = str(uuid.uuid4())
 
-    def __set__(self, instance: Any, value: TraceCoercible) -> None:
+    def __set__(self, instance: Any, value: ArrayCoercible) -> None:
         """Set the descriptor value on the owning instance."""
 
     @classmethod
@@ -463,26 +504,15 @@ class TraceLike:
         return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v: TraceCoercible) -> "TraceLike":
+    def validate(cls, v: "ArrayCoercible | ArrayLike") -> "ArrayLike":
         """Validate the input array and convert it to a xr.DataArray."""
-        # initial coercion checks, if a numpy array is passed, we need to convert it to a xarray
-        # but that means the user didnt pass the dimensions explicitly so we need to add them
-        # but error if they do not make sense
-
-        if isinstance(v, np.ndarray):
-            v = xr.DataArray(v, dims=["c"])
-
-        if not isinstance(v, xr.DataArray):
-            raise ValueError("This needs to be a instance of xarray.DataArray")
-
-        if v.ndim != 1:
-            raise ValueError("This needs to be a 1D array")
-
-        return cls(v)
+        if isinstance(v, ArrayLike):
+            return v
+        return cls(coerce_to_labeled_array(v))
 
     def __repr__(self) -> str:
-        """Return a string representation of the TraceLike."""
-        return f"TraceLike({self.value})"
+        """Return a string representation of the ArrayLike."""
+        return f"ArrayLike({self.value})"
 
 
 class BigFile:
@@ -522,12 +552,21 @@ class BigFile:
 
 
 class ParquetLike:
-    """A custom scalar for ensuring a common format to support write to the
-    parquet api supported by elektro It converts the passed value into
-    a compliant format.."""
+    """A table to upload as parquet: a dict of columns, a DataFrame, a parquet file, or arrow.
 
-    def __init__(self, value: pd.DataFrame) -> None:
-        """Initialize the parquet wrapper with the source DataFrame."""
+    Vendored from mikro. Five things count as parquet-like, and the difference matters at
+    upload time rather than here (see :func:`elektro.io.upload._parquet_payload`):
+
+    - a ``dict`` of ``{column: values}`` -- turned into a ``pyarrow.Table`` here. The shortest
+      way to say a small table (an event list, a units table) without a temporary file;
+    - a ``pandas.DataFrame`` -- serialized in memory;
+    - a ``str``/``Path`` naming a parquet file already on disk -- streamed, never read in;
+    - a ``pyarrow.Table`` -- serialized without the pandas round trip;
+    - a ``pyarrow.RecordBatchReader`` -- written batch by batch, then streamed.
+    """
+
+    def __init__(self, value: "ParquetCoercible") -> None:
+        """Initialize the ParquetLike scalar with a DataFrame, path or arrow object."""
         self.value = value
         self.key = str(uuid.uuid4())
 
@@ -543,14 +582,126 @@ class ParquetLike:
     @classmethod
     def validate(cls, v: Any) -> "ParquetLike":
         """Validate the input value and wrap it as a ParquetLike."""
+        if isinstance(v, ParquetLike):
+            return v
+
+        if isinstance(v, (str, Path)):
+            path = Path(v)
+            # Checked here rather than at upload: a typo'd path should fail while the
+            # caller still knows which table it meant.
+            if not path.is_file():
+                raise ValueError(f"No parquet file at {path}")
+            return cls(path)
+
+        if isinstance(v, Mapping):
+            import pyarrow as pa  # type: ignore
+
+            try:
+                return cls(pa.table(dict(v)))
+            except Exception as error:
+                raise ValueError(
+                    "A dict of columns becomes a pyarrow Table, and this one could not: "
+                    f"{error}. Every value has to be a column of the same length -- a numpy "
+                    "array, a list, or a pyarrow array."
+                ) from error
+
+        try:
+            import pyarrow as pa  # type: ignore
+        except ImportError:
+            pa = None
+        if pa is not None and isinstance(v, (pa.Table, pa.RecordBatchReader)):
+            return cls(v)
+
         if not isinstance(v, pd.DataFrame):
-            raise ValueError("This needs to be a instance of pandas DataFrame")
+            raise ValueError(
+                "This needs to be a dict of columns, a pandas DataFrame, a path to a parquet "
+                "file, or a pyarrow Table/RecordBatchReader"
+            )
 
         return cls(v)
 
     def __repr__(self) -> str:
         """Return a string representation of the ParquetLike."""
-        return f"ParquetInput({self.value})"
+        return f"ParquetLike({self.value})"
+
+
+def _sporadik() -> Any:  # noqa: ANN401 - the module object
+    """The sparse wire format, or the reason it is missing.
+
+    An extra rather than a dependency: a client that never uploads a sparse dataset should not
+    carry the format, so the failure names the extra instead of reading like a broken install.
+    """
+    try:
+        import sporadik
+    except ModuleNotFoundError as missing:  # pragma: no cover - depends on the environment
+        raise ModuleNotFoundError(
+            "A sparse dataset is written in the `sporadik` wire format, which is an optional "
+            "extra here: pip install 'elektro[sparse]'."
+        ) from missing
+    return sporadik
+
+
+class SporadikLike:
+    """A **sparse matrix** -- a spike raster -- uploaded as one prefix holding one or more layouts.
+
+    Vendored from mikro. The value is anything carrying ``.data``, ``.indices``, ``.indptr``,
+    ``.shape`` and ``.format`` (a ``scipy.sparse`` CSR or CSC matrix), a list of them, or
+    ``sporadik.Layout`` objects. The server reads the encoding, the shape and the chunking back
+    off the artifact, which is why ``createSparseDataset`` declares none of them.
+
+    **Which layouts you hand over is a decision.** Over a ``(unit, t)`` raster, ``.tocsr()``
+    makes one *unit's* spike train contiguous and ``.tocsc()`` one *instant* across all units.
+    Pass ``[raster.tocsr(), raster.tocsc()]`` for both: one upload, one store, two capabilities.
+
+    Validated here rather than only server-side, because the server's check comes after the
+    bytes have moved.
+    """
+
+    def __init__(self, value: Any, layouts: dict[int, Any] | None = None) -> None:  # noqa: ANN401
+        """Wrap the matrix; ``layouts`` is keyed by the axis each layout makes contiguous."""
+        self.value = value
+        self.layouts = layouts if layouts is not None else _sporadik().layouts_of(value)
+        self.key = str(uuid.uuid4())
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: Any,  # noqa: ANN401
+        handler: GetCoreSchemaHandler,
+    ) -> CoreSchema:
+        """Get the pydantic core schema for the validator function."""
+        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
+
+    @classmethod
+    def validate(cls, v: Any) -> "SporadikLike":  # noqa: ANN401
+        """Accept CSR/CSC matrices (or layouts), and refuse what cannot be written as a store."""
+        if isinstance(v, SporadikLike):
+            return v
+
+        sporadik = _sporadik()
+        layouts = sporadik.layouts_of(v)
+        for layout in layouts.values():
+            sporadik.validate_layout(
+                data=layout.data,
+                indices=layout.indices,
+                indptr=layout.indptr,
+                shape=layout.shape,
+                indexed_axis=layout.indexed_axis,
+            )
+        return cls(v, layouts)
+
+    def __repr__(self) -> str:
+        """Return a string representation of the SporadikLike scalar."""
+        shape = next(iter(self.layouts.values())).shape if self.layouts else "?"
+        axes = "+".join(f"axis{axis}" for axis in sorted(self.layouts))
+        return f"SporadikLike({axes}, shape={shape})"
+
+
+ParquetCoercible = Any
+"""What :class:`ParquetLike` accepts: a dict of columns, a DataFrame, a parquet path, or arrow."""
+
+SporadikCoercible = Any
+"""What :class:`SporadikLike` accepts: a scipy.sparse CSR/CSC matrix, a list of them, or layouts."""
 
 
 class FileLike:
@@ -631,45 +782,6 @@ class MeshLike:
     def __repr__(self) -> str:
         """Return a string representation of the MeshLike."""
         return f"MeshLike({self.value})"
-
-
-class ArrayLike:
-    """A custom scalar for wrapping of every supported array like structure on
-    the elektro platform. This scalar enables validation of various array formats
-    into an elektro api compliant xr.DataArray. Unlike ``TraceLike`` it preserves
-    the caller's labelled dimensions (and arbitrary dimensionality) verbatim."""
-
-    def __init__(self, value: xr.DataArray) -> None:
-        """Initialize the array wrapper with the wrapped xr.DataArray value."""
-        self.value = value
-        self.key = str(uuid.uuid4())
-
-    @classmethod
-    def __get_pydantic_core_schema__(
-        cls,
-        source_type: Any,
-        handler: GetCoreSchemaHandler,
-    ) -> CoreSchema:
-        """Get the pydantic core schema for the validator function."""
-        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
-
-    @classmethod
-    def validate(cls, v: Any) -> "ArrayLike":
-        """Validate the input array and convert it to a xr.DataArray."""
-        if isinstance(v, xr.DataArray):
-            return cls(v)
-
-        if isinstance(v, np.ndarray) or is_dask_array(v):
-            return cls(xr.DataArray(v))
-
-        raise ValueError(
-            f"Unsupported type {type(v)} for ArrayLike. Supported types are "
-            "xr.DataArray, numpy.ndarray and dask.array.Array"
-        )
-
-    def __repr__(self) -> str:
-        """Return a string representation of the ArrayLike."""
-        return f"ArrayLike({self.value})"
 
 
 class BigFileLike:

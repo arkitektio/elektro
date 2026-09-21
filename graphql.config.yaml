@@ -20,11 +20,12 @@ projects:
           types:
             - input
         coercible_scalars:
-          TraceLike: elektro.scalars.TraceCoercible
+          ArrayLike: elektro.scalars.ArrayCoercible
           ID: rath.scalars.IDCoercible
           FileLike: elektro.scalars.FileLikeCoercible
           BigFileLike: elektro.scalars.BigFileLikeCoercible
-          ArrayLike: elektro.scalars.ArrayLikeCoercible
+          ParquetLike: elektro.scalars.ParquetCoercible
+          SporadikLike: elektro.scalars.SporadikCoercible
         stylers:
           - type: turms.stylers.default.DefaultStyler
           - type: turms.stylers.appender.AppenderStyler
@@ -33,46 +34,46 @@ projects:
           - type: turms.plugins.enums.EnumsPlugin
           - type: turms.plugins.inputs.InputsPlugin
           - type: turms.plugins.fragments.FragmentsPlugin
+            object_bases:
+              - elektro.traits.ElektroFetchable
           - type: turms.plugins.operations.OperationsPlugin
           - type: turms.plugins.input_funcs.InputFuncsPlugin
-          - type: turms.plugins.funcs.FuncsPlugin
+          - type: turms.plugins.client.ClientPlugin
+            # Every operation is a method of ElektroApi, which the client mixes in.
+            # Each method hands its operation to execute/aexecute/subscribe/asubscribe
+            # of self, which the Elektro client implements over its rath.
+            client_class: ElektroApi
+            # The client's own attributes, and those of its base: pydantic lets a
+            # field hide a same-named method with only a warning.
+            reserved_from:
+              - koil.composition.Composition
+            reserved_names:
+              - rath
+              - datalayer
+              - task_token
+              - for_task
+            coercible_inputs:
+              AxisInput: str
             expand_input_types:
               - input
-            global_kwargs:
-              - type: elektro.rath.ElektroRath
-                key: rath
-                description: The elektro rath client
-            definitions:
-              - type: subscription
-                is_async: true
-                use: elektro.funcs.asubscribe
-              - type: query
-                is_async: true
-                use: elektro.funcs.aexecute
-              - type: mutation
-                is_async: true
-                use: elektro.funcs.aexecute
-              - type: subscription
-                use: elektro.funcs.subscribe
-              - type: query
-                use: elektro.funcs.execute
-              - type: mutation
-                use: elektro.funcs.execute
         processors:
           - type: turms.processors.disclaimer.DisclaimerProcessor
         scalar_definitions:
           Any: typing.Any
+          JSON: typing.Any
+          UUID: str
           AnyDefault: typing.Any
           SearchQuery: str
           Arg: typing.Any
           ValidatorFunction: str
           StructureString: str
-          TraceLike: elektro.scalars.TraceLike
+          ArrayLike: elektro.scalars.ArrayLike
           FileLike: elektro.scalars.FileLike
           BigFileLike: elektro.scalars.BigFileLike
+          ParquetLike: elektro.scalars.ParquetLike
+          SporadikLike: elektro.scalars.SporadikLike
           Upload: elektro.scalars.Upload
           Vector: elektro.scalars.Vector
-          ArrayLike: elektro.scalars.ArrayLike
           TwoDVector: elektro.scalars.TwoDVector
           ThreeDVector: elektro.scalars.ThreeDVector
           FourDVector: elektro.scalars.FourDVector
@@ -89,6 +90,10 @@ projects:
           Length: kanne.scalars.Length
           ElectricPotential: kanne.scalars.ElectricPotential
           ElectricalConductance: kanne.scalars.ElectricalConductance
+          # New with rigkit: a RigState states the amplifier's own quantities.
+          ElectricCurrent: kanne.scalars.ElectricCurrent
+          ElectricalResistance: kanne.scalars.ElectricalResistance
+          Capacitance: kanne.scalars.Capacitance
           Temperature: kanne.scalars.Temperature
           Resistivity: kanne.scalars.Resistivity
           SpecificCapacitance: kanne.scalars.SpecificCapacitance
@@ -99,14 +104,14 @@ projects:
 
 
         additional_bases:
-          Trace:
-            - elektro.traits.HasZarrStoreTrait
+          ArrayDataset:
+            - elektro.traits.DatasetTrait
+          DataArray:
+            - elektro.traits.DataArrayTrait
           Biophysics:
             - elektro.traits.BiophysicsTrait
           Topology:
             - elektro.traits.TopologyTrait
-          Simulation:
-            - elektro.traits.SimulationTrait
           Compartment:
             - elektro.traits.CompartmentTrait
           SectionInput:
@@ -131,6 +136,46 @@ projects:
             - elektro.traits.HasDownloadAccessor
           MediaStore:
             - elektro.traits.HasPresignedDownloadAccessor
-          ROI:
-            - elektro.traits.IsVectorizableTrait
+          Lens:
+            - elektro.traits.Lensable
+          CoordinateSystem:
+            - elektro.traits.CoordinateSystemTrait
+          ScaleTransformation:
+            - elektro.traits.TransformationTrait
+          TranslationTransformation:
+            - elektro.traits.TransformationTrait
+          AffineTransformation:
+            - elektro.traits.TransformationTrait
+          RotationTransformation:
+            - elektro.traits.TransformationTrait
+          IdentityTransformation:
+            - elektro.traits.TransformationTrait
+          MapAxisTransformation:
+            - elektro.traits.TransformationTrait
+          FieldTransformation:
+            - elektro.traits.TransformationTrait
+          SequenceTransformation:
+            - elektro.traits.TransformationTrait
+          ByDimensionTransformation:
+            - elektro.traits.TransformationTrait
+          UnmappableTransformation:
+            - elektro.traits.TransformationTrait
+          AxisInput:
+            - elektro.traits.AxisInputTrait
+          CreateArrayDatasetInput:
+            - elektro.traits.DeclaresAxesTrait
+          TableDataset:
+            - elektro.traits.TableDatasetTrait
+          CreateTableDatasetInput:
+            - elektro.traits.CreateTableDatasetTrait
+          CreateSparseDatasetInput:
+            - elektro.traits.CreateSparseDatasetTrait
+          SparseAxisInput:
+            - elektro.traits.SparseAxisInputTrait
+          CreateSamplingLawInput:
+            - elektro.traits.ResolvesSpacesTrait
+          CreateClockOffsetInput:
+            - elektro.traits.ResolvesSpacesTrait
+          CreateSessionInput:
+            - elektro.traits.ResolvesSpacesTrait
   

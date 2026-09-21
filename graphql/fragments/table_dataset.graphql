@@ -1,0 +1,38 @@
+# Vendored from mikro. In elektro a table is events and epochs (a TIME coordinate
+# column, an optional stop column) or a sorter's units (an INDEX coordinate
+# column plus attributes).
+fragment Column on Column {
+  id
+  order
+  name
+  dtype
+  role
+  axisType
+  unit
+  longName
+  description
+  # The table its values key -- a foreign key, which authors no edge.
+  references {
+    id
+  }
+}
+
+fragment TableDataset on TableDataset {
+  id
+  name
+  description
+  store {
+    ...ParquetStore
+  }
+  columns {
+    ...Column
+  }
+  coordinateSystem {
+    ...CoordinateSystem
+  }
+  derivedFrom {
+    ...Transformation
+  }
+  axisNames
+  provenanceMetadata
+}

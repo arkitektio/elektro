@@ -15,8 +15,9 @@ Run it inside an Arkitekt environment (a reachable Elektro backend is required):
 
 import tempfile
 
-from arkitekt import easy
+from arkitekt import App, connect
 
+from elektro import Elektro
 from elektro.api.schema import (
     BiophysicsInput,
     CellInput,
@@ -26,8 +27,6 @@ from elektro.api.schema import (
     SectionInput,
     SectionParamMapInput,
     TopologyInput,
-    create_mod_environment,
-    create_neuronmodel,
 )
 from elektro.neuron.parse import build_and_zip_environment
 
@@ -66,7 +65,7 @@ def build_config() -> ModelConfigInput:
     )
 
 
-def create_builtin_environment(name: str):
+def create_builtin_environment(elektro: Elektro, name: str):
     """Create a minimal ModEnvironment with no custom mechanisms.
 
     The server requires every NeuronModel to reference an environment, even when
@@ -76,13 +75,14 @@ def create_builtin_environment(name: str):
     """
     empty_dir = tempfile.mkdtemp(prefix="elektro-builtin-env-")
     zip_file, mechanisms = build_and_zip_environment(empty_dir)
-    return create_mod_environment(name=name, zip_file=zip_file, mechanisms=mechanisms)
+    return elektro.create_mod_environment(name=name, zip_file=zip_file, mechanisms=mechanisms)
 
 
 def main() -> None:
-    with easy("neuron-model-examples"):
-        env = create_builtin_environment("builtin-mechanisms")
-        model = create_neuronmodel(
+    with connect(App("neuron-model-examples", services=[Elektro])) as rt:
+        elektro = rt.require(Elektro)
+        env = create_builtin_environment(elektro, "builtin-mechanisms")
+        model = elektro.create_neuronmodel(
             name="single-soma-basic",
             config=build_config(),
             environment=env.id,

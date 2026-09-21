@@ -17,8 +17,9 @@ Run it inside an Arkitekt environment (a reachable Elektro backend is required):
 
 from pathlib import Path
 
-from arkitekt import easy
+from arkitekt import App, connect
 
+from elektro import Elektro
 from elektro.api.schema import (
     BiophysicsInput,
     CellInput,
@@ -28,8 +29,6 @@ from elektro.api.schema import (
     SectionInput,
     SectionParamMapInput,
     TopologyInput,
-    create_mod_environment,
-    create_neuronmodel,
 )
 from elektro.neuron.parse import build_and_zip_environment
 
@@ -91,15 +90,16 @@ def main() -> None:
     for mech in mechanisms:
         print(f"  - {mech.name}")
 
-    with easy("neuron-model-examples"):
-        env = create_mod_environment(
+    with connect(App("neuron-model-examples", services=[Elektro])) as rt:
+        elektro = rt.require(Elektro)
+        env = elektro.create_mod_environment(
             name="customleak-env",
             zip_file=zip_file,
             mechanisms=mechanisms,
         )
         print(f"Created ModEnvironment {env.name!r} with id {env.id}")
 
-        model = create_neuronmodel(
+        model = elektro.create_neuronmodel(
             name="single-soma-customleak-sim",
             config=build_config(),
             environment=env.id,
@@ -107,8 +107,9 @@ def main() -> None:
         )
         print(f"Created NeuronModel {model.name!r} with id {model.id}")
 
-        simulation = unkoil(
+        run = unkoil(
             arun_simulation,
+            elektro,
             model=model,
             duration="50 ms",
             dt="0.025 ms",
@@ -123,8 +124,9 @@ def main() -> None:
                 )
             ],
         )
-        print(f"Ran simulation {simulation.id}")
-        print(f"Recorded time trace shape: {simulation.time_trace.data.shape}")
+        # A run is its clock: the recordings and stimuli are timed onto it.
+        print(f"Ran on clock {run.clock.name!r} ({run.clock.id})")
+        print(f"Recording shape: {run.recordings[0].data.shape}")
 
 
 if __name__ == "__main__":

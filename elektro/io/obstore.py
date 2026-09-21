@@ -135,35 +135,113 @@ def _generic_chunk_shape(
     return tuple(int(c) for c in chunk)
 
 
-def _zarr_chunk_shape(array: xr.DataArray) -> tuple[int, ...]:
-    """Compute an on-disk zarr chunk shape (~20MB) aligned to the array dims.
+#: The inner chunk: the unit a reader decodes. For a ``(t, c)`` float32 trace with four
+#: channels that is 65,536 samples of every channel, 1 MiB -- a screenful of a zoomed-in
+#: trace, where the old 20 MB chunk made the viewer decode 1.25M samples to draw one.
+INNER_CHUNK_BYTES = 1 * 1024**2
 
-    Canonical 5D ``ctzyx`` arrays use the ``ctzyx``-aware :func:`rechunk` heuristic.
-    Arbitrarily-labelled arrays (the generic ``ArrayLike``/``TraceLike`` path) fall
-    back to a semantics-agnostic chunker. Returns a chunk tuple in the array's own
-    dimension order so it can be passed straight to zarr.
+#: The shard: the unit of storage, grouping inner chunks so a long recording is not tens of
+#: thousands of objects. 16 inner chunks -- 16 MiB, one object-store request's worth;
+#: mikro's 128 MiB suits image volumes, not traces read a window at a time.
+SHARD_BYTES = 16 * 1024**2
+
+#: Arrays below one shard are written plain-chunked: a single shard would be the whole
+#: array, so its index and read-modify-write buy nothing. This keeps small pyramid levels
+#: (and most stimuli, tables-as-arrays and times vectors) unsharded.
+SHARD_MIN_ARRAY_BYTES = SHARD_BYTES
+
+
+def _generic_shard_shape(
+    shape: tuple[int, ...], inner: tuple[int, ...], itemsize: int, shard_bytes: int = SHARD_BYTES
+) -> tuple[int, ...]:
+    """Grow an inner chunk shape into a shard shape for arbitrarily-labelled dims.
+
+    Vendored from mikro. Walks dimensions inner->outer (C-order), multiplying each
+    axis's chunk count by the largest integer factor that keeps the shard within the
+    byte budget, clamped so a shard overhangs the array by less than one inner chunk
+    per axis. Every result axis is an exact multiple of the inner chunk axis -- the
+    server's ``validate_sharding`` and the frontend's reader reject anything else.
+    """
+    shard = list(inner)
+    bytes_so_far = itemsize
+    for size in inner:
+        bytes_so_far *= size
+    for i in reversed(range(len(shape))):
+        budget = max(1, shard_bytes // bytes_so_far)
+        factor = min(budget, max(1, -(-shape[i] // inner[i])))
+        shard[i] = inner[i] * factor
+        bytes_so_far *= factor
+        if budget == 1:
+            break
+    return tuple(int(s) for s in shard)
+
+
+def _zarr_chunk_layout(array: xr.DataArray) -> tuple[tuple[int, ...], tuple[int, ...] | None]:
+    """The on-disk zarr (inner chunk, shard) layout, in the array's own dimension order.
+
+    Canonical 5D ``ctzyx`` arrays keep the ``ctzyx``-aware ~20 MB :func:`rechunk`, unsharded
+    (elektro stores no images). Everything else -- every trace, which is ``(t)`` or
+    ``(t, c)`` -- gets inner chunks of at most :data:`INNER_CHUNK_BYTES`, the innermost
+    dims kept whole while they fit; from :data:`SHARD_MIN_ARRAY_BYTES` up, those are
+    grouped into shards of about :data:`SHARD_BYTES`. The shard is None when unsharded.
     """
     if set(array.dims) == _CTZYX_DIMS:
         chunks = rechunk(
             dict(array.sizes), itemsize=array.dtype.itemsize, chunksize_in_bytes=20_000_000
         )
-        return tuple(int(chunks[dim]) for dim in array.dims)
-    return _generic_chunk_shape(array)
+        return tuple(int(chunks[dim]) for dim in array.dims), None
+
+    chunk_shape = _generic_chunk_shape(array, chunksize_in_bytes=INNER_CHUNK_BYTES)
+    if array.dtype.itemsize * array.size < SHARD_MIN_ARRAY_BYTES:
+        return chunk_shape, None
+    shard_shape = _generic_shard_shape(array.shape, chunk_shape, array.dtype.itemsize)
+    if shard_shape == chunk_shape:
+        return chunk_shape, None
+    return chunk_shape, shard_shape
 
 
-def write_dataarray_to_zarr(store_path: StorePath, array: xr.DataArray) -> None:
+def _dimension_names(array: xr.DataArray) -> list[str | None] | None:
+    """The dimension names to write into the store, or None when there are none.
+
+    Only names the caller gave are written. xarray's placeholders (``dim_0``,
+    ...) state nothing, and the server checks a store's names against the
+    declared axes: a placeholder would be refused as a disagreement, where a
+    null is the store declining to name the dimension.
+    """
+    names: list[str | None] = [
+        None if str(dim) == f"dim_{index}" else str(dim) for index, dim in enumerate(array.dims)
+    ]
+    return names if any(name is not None for name in names) else None
+
+
+def write_dataarray_to_zarr(
+    store_path: StorePath,
+    array: xr.DataArray,
+    *,
+    chunks: tuple[int, ...] | None = None,
+    shards: tuple[int, ...] | None = None,
+) -> None:
     """Write a DataArray to a zarr v3 array synchronously with explicit chunks.
 
-    Dask-backed arrays are streamed chunk-by-chunk via ``dask.array.store`` so the
-    full array is never materialised in memory; numpy arrays are written directly.
+    Large arrays are sharded by default (see :func:`_zarr_chunk_layout`); pass explicit
+    ``chunks`` without ``shards`` to force an unsharded layout. The default codecs are
+    kept deliberately: zarr's stock sharded layout (sole top-level ``sharding_indexed``,
+    declared crc32c index codecs) is exactly what the server and the frontend accept.
+
+    Dask-backed arrays are streamed via ``dask.array.store`` so the full array is never
+    materialised in memory; numpy arrays are written directly.
     """
-    chunk_shape = _zarr_chunk_shape(array)
+    if chunks is None and shards is None:
+        chunks, shards = _zarr_chunk_layout(array)
+    elif chunks is None:
+        raise ValueError("shards cannot be given without the inner chunks they group.")
     zarr_array = zarr.create_array(
         store_path,
         shape=array.shape,
-        chunks=chunk_shape,
+        chunks=chunks,
+        shards=shards,
         dtype=array.dtype,
-        dimension_names=[str(dim) for dim in array.dims],
+        dimension_names=_dimension_names(array),
         zarr_format=3,
         overwrite=True,
     )
@@ -171,23 +249,29 @@ def write_dataarray_to_zarr(store_path: StorePath, array: xr.DataArray) -> None:
     if is_dask_array(data):
         from dask.array.core import store as dask_store
 
-        # Align dask blocks to the zarr chunk grid so concurrent, lock-free writes
-        # never target the same chunk from two blocks (which would race/corrupt).
-        data = data.rechunk(chunk_shape)
+        # Align dask blocks to the *storage object* grid -- the shard when sharding, else
+        # the chunk -- so concurrent, lock-free writes never target one object from two
+        # blocks. A sub-shard write is a read-modify-write of the whole shard, so two
+        # blocks in one shard would silently drop inner chunks.
+        data = data.rechunk(shards or chunks)
         dask_store(data, zarr_array, lock=False)
     else:
         zarr_array[...] = np.asarray(data)
 
 
-async def awrite_dataarray_to_zarr(store_path: StorePath, array: xr.DataArray) -> None:
+async def awrite_dataarray_to_zarr(
+    store_path: StorePath,
+    array: xr.DataArray,
+    *,
+    chunks: tuple[int, ...] | None = None,
+    shards: tuple[int, ...] | None = None,
+) -> None:
     """Write a DataArray to a zarr v3 array without blocking the event loop.
 
-    Delegates to the synchronous streaming writer in a worker thread so that
-    dask-backed arrays are streamed to zarr chunk-by-chunk (via ``dask.array.store``)
-    and are never fully materialised in memory. ``dask.array.store`` runs the dask
-    scheduler synchronously, so it must not be awaited directly on the event loop.
+    Delegates to the synchronous streaming writer in a worker thread: ``dask.array.store``
+    runs the dask scheduler synchronously, so it must not be awaited on the event loop.
     """
-    await asyncio.to_thread(write_dataarray_to_zarr, store_path, array)
+    await asyncio.to_thread(write_dataarray_to_zarr, store_path, array, chunks=chunks, shards=shards)
 
 
 async def awrite_xarray_to_obstore(

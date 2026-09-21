@@ -20,8 +20,9 @@ Run it inside an Arkitekt environment (a reachable Elektro backend is required):
 
 from pathlib import Path
 
-from arkitekt import easy
+from arkitekt import App, connect
 
+from elektro import Elektro
 from elektro.api.schema import (
     BiophysicsInput,
     CellInput,
@@ -31,8 +32,6 @@ from elektro.api.schema import (
     SectionInput,
     SectionParamMapInput,
     TopologyInput,
-    create_mod_environment,
-    create_neuronmodel,
 )
 from elektro.neuron.parse import build_and_zip_environment
 
@@ -80,8 +79,9 @@ def main() -> None:
     for mech in mechanisms:
         print(f"  - {mech.name}")
 
-    with easy("neuron-model-examples"):
-        env = create_mod_environment(
+    with connect(App("neuron-model-examples", services=[Elektro])) as rt:
+        elektro = rt.require(Elektro)
+        env = elektro.create_mod_environment(
             name="customleak-env",
             zip_file=zip_file,
             mechanisms=mechanisms,
@@ -89,7 +89,7 @@ def main() -> None:
         print(f"Created ModEnvironment {env.name!r} with id {env.id}")
         print(f"  registered mechanisms: {[m.name for m in env.mechanisms]}")
 
-        model = create_neuronmodel(
+        model = elektro.create_neuronmodel(
             name="single-soma-customleak",
             config=build_config(),
             environment=env.id,

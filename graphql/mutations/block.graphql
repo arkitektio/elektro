@@ -1,5 +1,0 @@
-mutation CreateBlock($input: CreateBlockInput!) {
-  createBlock(input: $input) {
-    ...Block
-  }
-}

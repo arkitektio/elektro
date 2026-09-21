@@ -2,17 +2,17 @@
 
 from elektro.api.schema import (
     ZarrAccessGrant,
-    arequest_zarr_access,
-    arequest_parquet_access,
-    arequest_bigfile_access,
     ParquetAccessGrant,
     BigFileAccessGrant,
 )
-from elektro.datalayer import DataLayer, current_elektro_datalayer
+from elektro.datalayer import DataLayer
+from elektro.errors import NoDataLayerFound, NoElektroFound
+from elektro.rath import ElektroRath
 from koil import unkoil
+from rath.origin import get_origin
 import aiohttp
 from pathlib import Path
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Any, Tuple, cast
 import obstore  # Imported to access direct streaming capabilities
 
 from elektro.io.obstore import (
@@ -24,82 +24,187 @@ from rath.scalars import ID
 from zarr.storage import StorePath
 
 if TYPE_CHECKING:
+    from elektro.elektro import Elektro
     from duckdb import DuckDBPyConnection, DuckDBPyRelation
 
 
 async def aget_zarr_credentials_and_endpoint(
     store: str,
+    rath: ElektroRath,
+    datalayer: DataLayer,
 ) -> Tuple[ZarrAccessGrant, str]:
-    """Fetch zarr access credentials and the datalayer endpoint URL."""
-    datalayer = current_elektro_datalayer.get()
-    if not datalayer:
-        raise ValueError("Datalayer is not set")
-    credentials = await arequest_zarr_access(ID.validate(store))
+    """Fetch zarr access credentials and the datalayer endpoint URL.
 
+    Both clients are taken as given: callers pick them (see :func:`_clients`)
+    before crossing into the event loop.
+    """
+    credentials = await _as_client(rath, datalayer).arequest_zarr_access(ID.validate(store))
     endpoint_url = await datalayer.get_endpoint_url()
     return credentials, endpoint_url
 
 
 async def aget_table_credentials_and_endpoint(
     store: str,
+    rath: ElektroRath,
+    datalayer: DataLayer,
 ) -> Tuple[ParquetAccessGrant, str]:
-    """Fetch parquet access credentials and the datalayer endpoint URL."""
-    datalayer = current_elektro_datalayer.get()
-    if not datalayer:
-        raise ValueError("Datalayer is not set")
+    """Fetch parquet access credentials and the datalayer endpoint URL.
 
-    credentials = await arequest_parquet_access(ID.validate(store))
+    Both clients are taken as given: callers pick them (see :func:`_clients`)
+    before crossing into the event loop.
+    """
+    credentials = await _as_client(rath, datalayer).arequest_parquet_access(ID.validate(store))
     endpoint_url = await datalayer.get_endpoint_url()
     return credentials, endpoint_url
 
 
 async def aget_bigfile_credentials_and_endpoint(
     store: str,
+    rath: ElektroRath,
+    datalayer: DataLayer,
 ) -> Tuple[BigFileAccessGrant, str]:
-    """Fetch big-file access credentials and the datalayer endpoint URL."""
-    datalayer = current_elektro_datalayer.get()
-    if not datalayer:
-        raise ValueError("Datalayer is not set")
+    """Fetch big-file access credentials and the datalayer endpoint URL.
 
-    credentials = await arequest_bigfile_access(ID.validate(store))
+    Both clients are taken as given: callers pick them (see :func:`_clients`)
+    before crossing into the event loop.
+    """
+    credentials = await _as_client(rath, datalayer).arequest_bigfile_access(ID.validate(store))
     endpoint_url = await datalayer.get_endpoint_url()
     return credentials, endpoint_url
 
 
-async def aopen_zarr_store(store_id: str, cache: int = 2**30) -> StorePath:
+def _as_client(rath: ElektroRath, datalayer: DataLayer) -> "Elektro":
+    """A client over an already-picked rath and datalayer, to call operations on.
+
+    Not entered and not owning either: whoever picked them owns their lifetime.
+    It carries no task token, so access requests made through it are not
+    attributed to a task.
+    """
+    from elektro.elektro import Elektro
+
+    return Elektro.model_construct(rath=rath, datalayer=datalayer, task_token=None)
+
+
+def _datalayer(datalayer: DataLayer | None, obj: Any) -> DataLayer:  # noqa: ANN401
+    """The datalayer given, else the one ``obj`` was fetched with.
+
+    Raises:
+        NoDataLayerFound: If neither provides one.
+    """
+    if datalayer is not None:
+        return datalayer
+    origin = get_origin(obj)
+    found = origin.clients.get("datalayer") if origin is not None else None
+    if found is None:
+        raise NoDataLayerFound(
+            f"{type(obj).__name__} was not fetched through an Elektro client, so there "
+            "is no datalayer to read it with. Pass one explicitly (datalayer=...)."
+        )
+    return found
+
+
+def _clients(
+    rath: ElektroRath | None,
+    datalayer: DataLayer | None,
+    obj: Any,  # noqa: ANN401
+) -> Tuple[ElektroRath, DataLayer]:
+    """Both clients for a call: the ones given, else the ones ``obj`` was fetched with.
+
+    ``obj`` is the object the call is made on. Nothing is looked up in what happens
+    to be current. Picked here rather than deeper down because the sync entry points
+    cross into the event loop.
+
+    Raises:
+        NoElektroFound: If neither gives a rath.
+        NoDataLayerFound: If neither gives a datalayer.
+    """
+    if rath is None:
+        origin = get_origin(obj)
+        # Only ever bound by elektro's own executor, so it is an ElektroRath.
+        rath = cast("ElektroRath | None", origin.rath if origin is not None else None)
+        if rath is None:
+            raise NoElektroFound(
+                f"{type(obj).__name__} was not fetched through an Elektro client, so "
+                "there is none to call through. Pass the clients explicitly (rath=..., "
+                "datalayer=...)."
+            )
+    return rath, _datalayer(datalayer, obj)
+
+
+async def aopen_zarr_store(
+    store_id: str,
+    cache: int = 2**30,
+    *,
+    rath: ElektroRath | None = None,
+    datalayer: DataLayer | None = None,
+    obj: Any = None,  # noqa: ANN401
+) -> StorePath:
     """Open a zarr store for the given store ID asynchronously."""
-    credentials, endpoint_url = await aget_zarr_credentials_and_endpoint(store_id)
+    rath, datalayer = _clients(rath, datalayer, obj)
+    credentials, endpoint_url = await aget_zarr_credentials_and_endpoint(store_id, rath, datalayer)
     return create_zarr_store_path(endpoint_url, credentials)
 
 
-def open_zarr_store(store_id: str, cache: int = 2**30) -> StorePath:
+def open_zarr_store(
+    store_id: str,
+    cache: int = 2**30,
+    *,
+    rath: ElektroRath | None = None,
+    datalayer: DataLayer | None = None,
+    obj: Any = None,  # noqa: ANN401
+) -> StorePath:
     """Open a zarr store for the given store ID synchronously."""
-    credentials, endpoint_url = unkoil(aget_zarr_credentials_and_endpoint, store_id)
+    rath, datalayer = _clients(rath, datalayer, obj)
+    credentials, endpoint_url = unkoil(
+        aget_zarr_credentials_and_endpoint, store_id, rath, datalayer
+    )
     return create_zarr_store_path(endpoint_url, credentials)
 
 
-async def aopen_parquet_filesytem(store_id: str) -> ParquetDatasetViaObstore:
+async def aopen_parquet_filesytem(
+    store_id: str,
+    *,
+    rath: ElektroRath | None = None,
+    datalayer: DataLayer | None = None,
+    obj: Any = None,  # noqa: ANN401
+) -> ParquetDatasetViaObstore:
     """Open a parquet dataset for the given store ID asynchronously."""
     try:
         import pyarrow.parquet as pq  # type: ignore # noqa: F401
     except ImportError as e:
         raise ImportError("You need to install pyarrow to use this function") from e
-    credentials, endpoint_url = await aget_table_credentials_and_endpoint(store_id)
+    rath, datalayer = _clients(rath, datalayer, obj)
+    credentials, endpoint_url = await aget_table_credentials_and_endpoint(
+        store_id, rath, datalayer
+    )
     return ParquetDatasetViaObstore(create_s3_store(endpoint_url, credentials), credentials.key)
 
 
-def open_parquet_filesystem(store_id: str) -> ParquetDatasetViaObstore:
+def open_parquet_filesystem(
+    store_id: str,
+    *,
+    rath: ElektroRath | None = None,
+    datalayer: DataLayer | None = None,
+    obj: Any = None,  # noqa: ANN401
+) -> ParquetDatasetViaObstore:
     """Open a parquet dataset for the given store ID synchronously."""
     try:
         import pyarrow.parquet as pq  # type: ignore # noqa: F401
     except ImportError as e:
         raise ImportError("You need to install pyarrow to use this function") from e
-    credentials, endpoint_url = unkoil(aget_table_credentials_and_endpoint, store_id)
+    rath, datalayer = _clients(rath, datalayer, obj)
+    credentials, endpoint_url = unkoil(
+        aget_table_credentials_and_endpoint, store_id, rath, datalayer
+    )
     return ParquetDatasetViaObstore(create_s3_store(endpoint_url, credentials), credentials.key)
 
 
 async def aopen_parquet_duckdb(
     store_id: str,
+    *,
+    rath: ElektroRath | None = None,
+    datalayer: DataLayer | None = None,
+    obj: Any = None,  # noqa: ANN401
 ) -> Tuple["DuckDBPyConnection", "DuckDBPyRelation"]:
     """Open a lazy DuckDB relation over the parquet object asynchronously.
 
@@ -112,7 +217,10 @@ async def aopen_parquet_duckdb(
         read_parquet_relation,
     )
 
-    credentials, endpoint_url = await aget_table_credentials_and_endpoint(store_id)
+    rath, datalayer = _clients(rath, datalayer, obj)
+    credentials, endpoint_url = await aget_table_credentials_and_endpoint(
+        store_id, rath, datalayer
+    )
     con = create_duckdb_s3_connection(endpoint_url, credentials)
     relation = read_parquet_relation(con, credentials.bucket, credentials.key)
     return con, relation
@@ -120,13 +228,18 @@ async def aopen_parquet_duckdb(
 
 def open_parquet_duckdb(
     store_id: str,
+    *,
+    rath: ElektroRath | None = None,
+    datalayer: DataLayer | None = None,
+    obj: Any = None,  # noqa: ANN401
 ) -> Tuple["DuckDBPyConnection", "DuckDBPyRelation"]:
     """Open a lazy DuckDB relation over the parquet object synchronously.
 
     Returns ``(connection, relation)``; keep a reference to the connection for as
     long as the relation is used (the relation is bound to it).
     """
-    return unkoil(aopen_parquet_duckdb, store_id)
+    rath, datalayer = _clients(rath, datalayer, obj)
+    return unkoil(aopen_parquet_duckdb, store_id, rath=rath, datalayer=datalayer)
 
 
 def _ensure_parent_directory(file_name: str) -> None:
@@ -139,20 +252,22 @@ async def adownload_presigned_file(
     presigned_url: str,
     file_name: str,
     datalayer: DataLayer | None = None,
+    *,
+    obj: Any = None,  # noqa: ANN401
 ) -> str:
     """Download a file from a presigned URL and save it to file_name asynchronously.
 
     Args:
         presigned_url: The presigned URL path (appended to the endpoint URL).
         file_name: Local path to write the downloaded file to.
-        datalayer: Optional DataLayer override; falls back to the active context instance.
+        datalayer: Optional DataLayer override.
+        obj: The object the download is made on; its origin gives the datalayer
+            when none is given.
 
     Returns:
         The local path where the file was saved.
     """
-    datalayer = datalayer or current_elektro_datalayer.get()
-    if not datalayer:
-        raise ValueError("Datalayer is not set")
+    datalayer = _datalayer(datalayer, obj)
 
     endpoint_url = await datalayer.get_endpoint_url()
     _ensure_parent_directory(file_name)
@@ -172,14 +287,20 @@ async def adownload_presigned_file(
 
 
 def download_presigned_file(
-    presigned_url: str, file_name: str, datalayer: DataLayer | None = None
+    presigned_url: str,
+    file_name: str,
+    datalayer: DataLayer | None = None,
+    *,
+    obj: Any = None,  # noqa: ANN401
 ) -> str:
     """Download a file from a presigned URL and save it to file_name synchronously.
 
     Args:
         presigned_url: The presigned URL path (appended to the endpoint URL).
         file_name: Local path to write the downloaded file to.
-        datalayer: Optional DataLayer override; falls back to the active context instance.
+        datalayer: Optional DataLayer override.
+        obj: The object the download is made on; its origin gives the datalayer
+            when none is given.
 
     Returns:
         The local path where the file was saved.
@@ -188,7 +309,7 @@ def download_presigned_file(
         adownload_presigned_file,
         presigned_url,
         file_name=file_name,
-        datalayer=datalayer,
+        datalayer=_datalayer(datalayer, obj),
     )
 
 
@@ -196,27 +317,27 @@ async def adownload_file(
     store_id: str,
     file_name: str,
     datalayer: DataLayer | None = None,
+    *,
+    rath: ElektroRath | None = None,
+    obj: Any = None,  # noqa: ANN401
 ) -> str:
     """Download a big file from the store and save it to file_name asynchronously.
 
     Args:
         store_id: The ID of the big-file store to download from.
         file_name: Local path to write the downloaded file to.
-        datalayer: Optional DataLayer override; uses the active context instance otherwise.
+        datalayer: Optional DataLayer override.
+        rath: Optional rath client override.
+        obj: The object the download is made on; its origin is used when nothing
+            explicit is given.
 
     Returns:
         The local path where the file was saved.
     """
-    if datalayer is not None:
-        token = current_elektro_datalayer.set(datalayer)
-    else:
-        token = None
-
-    try:
-        credentials, endpoint_url = await aget_bigfile_credentials_and_endpoint(store_id)
-    finally:
-        if token is not None:
-            current_elektro_datalayer.reset(token)
+    rath, datalayer = _clients(rath, datalayer, obj)
+    credentials, endpoint_url = await aget_bigfile_credentials_and_endpoint(
+        store_id, rath, datalayer
+    )
 
     _ensure_parent_directory(file_name)
     store = create_s3_store(endpoint_url, credentials)
@@ -230,18 +351,31 @@ async def adownload_file(
     return file_name
 
 
-def download_file(store_id: str, file_name: str, datalayer: DataLayer | None = None) -> str:
+def download_file(
+    store_id: str,
+    file_name: str,
+    datalayer: DataLayer | None = None,
+    *,
+    rath: ElektroRath | None = None,
+    obj: Any = None,  # noqa: ANN401
+) -> str:
     """Download a big file from the store and save it to file_name synchronously.
 
     Args:
         store_id: The ID of the big-file store to download from.
         file_name: Local path to write the downloaded file to.
-        datalayer: Optional DataLayer override; uses the active context instance otherwise.
+        datalayer: Optional DataLayer override.
+        rath: Optional rath client override.
+        obj: The object the download is made on; its origin is used when nothing
+            explicit is given.
 
     Returns:
         The local path where the file was saved.
     """
-    credentials, endpoint_url = unkoil(aget_bigfile_credentials_and_endpoint, store_id)
+    rath, datalayer = _clients(rath, datalayer, obj)
+    credentials, endpoint_url = unkoil(
+        aget_bigfile_credentials_and_endpoint, store_id, rath, datalayer
+    )
 
     _ensure_parent_directory(file_name)
     store = create_s3_store(endpoint_url, credentials)

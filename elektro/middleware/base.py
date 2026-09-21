@@ -1,6 +1,6 @@
-"""Base middleware classes for the funcs API.
+"""Base middleware classes for the operation API.
 
-Defines the abstract FuncsMiddleware interface that middleware implementations
+Defines the abstract OperationMiddleware interface that middleware implementations
 must follow. Each middleware can intercept execute and subscribe calls, process
 the serialized arguments, and pass through to the next middleware in the chain.
 
@@ -22,8 +22,8 @@ if TYPE_CHECKING:
 from rath.turms.funcs import TOperation
 
 
-class FuncsMiddleware(BaseModel, abc.ABC):
-    """Base class for funcs-level middleware.
+class OperationMiddleware(BaseModel, abc.ABC):
+    """Base class for operation-level middleware.
 
     Middleware intercepts operations between the user-facing API functions
     (execute/subscribe) and the rath link chain. This allows pre-processing

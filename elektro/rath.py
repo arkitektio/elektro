@@ -1,22 +1,16 @@
 """The Elektro GraphQL transport layer (Rath) and its link configuration."""
 
 from types import TracebackType
-from typing import List, Optional
+from typing import List
 from pydantic import Field
 from rath import rath
-import contextvars
 from rath.links.auth import AuthTokenLink
 from rath.links.compose import TypedComposedLink
 from rath.links.dictinglink import DictingLink
 from rath.links.file import FileExtraction
 from rath.links.split import SplitLink
 from kanne.contrib.rath.coerce_pint import CoercePintLink
-from elektro.middleware.base import FuncsMiddleware
-
-
-current_elektro_rath: contextvars.ContextVar[Optional["ElektroRath"]] = contextvars.ContextVar(
-    "current_elektro_rath"
-)
+from elektro.middleware.base import OperationMiddleware
 
 
 class ElektroLinkComposition(TypedComposedLink):
@@ -25,7 +19,7 @@ class ElektroLinkComposition(TypedComposedLink):
     This is a composition of links that are traversed before a request is sent to the
     elektro api. This link composition contains the default links for elektro.
 
-    Upload logic has been moved to the UploadMiddleware, which runs at the funcs
+    Upload logic has been moved to the UploadMiddleware, which runs at the operation
     level before the rath link chain is entered.
 
     You shouldn't need to create this directly.
@@ -58,20 +52,24 @@ class ElektroRath(rath.Rath):
     the graphql multipart request spec.
 
     Attributes:
-        middlewares: A list of FuncsMiddleware instances that process serialized
+        middlewares: A list of OperationMiddleware instances that process serialized
             variables before they reach the rath link chain. Middleware runs in
             order: first middleware processes first, then passes to the next.
     """
 
-    middlewares: List[FuncsMiddleware] = Field(default_factory=list)
-    """Middleware chain applied to serialized variables in funcs.execute/subscribe."""
+    middlewares: List[OperationMiddleware] = Field(default_factory=list)
+    """Middleware chain applied to serialized variables in Elektro.execute/subscribe."""
 
     async def __aenter__(self) -> "ElektroRath":
-        """Sets the current elektro rath to this instance"""
+        """Enter the client and its middlewares.
+
+        Entering does not make it "the current client": only the elektro service
+        that owns it is current while entered (see :class:`elektro.elektro.Elektro`).
+        A rath used on its own is passed where it is needed, as ``rath=``.
+        """
         await super().__aenter__()
         for mw in self.middlewares:
             await mw.aenter()
-        current_elektro_rath.set(self)
         return self
 
     async def __aexit__(
@@ -80,8 +78,7 @@ class ElektroRath(rath.Rath):
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        """Resets the current elektro rath to None"""
+        """Exit the middlewares and the client"""
         for mw in self.middlewares:
             await mw.aexit()
         await super().__aexit__(exc_type, exc_val, exc_tb)
-        current_elektro_rath.set(None)

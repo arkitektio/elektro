@@ -3,6 +3,9 @@ fragment ZarrStore on ZarrStore {
   key
   bucket
   path
+  shape
+  chunks
+  shards
 }
 
 fragment ParquetStore on ParquetStore {
@@ -25,4 +28,25 @@ fragment MediaStore on MediaStore {
   key
   bucket
   path
+}
+fragment SparseStore on SparseStore {
+  id
+  key
+  bucket
+  path
+  spec
+  shape
+  # One entry per `layouts/<encoding>` child. Which axis a layout compresses
+  # decides which question it answers in one contiguous read.
+  layouts {
+    path
+    encoding
+    encodingVersion
+    indexedAxis
+    indexOrder
+    nnz
+    dtype
+    chunks
+    rangeReadable
+  }
 }

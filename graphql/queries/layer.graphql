@@ -1,0 +1,11 @@
+query GetLayer($id: ID!) {
+  layer(id: $id) {
+    ...ExperimentLayer
+  }
+}
+
+query ListLayers($filters: ExperimentLayerFilter, $pagination: OffsetPaginationInput) {
+  layers(filters: $filters, pagination: $pagination) {
+    ...ExperimentLayer
+  }
+}

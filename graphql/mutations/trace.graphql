@@ -1,6 +1,0 @@
-mutation FromTraceLike($input: FromTraceLikeInput!) {
-  fromTraceLike(input: $input) {
-    ...Trace
-  }
-}
-

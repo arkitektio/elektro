@@ -1,8 +1,0 @@
-fragment ROI on ROI {
-  id
-  trace {
-    id
-  }
-  vectors
-  kind
-}

@@ -1,0 +1,44 @@
+query GetArrayDataset($id: ID!) {
+  arrayDataset(id: $id) {
+    ...ArrayDataset
+  }
+}
+
+query GetArrayDatasets($filters: ArrayDatasetFilter, $pagination: OffsetPaginationInput) {
+  arrayDatasets(filters: $filters, pagination: $pagination) {
+    ...ArrayDataset
+  }
+}
+
+query SearchArrayDatasets(
+  $search: String
+  $values: [ID!]
+  $limit: Int
+  $offset: Int = 0
+) {
+  options: arrayDatasets(
+    filters: { search: $search, ids: $values }
+    pagination: { limit: $limit, offset: $offset }
+  ) {
+    value: id
+    label: name
+  }
+}
+
+query GetCoordinateAnchors($filters: CoordinateAnchorFilter, $pagination: OffsetPaginationInput) {
+  coordinateAnchors(filters: $filters, pagination: $pagination) {
+    ...CoordinateAnchor
+  }
+}
+
+# The anchors of one dataset. Kept off the `ArrayDataset` fragment on purpose:
+# that fragment is spread inside lenses and experiments,
+# and a rig state per channel would ride along with every one of them.
+query GetArrayDatasetAnchors($id: ID!) {
+  arrayDataset(id: $id) {
+    id
+    anchors {
+      ...CoordinateAnchor
+    }
+  }
+}

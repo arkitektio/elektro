@@ -19,3 +19,20 @@ query ListNeuronModels($filter: NeuronModelFilter, $pagination: OffsetPagination
     ...NeuronModel
   }
 }
+
+# A model's runs, read off the graph: its simulated datasets (a `simulation`
+# anchor on it) grouped by the clock they are timed onto. A run is its clock;
+# datasets timed onto no clock yet come last under a null clock.
+query GetNeuronModelSessions($id: ID!) {
+  neuronModel(id: $id) {
+    id
+    sessions {
+      clock {
+        ...CoordinateSystem
+      }
+      datasets {
+        ...ArrayDataset
+      }
+    }
+  }
+}

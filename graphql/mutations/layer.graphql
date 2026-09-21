@@ -1,0 +1,61 @@
+# One mutation per kind, as mikro's `createXxxLayer`. A layer carries view state
+# only; where its data sits in time is the graph's answer.
+mutation CreateTraceLayer($input: CreateTraceLayerInput!) {
+  createTraceLayer(input: $input) {
+    ...ExperimentLayer
+  }
+}
+
+mutation UpdateTraceLayer($input: UpdateTraceLayerInput!) {
+  updateTraceLayer(input: $input) {
+    ...ExperimentLayer
+  }
+}
+
+mutation CreateSpikesLayer($input: CreateSpikesLayerInput!) {
+  createSpikesLayer(input: $input) {
+    ...ExperimentLayer
+  }
+}
+
+mutation UpdateSpikesLayer($input: UpdateSpikesLayerInput!) {
+  updateSpikesLayer(input: $input) {
+    ...ExperimentLayer
+  }
+}
+
+mutation CreateEventsLayer($input: CreateEventsLayerInput!) {
+  createEventsLayer(input: $input) {
+    ...ExperimentLayer
+  }
+}
+
+mutation UpdateEventsLayer($input: UpdateEventsLayerInput!) {
+  updateEventsLayer(input: $input) {
+    ...ExperimentLayer
+  }
+}
+
+mutation CreateAnnotationLayer($input: CreateAnnotationLayerInput!) {
+  createAnnotationLayer(input: $input) {
+    ...ExperimentLayer
+  }
+}
+
+# The generic forms: any kind by `kind` plus exactly one source, and the
+# compositing fields every kind shares.
+mutation CreateLayer($input: CreateLayerInput!) {
+  createLayer(input: $input) {
+    ...ExperimentLayer
+  }
+}
+
+mutation UpdateLayer($input: UpdateLayerInput!) {
+  updateLayer(input: $input) {
+    ...ExperimentLayer
+  }
+}
+
+mutation DeleteLayer($input: DeleteInput!) {
+  deleteLayer(input: $input)
+}

@@ -15,8 +15,9 @@ Run it inside an Arkitekt environment (a reachable Elektro backend is required):
 
 import tempfile
 
-from arkitekt import easy
+from arkitekt import App, connect
 
+from elektro import Elektro
 from elektro.api.schema import (
     BiophysicsInput,
     CellInput,
@@ -26,8 +27,6 @@ from elektro.api.schema import (
     SectionInput,
     SectionParamMapInput,
     TopologyInput,
-    create_mod_environment,
-    create_neuronmodel,
 )
 from elektro.neuron.parse import build_and_zip_environment
 
@@ -65,11 +64,11 @@ def build_config() -> ModelConfigInput:
     )
 
 
-def create_builtin_environment(name: str):
+def create_builtin_environment(elektro: Elektro, name: str):
     """Create a minimal, mechanism-free ModEnvironment (see 01_basic_model.py)."""
     empty_dir = tempfile.mkdtemp(prefix="elektro-builtin-env-")
     zip_file, mechanisms = build_and_zip_environment(empty_dir)
-    return create_mod_environment(name=name, zip_file=zip_file, mechanisms=mechanisms)
+    return elektro.create_mod_environment(name=name, zip_file=zip_file, mechanisms=mechanisms)
 
 
 def main() -> None:
@@ -91,9 +90,10 @@ def main() -> None:
             f"(import failed: {exc})"
         )
 
-    with easy("neuron-model-examples"):
-        env = create_builtin_environment("builtin-mechanisms")
-        model = create_neuronmodel(
+    with connect(App("neuron-model-examples", services=[Elektro])) as rt:
+        elektro = rt.require(Elektro)
+        env = create_builtin_environment(elektro, "builtin-mechanisms")
+        model = elektro.create_neuronmodel(
             name="single-soma-basic-sim",
             config=build_config(),
             environment=env.id,
@@ -101,8 +101,9 @@ def main() -> None:
         )
         print(f"Created NeuronModel {model.name!r} with id {model.id}")
 
-        simulation = unkoil(
+        run = unkoil(
             arun_simulation,
+            elektro,
             model=model,
             duration="50 ms",
             dt="0.025 ms",
@@ -117,8 +118,9 @@ def main() -> None:
                 )
             ],
         )
-        print(f"Ran simulation {simulation.id}")
-        print(f"Recorded time trace shape: {simulation.time_trace.data.shape}")
+        # A run is its clock: the recordings and stimuli are timed onto it.
+        print(f"Ran on clock {run.clock.name!r} ({run.clock.id})")
+        print(f"Recording shape: {run.recordings[0].data.shape}")
 
 
 if __name__ == "__main__":

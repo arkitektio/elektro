@@ -4,52 +4,50 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from elektro.api.schema import (
-    create_dataset,
-    from_file_like,
-    from_trace_like,
-    get_file,
-    get_random_trace,
-)
 
-from tests.conftest import DeployedElektro
+from elektro.elektro import Elektro
 
 
 @pytest.mark.integration
-def test_write_random(deployed_app: DeployedElektro) -> None:
-    """Writing a random trace into a dataset returns an id and the expected shape."""
-    dataset = create_dataset(name="test_write_random")
-    x = from_trace_like(
-        np.random.random((1000,)),
+def test_write_random(elektro: Elektro) -> None:
+    """Writing a random array into a folder returns an id and the expected shape."""
+    folder = elektro.create_folder(name="test_write_random")
+    x = elektro.create_array_dataset(
+        data=np.random.random((1000,)),
+        scales=[],
         name="test_random_write",
-        dataset=dataset.id,
+        axes=["t"],
+        folder=folder.id,
     )
-    assert x.id, "Did not get a random rep"
-    assert x.data.shape == (1000,), "Did not write data according to schema ( T, C, Z, Y, X )"
+    assert x.id, "Did not get a dataset back"
+    assert x.data.shape == (1000,), "Did not write the data the declaration described"
 
 
 @pytest.mark.integration
-def test_get_random(deployed_app: DeployedElektro) -> None:
-    """After writing a trace, ``get_random_trace`` returns one with an id."""
-    dataset = create_dataset(name="test_get_random")
-    x = from_trace_like(
-        np.random.random((1000,)),
+def test_get_written(elektro: Elektro) -> None:
+    """A written dataset is fetched back by id, and listed by the folder it is in."""
+    folder = elektro.create_folder(name="test_get_written")
+    written = elektro.create_array_dataset(
+        data=np.random.random((1000,)),
+        scales=[],
         name="test_random_write",
-        dataset=dataset.id,
+        axes=["t"],
+        folder=folder.id,
     )
-    x = get_random_trace()
-    assert x.id, "Did not get a random rep even though one was written"
+
+    assert elektro.get_array_dataset(written.id).id == written.id
+    assert [d.id for d in elektro.get_array_datasets(filters={"folder": folder.id})] == [written.id]
 
 
 @pytest.mark.integration
-def test_create_dataset(deployed_app: DeployedElektro) -> None:
-    """``create_dataset`` returns a dataset with an id."""
-    x = create_dataset(name="johannes")
-    assert x.id, "Was not able to create a dataset"
+def test_create_folder(elektro: Elektro) -> None:
+    """``create_folder`` returns a folder with an id."""
+    x = elektro.create_folder(name="johannes")
+    assert x.id, "Was not able to create a folder"
 
 
 @pytest.mark.integration
-def test_from_file_like(deployed_app: DeployedElektro, tmp_path: Path) -> None:
+def test_from_file_like(elektro: Elektro, tmp_path: Path) -> None:
     """Uploading a file-like object returns a File backed by a store.
 
     This exercises the full ``from_file_like`` path: the ``FileLike`` scalar is
@@ -60,7 +58,7 @@ def test_from_file_like(deployed_app: DeployedElektro, tmp_path: Path) -> None:
     path.write_bytes(b"hello elektro integration test\n")
 
     # The FileLike scalar coerces a path string into an opened file on validation.
-    file = from_file_like(name="hello.txt", file=str(path))
+    file = elektro.from_file_like(file_name="hello.txt", file=str(path))
 
     assert file.id, "Did not get a file id back"
     assert file.name, "File did not come back with a name"
@@ -69,17 +67,17 @@ def test_from_file_like(deployed_app: DeployedElektro, tmp_path: Path) -> None:
 
 
 @pytest.mark.integration
-def test_from_file_like_into_dataset(deployed_app: DeployedElektro, tmp_path: Path) -> None:
-    """A file uploaded with a dataset id is created and backed by a store."""
-    dataset = create_dataset(name="test_from_file_like_into_dataset")
+def test_from_file_like_into_folder(elektro: Elektro, tmp_path: Path) -> None:
+    """A file uploaded with a folder id is created and backed by a store."""
+    folder = elektro.create_folder(name="test_from_file_like_into_folder")
 
     path = tmp_path / "payload.bin"
     path.write_bytes(b"\x00\x01\x02\x03payload")
 
-    file = from_file_like(
-        name="payload.bin",
+    file = elektro.from_file_like(
+        file_name="payload.bin",
         file=str(path),
-        dataset=dataset.id,
+        folder=folder.id,
     )
 
     assert file.id, "Did not get a file id back"
@@ -87,13 +85,13 @@ def test_from_file_like_into_dataset(deployed_app: DeployedElektro, tmp_path: Pa
 
 
 @pytest.mark.integration
-def test_get_file_roundtrip(deployed_app: DeployedElektro, tmp_path: Path) -> None:
+def test_get_file_roundtrip(elektro: Elektro, tmp_path: Path) -> None:
     """A file uploaded via ``from_file_like`` can be fetched again with ``get_file``."""
     path = tmp_path / "roundtrip.dat"
     path.write_bytes(b"roundtrip-data")
 
-    created = from_file_like(name="roundtrip.dat", file=str(path))
-    fetched = get_file(created.id)
+    created = elektro.from_file_like(file_name="roundtrip.dat", file=str(path))
+    fetched = elektro.get_file(created.id)
 
     assert fetched.id == created.id, "get_file returned a different file"
     assert fetched.name == created.name, "get_file returned an inconsistent name"

@@ -41,15 +41,15 @@ The custom-mechanism scripts do this in three steps:
 
 ```python
 zip_file, mechanisms = build_and_zip_environment("./mod_files")   # zip + parse
-env = create_mod_environment(name="customleak-env",
+env = elektro.create_mod_environment(name="customleak-env",
                              zip_file=zip_file, mechanisms=mechanisms)  # upload + register
-model = create_neuronmodel(name=..., config=..., environment=env.id)   # reference it
+model = elektro.create_neuronmodel(name=..., config=..., environment=env.id)   # reference it
 ```
 
 `build_and_zip_environment` parses each `.mod` file's `SUFFIX`/`PARAMETER` block
 into a `MechanismInput`; `create_mod_environment` uploads the zip to object
 storage and registers the mechanisms. There is also a one-shot convenience,
-`create_mod_environment_from_directory(name=..., directory_path="./mod_files")`,
+`create_mod_environment_from_directory(elektro, name=..., directory_path="./mod_files")`,
 that folds those first two steps together.
 
 > Note: the server requires **every** model to reference an environment — even
@@ -61,14 +61,16 @@ that folds those first two steps together.
 All scripts connect through the Arkitekt ecosystem:
 
 ```python
-from arkitekt import easy
+from arkitekt import App, connect
+from elektro import Elektro
 
-with easy("neuron-model-examples"):
+with connect(App("neuron-model-examples", services=[Elektro])) as rt:
+    elektro = rt.require(Elektro)
     ...
 ```
 
-`easy()` resolves the Elektro service and authenticates you; the top-level
-`create_*` functions then operate against that connection. A reachable Elektro
+`connect()` builds the Elektro client and authenticates you; every operation is
+a method of the `elektro` client it hands out (`elektro.create_neuronmodel(...)`). A reachable Elektro
 backend is required to actually run these.
 
 ## Running

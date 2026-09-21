@@ -1,0 +1,21 @@
+# The two elektro-only timing mutations. Neither writes anything
+# `createTransformation` could not; they exist because a rate and a start arrive
+# as quantities and the edge wants numbers in the *clock's* unit. Both refuse a
+# rival: a second law of one grid onto one clock, a second offset of one clock
+# onto another.
+
+# `t = sample / samplingRate + tStart`: one sampling law, a dataset's (or a
+# raster's) grid onto a clock.
+mutation CreateSamplingLaw($input: CreateSamplingLawInput!) {
+  createSamplingLaw(input: $input) {
+    ...Transformation
+  }
+}
+
+# Where one clock sits on another: a segment on its session, a run on an
+# experiment's world. Shared by everything timed on `clock`.
+mutation CreateClockOffset($input: CreateClockOffsetInput!) {
+  createClockOffset(input: $input) {
+    ...Transformation
+  }
+}

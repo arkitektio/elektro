@@ -4,3 +4,12 @@ mutation FromFileLike($input: FromFileLike!) {
   }
 }
 
+mutation LinkFile($input: LinkFileInput!) {
+  linkFile(input: $input) {
+    ...FileLink
+  }
+}
+
+mutation UnlinkFile($input: UnlinkFileInput!) {
+  unlinkFile(input: $input)
+}

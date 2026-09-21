@@ -111,18 +111,19 @@ def test_recordings_shape_and_kind() -> None:
     assert len(result.recordings) == 1
     rec = result.recordings[0]
     assert rec.kind == RecordingKind.VOLTAGE
-    assert np.asarray(rec.trace.value).shape[0] == len(result.time_trace)
+    assert rec.values.shape[0] == len(result.time_trace)
+    assert rec.unit == "millivolt"
 
 
 def test_stimulus_grouped_and_waveform() -> None:
     """The stimulus is a single CURRENT waveform that is zero before the 10 ms delay."""
     result = _run()
-    # One stimulus location -> one combined StimulusInput tagged as CURRENT.
+    # One stimulus location -> one combined waveform tagged as CURRENT.
     assert len(result.stimuli) == 1
     stim = result.stimuli[0]
     assert stim.kind == StimulusKind.CURRENT
 
-    waveform = np.asarray(stim.trace.value)
+    waveform = np.asarray(stim.values)
     times = np.asarray(result.time_trace)
     # Zero current before the 10 ms delay, ~0.1 nA after.
     assert waveform[times < 10.0] == pytest.approx(0.0)

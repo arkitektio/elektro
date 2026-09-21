@@ -39,6 +39,12 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:  
 
 project_path = os.path.join(os.path.dirname(__file__), "integration")
 docker_compose_file = os.path.join(project_path, "docker-compose.yml")
+# An untracked sibling override (see its own header): when a developer's checkout sits next
+# to a live elektro source tree, it mounts that tree over the published image so the tests
+# see the current schema instead of the last-pushed one. Absent (CI, anyone else), the
+# published image is the schema under test, as before.
+_local_override = os.path.join(project_path, "docker-compose.local.yml")
+compose_files = [docker_compose_file] + ([_local_override] if os.path.exists(_local_override) else [])
 
 
 def _reserve_free_ports(count: int) -> list[int]:
@@ -126,7 +132,7 @@ def deployed_app(integration_ports: dict[str, int]) -> Generator[DeployedElektro
     # testing(): a per-run `dokker-test-<hash>` project that is torn down on
     # exit, so concurrent or crashed runs (and sibling repos, which all name
     # their stack `integration`) never share containers.
-    setup = testing(docker_compose_file)
+    setup = testing(compose_files)
     setup.add_health_check(
         url=lambda spec: (
             f"http://localhost:{spec.find_service('elektro').get_port_for_internal(80).published}/graphql"
@@ -188,3 +194,9 @@ def deployed_app(integration_ports: dict[str, int]) -> Generator[DeployedElektro
             )
 
             yield deployed
+
+
+@pytest.fixture(scope="session")
+def elektro(deployed_app: DeployedElektro) -> Elektro:
+    """The deployment's client: API calls are its methods, nothing is ambient."""
+    return deployed_app.elektro

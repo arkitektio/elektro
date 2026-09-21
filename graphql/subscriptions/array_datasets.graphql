@@ -1,0 +1,11 @@
+subscription WatchArrayDatasets($folder: ID) {
+  arrayDatasets(folder: $folder) {
+    create {
+      ...ArrayDataset
+    }
+    delete
+    update {
+      ...ArrayDataset
+    }
+  }
+}

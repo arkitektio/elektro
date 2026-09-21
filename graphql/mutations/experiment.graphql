@@ -1,5 +1,30 @@
+# An experiment adopts a world -- an existing clock (`coordinateSystem`) or a new
+# space built from `axes` -- and is then filled with layers, one mutation each
+# (see layer.graphql), or all at once from a clock with
+# `createExperimentFromCoordinateSystem`.
 mutation CreateExperiment($input: CreateExperimentInput!) {
   createExperiment(input: $input) {
-   ...Experiment
+    ...Experiment
   }
+}
+
+# mikro's `createSceneFromCoordinateSystem`: a layer for everything that reaches
+# the clock -- TRACE per timed array dataset, SPIKES per raster, EVENTS per table
+# with a TIME column, ANNOTATION per collection. Authors no edges.
+mutation CreateExperimentFromCoordinateSystem(
+  $input: CreateExperimentFromCoordinateSystemInput!
+) {
+  createExperimentFromCoordinateSystem(input: $input) {
+    ...Experiment
+  }
+}
+
+mutation UpdateExperiment($input: UpdateExperimentInput!) {
+  updateExperiment(input: $input) {
+    ...Experiment
+  }
+}
+
+mutation DeleteExperiment($input: DeleteInput!) {
+  deleteExperiment(input: $input)
 }

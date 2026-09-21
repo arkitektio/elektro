@@ -145,3 +145,6 @@ export
 static_collected
 data
 token.temp
+
+# machine-local compose override for the integration test stack (see tests/conftest.py)
+tests/integration/docker-compose.local.yml

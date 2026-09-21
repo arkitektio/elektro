@@ -14,7 +14,7 @@ import platform
 import zipfile
 from pathlib import Path
 from filelock import FileLock, Timeout
-from typing import Any, Dict, List, Optional, Literal, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Literal, Union
 from pydantic import BaseModel, Field
 
 from elektro.api.schema import (
@@ -22,15 +22,21 @@ from elektro.api.schema import (
     NeuronModelConfig,
     Cell,
     ExpTwoSynapse,
-    Simulation,
     SynapticConnection,
-    RecordingInput,
-    StimulusInput,
+    RecordingSiteInput,
+    StimulusSiteInput,
     StimulusKind,
     RecordingKind,
     IonStyle,
     NeuronModel,
-    acreate_simulation,
+    SamplingInput,
+    ArrayDataset,
+    AxisInput,
+    AxisType,
+    CoordinateAnchorInput,
+    ValueUnitInput,
+    CoordinateSystem,
+    SimulationStateInput,
 )
 
 from kanne.scalars import (
@@ -38,9 +44,12 @@ from kanne.scalars import (
     DurationCoercible,
     ElectricCurrent,
     Frequency,
+    Unit,
 )
-from rath.scalars import ID
 from collections import defaultdict
+
+if TYPE_CHECKING:
+    from elektro.elektro import Elektro
 
 logger = logging.getLogger(__name__)
 
@@ -323,19 +332,17 @@ def _safe_eval_expression(expression: str, variables: Dict[str, float]) -> float
                 )
             if node.keywords:
                 raise ValueError(
-                    f"Keyword arguments are not allowed in distribution expression "
-                    f"{expression!r}."
+                    f"Keyword arguments are not allowed in distribution expression {expression!r}."
                 )
-        if isinstance(node, ast.Name) and node.id not in variables and (
-            node.id not in _EXPR_FUNCTIONS and node.id not in _EXPR_CONSTANTS
+        if (
+            isinstance(node, ast.Name)
+            and node.id not in variables
+            and (node.id not in _EXPR_FUNCTIONS and node.id not in _EXPR_CONSTANTS)
         ):
-            raise ValueError(
-                f"Unknown name {node.id!r} in distribution expression {expression!r}."
-            )
+            raise ValueError(f"Unknown name {node.id!r} in distribution expression {expression!r}.")
         if isinstance(node, ast.Constant) and not isinstance(node.value, (int, float)):
             raise ValueError(
-                f"Only numeric literals are allowed in distribution expression "
-                f"{expression!r}."
+                f"Only numeric literals are allowed in distribution expression {expression!r}."
             )
 
     names = {**_EXPR_CONSTANTS, **_EXPR_FUNCTIONS, **variables}
@@ -556,12 +563,29 @@ class NeuronModelInstance:
 
 
 @dataclass
+class RecordedTrace:
+    """One array a run produced, and what it was recorded at.
+
+    Raw arrays, because the worker process has no client to create a dataset
+    with. The parent uploads each one, stating where it was recorded (or
+    injected) as a `RecordingSite` / `StimulusSite` spoke on the dataset's anchor.
+    """
+
+    kind: Any
+    values: "np.ndarray[Any, Any]"
+    unit: str
+    cell: str
+    location: str
+    position: float
+
+
+@dataclass
 class SimulationResults:
     """Results produced by running a NEURON simulation."""
 
     time_trace: np.ndarray[Any, Any]
-    recordings: List[RecordingInput]
-    stimuli: List[StimulusInput]
+    recordings: List[RecordedTrace]
+    stimuli: List[RecordedTrace]
     model: NeuronModel
     duration: Duration
     dt: Duration
@@ -757,12 +781,13 @@ def run_simulation_processed(
     time_trace = rec_t.as_numpy().copy()
 
     recordings_out = [
-        RecordingInput(
-            cell=ID.validate(rec.cell),
-            location=ID.validate(rec.location),
+        RecordedTrace(
+            cell=rec.cell,
+            location=rec.location,
             kind=rec.kind,
             position=rec.position,
-            trace=rec_vecs[rec.id].as_numpy().copy(),
+            unit="millivolt",
+            values=rec_vecs[rec.id].as_numpy().copy(),
         )
         for rec in records
     ]
@@ -777,12 +802,13 @@ def run_simulation_processed(
         output_waveforms[key] = waveform
 
     stimuli_out = [
-        StimulusInput(
-            cell=ID.validate(cell),
-            location=ID.validate(loc),
+        RecordedTrace(
+            cell=cell,
+            location=loc,
             kind=StimulusKind.CURRENT,
             position=pos,
-            trace=waveform,
+            unit="nanoampere",
+            values=waveform,
         )
         for (cell, loc, pos), waveform in output_waveforms.items()
     ]
@@ -850,6 +876,7 @@ async def asimulate(
 
 
 async def arun_simulation(
+    elektro: "Elektro",
     model: NeuronModel,
     duration: DurationCoercible,
     stims: List[Union[CurrentClampStimulus, WhiteNoiseStimulus, SineWaveStimulus]],  # type: ignore[no-untyped-call]
@@ -857,9 +884,10 @@ async def arun_simulation(
     name: str | None = None,
     dt: DurationCoercible = "0.05 ms",
     process_pool: ProcessPoolExecutor | None = None,
-) -> Simulation:
+) -> "PublishedRun":
     """
-    Run a simulation asynchronously and publish results as a `Simulation` API object.
+    Run a simulation asynchronously and publish it through ``elektro``: its outputs,
+    timed onto one clock.
     """
 
     if process_pool is None:
@@ -889,12 +917,112 @@ async def arun_simulation(
 
     result = await future
 
-    return await acreate_simulation(
-        name=result.name,
-        duration=result.duration,
-        dt=result.dt,
-        model=result.model.id,
-        recordings=result.recordings,
-        stimuli=result.stimuli,
-        time_trace=result.time_trace,  # type: ignore[no-untyped-call]
+    return await apublish_simulation(elektro, result)
+
+
+@dataclass
+class PublishedRun:
+    """What publishing a run created: its clock, and the datasets timed onto it.
+
+    Not a server object. There is no run row: a run *is* its clock, the datasets
+    timed onto that clock are its outputs, and what was run is the `simulation`
+    spoke on each recording. This only hands back what `apublish_simulation` made,
+    so a caller need not read it off the graph again.
+    """
+
+    clock: CoordinateSystem
+    recordings: List[ArrayDataset]
+    stimuli: List[ArrayDataset]
+
+    @property
+    def datasets(self) -> List[ArrayDataset]:
+        """Every dataset timed onto the run's clock: recordings, then stimuli."""
+        return [*self.recordings, *self.stimuli]
+
+
+async def aupload_trace(
+    elektro: "Elektro",
+    recorded: RecordedTrace,
+    name: str,
+    site: RecordingSiteInput | StimulusSiteInput,
+    simulation: SimulationStateInput | None = None,
+) -> ArrayDataset:
+    """Upload one recorded array as an `ArrayDataset`.
+
+    Data first, then what it means. The axis is the unit-less sample grid every
+    signal lives in -- physical time enters once, on the run's clock. What the
+    values measure (`ValueUnit`), where they were recorded or injected
+    (`RecordingSite` / `StimulusSite`) and what computed them (`SimulationState`:
+    the model, `dt`, `duration`) are spokes of one dataset-wide anchor. All on
+    `{}`: the server checks the site and the state name one model, and reads
+    `ArrayDataset.simulation` off the whole-dataset anchor only.
+    """
+    is_recording = isinstance(site, RecordingSiteInput)
+    return await elektro.acreate_array_dataset(
+        data=recorded.values,
+        scales=[],
+        name=name,
+        axes=[AxisInput(name="t", type=AxisType.TIME)],
+        anchors=[
+            CoordinateAnchorInput(
+                axis_anchors=[],
+                value_unit=ValueUnitInput(unit=Unit(recorded.unit)),
+                recording_site=site if is_recording else None,
+                stimulus_site=None if is_recording else site,
+                simulation=simulation,
+            )
+        ],
     )
+
+
+async def apublish_simulation(elektro: "Elektro", result: SimulationResults) -> PublishedRun:
+    """Publish a finished run through ``elektro``: one `ArrayDataset` per trace, timed onto one new clock.
+
+    A run is its clock. Each recording states what computed it (a `simulation`
+    spoke: model, `dt`, `duration`); a stimulus is the run's *input* and states
+    no run, only where it was injected. `createSession` then mints the clock
+    ("<name>/clock", counting milliseconds like NEURON) and one sampling law per
+    dataset onto it -- the run is fixed-step and recorded at every step from t=0,
+    so a law, not a lookup. `result.time_trace` stays on the raw results for local
+    use.
+    """
+    dt_ms = result.dt.to("millisecond").magnitude
+    state = SimulationStateInput(
+        model=result.model.id,
+        duration=result.duration,
+        dt=result.dt,  # the integrator's step, not the sampling period
+    )
+
+    recordings = []
+    for index, recorded in enumerate(result.recordings):
+        label = f"{result.name} · {recorded.cell}/{recorded.location}({recorded.position})"
+        site = RecordingSiteInput(
+            model=result.model.id,  # a site is a place on a model, checked against its config
+            kind=recorded.kind,
+            cell=recorded.cell,
+            location=recorded.location,
+            position=recorded.position,
+            label=label,
+        )
+        recordings.append(await aupload_trace(elektro, recorded, f"{label} · recording {index}", site, simulation=state))
+
+    stimuli = []
+    for index, recorded in enumerate(result.stimuli):
+        label = f"{result.name} · {recorded.cell}/{recorded.location}({recorded.position})"
+        site = StimulusSiteInput(
+            model=result.model.id,
+            kind=recorded.kind,
+            cell=recorded.cell,
+            location=recorded.location,
+            position=recorded.position,
+            label=label,
+        )
+        stimuli.append(await aupload_trace(elektro, recorded, f"{label} · stimulus {index}", site))
+
+    clock = await elektro.acreate_session(
+        name=result.name,
+        datasets=[dataset.id for dataset in [*recordings, *stimuli]],
+        time_unit=Unit("millisecond"),  # createSession defaults to seconds
+        sampling=SamplingInput(rate=Frequency(f"{1000.0 / dt_ms} Hz"), t_start=Duration("0 ms")),
+    )
+    return PublishedRun(clock=clock, recordings=recordings, stimuli=stimuli)

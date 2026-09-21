@@ -1,7 +1,7 @@
-"""Upload middleware for the funcs API.
+"""Upload middleware for the operation API.
 
 This middleware intercepts serialized operation variables and uploads
-uploadable types (ArrayLike, TraceLike, ParquetLike, FileLike, etc.) to the
+uploadable types (ArrayLike, ParquetLike, SporadikLike, FileLike, etc.) to the
 datalayer *before* the operation reaches the rath link chain.
 
 It provides both sync and async paths:
@@ -21,16 +21,18 @@ from concurrent.futures import ThreadPoolExecutor
 from koil import unkoil
 from pydantic import ConfigDict, Field
 
-from elektro.middleware.base import FuncsMiddleware
+from elektro.middleware.base import OperationMiddleware
 from elektro.scalars import (
-    ArrayLike,
     BigFileLike,
     FileLike,
     MeshLike,
     ParquetLike,
-    TraceLike,
+    ArrayLike,
+    SporadikLike,
 )
 from elektro.io.upload import (
+    astore_sparse_matrix,
+    store_sparse_matrix,
     # Async paths (obstore)
     aupload_bigfile,
     aupload_xarray,
@@ -49,6 +51,7 @@ if TYPE_CHECKING:
     from elektro.api.schema import (
         BigFileUploadGrant,
         ParquetUploadGrant,
+        SparseUploadGrant,
         ZarrUploadGrant,
     )
     from elektro.rath import ElektroRath
@@ -104,12 +107,12 @@ def _apply_recursive_sync(
         return obj
 
 
-class UploadMiddleware(FuncsMiddleware):
+class UploadMiddleware(OperationMiddleware):
     """Middleware that uploads supported data types to the datalayer.
 
     This middleware walks the serialized variables dict, finds instances of
-    uploadable scalar types (ArrayLike, TraceLike, ParquetLike, FileLike,
-    BigFileLike, MeshLike), uploads them to S3, and replaces them with their
+    uploadable scalar types (ArrayLike, ParquetLike, SporadikLike,
+    FileLike, BigFileLike, MeshLike), uploads them to S3, and replaces them with their
     store IDs.
 
     Provides two paths:
@@ -293,7 +296,7 @@ class UploadMiddleware(FuncsMiddleware):
         return self._cached_datalayer_url
 
     def _upload_xarray(
-        self, datalayer: "DataLayer", rath: "ElektroRath", xarray: Union[ArrayLike, TraceLike]
+        self, datalayer: "DataLayer", rath: "ElektroRath", xarray: ArrayLike
     ) -> str:
         """Upload an xarray synchronously via obstore."""
         endpoint_url = self.get_datalayer_url()
@@ -336,7 +339,7 @@ class UploadMiddleware(FuncsMiddleware):
     # ====================================================================
 
     async def _aupload_xarray(
-        self, datalayer: "DataLayer", rath: "ElektroRath", xarray: Union[ArrayLike, TraceLike]
+        self, datalayer: "DataLayer", rath: "ElektroRath", xarray: ArrayLike
     ) -> str:
         """Upload an xarray asynchronously."""
         endpoint_url = await datalayer.get_endpoint_url()
@@ -376,6 +379,84 @@ class UploadMiddleware(FuncsMiddleware):
         credentials = await self._aget_bigfile_credentials(mesh, endpoint_url, rath)
         return await astore_mesh_file(mesh, credentials, datalayer)
 
+    def _get_sparse_credentials(self, rath: "ElektroRath") -> "SparseUploadGrant":
+        """Get sparse upload credentials synchronously: one grant for the whole prefix."""
+        from elektro.api.schema import (
+            RequestSparseUploadInput,
+            RequestSparseUploadMutation,
+        )
+
+        x = rath.query(
+            RequestSparseUploadMutation.Meta.document,
+            RequestSparseUploadMutation.Arguments(input=RequestSparseUploadInput()).model_dump(
+                by_alias=True, exclude_unset=True
+            ),
+        )
+        return RequestSparseUploadMutation(**x.data).request_sparse_upload
+
+    def _finish_sparse_upload(self, store_id: str, rath: "ElektroRath") -> None:
+        """Finish a sparse upload synchronously.
+
+        Where the server reads the group back -- encoding, shape, nnz, chunking -- and refuses
+        a prefix an interrupted write left without its block.
+        """
+        from elektro.api.schema import (
+            FinishSparseUploadInput,
+            FinishSparseUploadMutation,
+        )
+
+        rath.query(
+            FinishSparseUploadMutation.Meta.document,
+            FinishSparseUploadMutation.Arguments(
+                input=FinishSparseUploadInput(store_id=store_id, valid=True)
+            ).model_dump(by_alias=True, exclude_unset=True),
+        )
+
+    async def _aget_sparse_credentials(self, rath: "ElektroRath") -> "SparseUploadGrant":
+        """Get sparse upload credentials asynchronously."""
+        from elektro.api.schema import (
+            RequestSparseUploadInput,
+            RequestSparseUploadMutation,
+        )
+
+        x = await rath.aquery(
+            RequestSparseUploadMutation.Meta.document,
+            RequestSparseUploadMutation.Arguments(input=RequestSparseUploadInput()).model_dump(
+                by_alias=True, exclude_unset=True
+            ),
+        )
+        return RequestSparseUploadMutation(**x.data).request_sparse_upload
+
+    async def _afinish_sparse_upload(self, store_id: str, rath: "ElektroRath") -> None:
+        """Finish a sparse upload asynchronously."""
+        from elektro.api.schema import (
+            FinishSparseUploadInput,
+            FinishSparseUploadMutation,
+        )
+
+        await rath.aquery(
+            FinishSparseUploadMutation.Meta.document,
+            FinishSparseUploadMutation.Arguments(
+                input=FinishSparseUploadInput(store_id=store_id, valid=True)
+            ).model_dump(by_alias=True, exclude_unset=True),
+        )
+
+    def _store_sparse(self, datalayer: "DataLayer", rath: "ElektroRath", sparse: SporadikLike) -> str:
+        """Write a sparse matrix into a granted prefix and register it as complete."""
+        credentials = self._get_sparse_credentials(rath)
+        store_id = store_sparse_matrix(sparse, credentials, datalayer)
+        self._finish_sparse_upload(store_id, rath)
+        return store_id
+
+    async def _astore_sparse(
+        self, datalayer: "DataLayer", rath: "ElektroRath", sparse: SporadikLike
+    ) -> str:
+        """Write a sparse matrix into a granted prefix and register it as complete."""
+        credentials = await self._aget_sparse_credentials(rath)
+        store_id = await astore_sparse_matrix(sparse, credentials, datalayer)
+        await self._afinish_sparse_upload(store_id, rath)
+        return store_id
+
     # ====================================================================
     # Core middleware methods
     # ====================================================================
@@ -404,7 +485,7 @@ class UploadMiddleware(FuncsMiddleware):
         variables = _apply_recursive_sync(
             partial(self._upload_xarray, datalayer, rath),
             variables,
-            (ArrayLike, TraceLike),
+            (ArrayLike,),
         )
         variables = _apply_recursive_sync(
             partial(self._upload_parquet, datalayer, rath),
@@ -420,6 +501,11 @@ class UploadMiddleware(FuncsMiddleware):
             partial(self._store_mesh, datalayer, rath),
             variables,
             MeshLike,
+        )
+        variables = _apply_recursive_sync(
+            partial(self._store_sparse, datalayer, rath),
+            variables,
+            SporadikLike,
         )
 
         return variables
@@ -448,7 +534,7 @@ class UploadMiddleware(FuncsMiddleware):
         variables = await _apply_recursive_async(
             partial(self._aupload_xarray, datalayer, rath),
             variables,
-            (ArrayLike, TraceLike),
+            (ArrayLike,),
         )
         variables = await _apply_recursive_async(
             partial(self._aupload_parquet, datalayer, rath),
@@ -464,6 +550,11 @@ class UploadMiddleware(FuncsMiddleware):
             partial(self._astore_mesh, datalayer, rath),
             variables,
             MeshLike,
+        )
+        variables = await _apply_recursive_async(
+            partial(self._astore_sparse, datalayer, rath),
+            variables,
+            SporadikLike,
         )
 
         return variables

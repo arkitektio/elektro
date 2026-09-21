@@ -1,16 +1,15 @@
-fragment Simulation on Simulation {
+# What computed a dataset, if it was simulated: the neuron model that was
+# integrated and NEURON's dt and tstop -- the synthetic rig, a spoke on the
+# dataset's anchor like `rig`. There is no run row: a run is its clock, the
+# outputs timed onto one clock are one run, and the server refuses outputs of one
+# clock that disagree on this. `dt` is the integrator's step, not the sampling
+# period.
+fragment SimulationState on SimulationState {
+  id
+  model {
     id
-    model {
-      ...NeuronModel
-    }
-    duration
-    recordings {
-      ...Recording
-    }
-    stimuli {
-      ...Stimulus
-    }
-    timeTrace {
-      ...Trace
-    }
+    name
+  }
+  duration
+  dt
 }

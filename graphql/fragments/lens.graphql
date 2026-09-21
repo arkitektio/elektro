@@ -1,0 +1,21 @@
+fragment Slice on Slice {
+  axis
+  start
+  stop
+  step
+}
+
+fragment Lens on Lens {
+  id
+  dataset {
+    ...ArrayDataset
+  }
+  shape
+  axisNames
+  coordinateSystem {
+    ...CoordinateSystem
+  }
+  slices {
+    ...Slice
+  }
+}

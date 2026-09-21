@@ -1,107 +1,191 @@
-"""Arkitekt service registration for the Elektro client."""
+"""The elektro service of an arkitekt app, and the types it sends by id.
 
-import json
+Declared on one registry: the service first, then the structures whose expanders
+ask for the ``Elektro`` it returns. Each type is declared once -- the class, the
+identifier it travels under, the widget a user picks one with, and how to fetch it
+back. An app takes all of it in with ``App(services=[elektro_service])``.
+"""
+
 import os
-from elektro.elektro import Elektro
-from elektro.rath import ElektroRath
+from typing import Annotated
+
+from fakts import Alias, Require, TokenLoader
 from fakts.contrib.rath.auth import FaktsAuthLink
-from fakts.models import Requirement
+from graphql import OperationType
 from kanne.contrib.rath.coerce_pint import CoercePintLink
 from rath.links import compose
-from rath.links.split import SplitLink
-from rekuest.links.context import ContextLink
-from fakts import Fakts
-from arkitekt.service_registry import BaseArkitektService, Params
-
-from fakts.contrib.rath.aiohttp import FaktsAIOHttpLink
-from fakts.contrib.rath.graphql_ws import FaktsGraphQLWSLink
+from rath.links.aiohttp import AIOHttpLink
 from rath.links.dictinglink import DictingLink
 from rath.links.file import FileExtraction
-from elektro.contrib.fakts.datalayer import FaktsDataLayer
-from elektro.middleware.upload import UploadMiddleware
-from graphql import OperationType
-from arkitekt.service_registry import (
-    get_default_service_registry,
+from rath.links.graphql_ws import GraphQLWSLink
+from rath.links.split import SplitLink
+
+from rekuest.app import AppRegistry
+from rekuest.widgets import SearchWidget
+
+from elektro.api.schema import (
+    Annotation,
+    AnnotationCollection,
+    ArrayDataset,
+    CoordinateSystem,
+    Experiment,
+    File,
+    Folder,
+    Lens,
+    ModelCollection,
+    NeuronModel,
+    SearchAnnotationCollectionsQuery,
+    SearchArrayDatasetsQuery,
+    SearchCoordinateSystemsQuery,
+    SearchExperimentsQuery,
+    SearchFilesQuery,
+    SearchFoldersQuery,
+    SearchModelCollectionQuery,
+    SearchNeuronModelsQuery,
+    SearchSparseDatasetsQuery,
+    SearchTableDatasetsQuery,
+    SparseDataset,
+    TableDataset,
 )
+
+from elektro.datalayer import DataLayer
+from elektro.elektro import Elektro
+from elektro.middleware.upload import UploadMiddleware
+from elektro.rath import ElektroRath
 
 
 def build_relative_path(*path: str) -> str:
-    """Build an absolute path relative to this module's directory."""
+    """Build a path relative to this file, for the files shipped beside it."""
     return os.path.join(os.path.dirname(__file__), *path)
 
 
-class ElektroService(BaseArkitektService):
-    """Arkitekt service definition that builds and registers an Elektro client."""
+registry = AppRegistry()
+"""What elektro brings to an app: its service, and the types it can send by id."""
 
-    def get_service_name(self) -> str:
-        """Return the unique name of this service."""
-        return "elektro"
 
-    def build_service(
-        self,
-        fakts: Fakts,
-        params: Params,
-    ) -> Elektro:
-        """Build a configured Elektro client from the given fakts and params."""
-        datalayer = FaktsDataLayer(fakts_group="datalayer", fakts=fakts)
+@registry.service(
+    schema=build_relative_path("api", "schema.graphql"),
+    turms=build_relative_path("api", "project.json"),
+)
+def elektro(
+    elektro: Annotated[
+        Alias,
+        Require("live.arkitekt.elektro", "Where the user's traces and recordings live"),
+    ],
+    datalayer: Annotated[
+        Alias,
+        Require("live.arkitekt.s3", "Where the user's files are stored"),
+    ],
+    tokens: TokenLoader,
+) -> Elektro:
+    """Elektro: electrophysiology traces, recordings and their metadata."""
+    store = DataLayer.from_alias(datalayer)
 
-        return Elektro(
-            rath=ElektroRath(
-                link=compose(
-                    FileExtraction(),
-                    DictingLink(),
-                    CoercePintLink(),
-                    FaktsAuthLink(
-                        fakts=fakts,
-                    ),
-                    ContextLink(),
-                    SplitLink(
-                        left=FaktsAIOHttpLink(
-                            fakts_group="elektro", fakts=fakts, endpoint_url="FAKE_URL"
-                        ),
-                        right=FaktsGraphQLWSLink(
-                            fakts_group="elektro",
-                            fakts=fakts,
-                            ws_endpoint_url="FAKE_URL",
-                        ),
-                        split=lambda o: o.node.operation != OperationType.SUBSCRIPTION,
-                    ),
+    return Elektro(
+        rath=ElektroRath(
+            link=compose(
+                FileExtraction(),
+                DictingLink(),
+                CoercePintLink(),
+                FaktsAuthLink(token_loader=tokens),
+                SplitLink(
+                    left=AIOHttpLink(endpoint_url=elektro.to_http_path("graphql")),
+                    right=GraphQLWSLink(ws_endpoint_url=elektro.to_ws_path("graphql")),
+                    split=lambda o: o.node.operation != OperationType.SUBSCRIPTION,
                 ),
-                middlewares=[
-                    UploadMiddleware(datalayer=datalayer),
-                ],
             ),
-            datalayer=datalayer,
-        )
-
-    def get_requirements(self) -> list[Requirement]:
-        """Return the service requirements needed to run Elektro."""
-        return [
-            Requirement(
-                key="elektro",
-                service="live.arkitekt.elektro",
-                description="An instance of ArkitektNext Mikro to make requests to the user's data",
-                optional=False,
-            ),
-            Requirement(
-                key="datalayer",
-                service="live.arkitekt.s3",
-                description="An instance of ArkitektNext Datalayer to make requests to the user's data",
-                optional=False,
-            ),
-        ]
-
-    def get_graphql_schema(self) -> str:
-        """Return the GraphQL schema definition for this service."""
-        schema_graphql_path = build_relative_path("api", "schema.graphql")
-        with open(schema_graphql_path) as f:
-            return f.read()
-
-    def get_turms_project(self) -> dict:
-        """Return the Turms project configuration for code generation."""
-        turms_prject = build_relative_path("api", "project.json")
-        with open(turms_prject) as f:
-            return json.loads(f.read())
+            middlewares=[UploadMiddleware(datalayer=store)],
+        ),
+        datalayer=store,
+    )
 
 
-get_default_service_registry().register(ElektroService())
+def _search(query: object) -> SearchWidget:
+    """The widget that picks one of these out of the deployment."""
+    return SearchWidget(query=query.Meta.document, ward="elektro")  # type: ignore[attr-defined]
+
+
+@registry.structure("@elektro/arraydataset", widget=_search(SearchArrayDatasetsQuery)
+)
+async def expand_array_dataset(id: str, elektro: Elektro) -> ArrayDataset:
+    """An array dataset, by id."""
+    return await elektro.aget_array_dataset(id)
+
+
+@registry.structure("@elektro/experiment", widget=_search(SearchExperimentsQuery))
+async def expand_experiment(id: str, elektro: Elektro) -> Experiment:
+    """An experiment, by id."""
+    return await elektro.aget_experiment(id)
+
+
+@registry.structure("@elektro/tabledataset", widget=_search(SearchTableDatasetsQuery)
+)
+async def expand_table_dataset(id: str, elektro: Elektro) -> TableDataset:
+    """A table dataset, by id."""
+    return await elektro.aget_table_dataset(id)
+
+
+@registry.structure("@elektro/sparsedataset", widget=_search(SearchSparseDatasetsQuery)
+)
+async def expand_sparse_dataset(id: str, elektro: Elektro) -> SparseDataset:
+    """A sparse dataset, by id."""
+    return await elektro.aget_sparse_dataset(id)
+
+
+@registry.structure("@elektro/modelcollection", widget=_search(SearchModelCollectionQuery)
+)
+async def expand_model_collection(id: str, elektro: Elektro) -> ModelCollection:
+    """A model collection, by id."""
+    return await elektro.aget_model_collection(id)
+
+
+@registry.structure("@elektro/annotationcollection",
+    widget=_search(SearchAnnotationCollectionsQuery),
+)
+async def expand_annotation_collection(id: str, elektro: Elektro) -> AnnotationCollection:
+    """An annotation collection, by id."""
+    return await elektro.aget_annotation_collection(id)
+
+
+# The annotations themselves have no search query: one is picked through its
+# collection, not out of every shape in the deployment.
+@registry.structure("@elektro/annotation")
+async def expand_annotation(id: str, elektro: Elektro) -> Annotation:
+    """One annotation, by id."""
+    return await elektro.aget_annotation(id)
+
+
+@registry.structure("@elektro/lens")
+async def expand_lens(id: str, elektro: Elektro) -> Lens:
+    """A lens, by id."""
+    return await elektro.aget_lens(id)
+
+
+@registry.structure("@elektro/coordinatesystem",
+    widget=_search(SearchCoordinateSystemsQuery),
+)
+async def expand_coordinate_system(id: str, elektro: Elektro) -> CoordinateSystem:
+    """A coordinate system, by id."""
+    return await elektro.aget_coordinate_system(id)
+
+
+@registry.structure("@elektro/neuronmodel", widget=_search(SearchNeuronModelsQuery)
+)
+async def expand_neuron_model(id: str, elektro: Elektro) -> NeuronModel:
+    """A neuron model, by id."""
+    return await elektro.aget_neuron_model(id)
+
+
+# `Dataset` was renamed `Folder` (it collided with the data it filed), but the
+# identifier is a wire contract workflow definitions name, so it stays -- exactly
+# as mikro's `Folder` keeps `@mikro/dataset`.
+@registry.structure("@elektro/dataset", widget=_search(SearchFoldersQuery))
+async def expand_folder(id: str, elektro: Elektro) -> Folder:
+    """A folder, by id -- it travels as `@elektro/dataset`."""
+    return await elektro.aget_folder(id)
+
+
+@registry.structure("@elektro/file", widget=_search(SearchFilesQuery))
+async def expand_file(id: str, elektro: Elektro) -> File:
+    """A file, by id."""
+    return await elektro.aget_file(id)

@@ -1,0 +1,10 @@
+# Time several array datasets onto one clock at once, one sampling law (or time
+# lookup) each: a recording session, or one run of a neuron model -- a run is its
+# clock. `name` mints a new clock, `clock` adds a second batch to an existing
+# one. Returns the clock. `timeUnit` defaults to *seconds* (the old
+# createSimulation defaulted to milliseconds, NEURON's unit).
+mutation CreateSession($input: CreateSessionInput!) {
+  createSession(input: $input) {
+    ...CoordinateSystem
+  }
+}

@@ -22,7 +22,7 @@ from elektro.io.obstore import (
     awrite_dataarray_to_zarr,
     write_dataarray_to_zarr,
 )
-from elektro.scalars import ArrayLike, TraceLike
+from elektro.scalars import ArrayLike
 
 
 def test_parquet_dataset_via_obstore_reads_dataframe() -> None:
@@ -57,13 +57,23 @@ def test_download_file_reads_bytes_via_obstore(
 
     obstore.put(store, credentials.key, payload)
 
-    monkeypatch.setattr(
-        "elektro.io.download.unkoil",
-        lambda function, store_id: (credentials, "http://example.invalid"),
-    )
+    seen: dict[str, object] = {}
+
+    def fake_unkoil(
+        function: object, store_id: str, rath: object, datalayer: object
+    ) -> tuple[SimpleNamespace, str]:
+        seen.update(rath=rath, datalayer=datalayer)
+        return credentials, "http://example.invalid"
+
+    monkeypatch.setattr("elektro.io.download.unkoil", fake_unkoil)
     monkeypatch.setattr("elektro.io.download.create_s3_store", lambda *_args: store)
 
-    result = download_file("store-id", str(target))
+    # The clients are resolved before the hop into the event loop, so they are
+    # handed over explicitly here; nothing ambient is involved.
+    rath, datalayer = object(), object()
+    result = download_file("store-id", str(target), datalayer, rath=rath)
+
+    assert seen == {"rath": rath, "datalayer": datalayer}
 
     assert result == str(target)
     assert target.read_bytes() == payload
@@ -148,26 +158,26 @@ async def test_awrite_dataarray_to_zarr_streams_dask_arrays(
     assert np.array_equal(back[:], source)
 
 
-def test_array_like_preserves_labels() -> None:
-    """``ArrayLike`` keeps labelled dims and assigns defaults to bare arrays."""
-    # ArrayLike preserves the caller's labelled dims/order verbatim.
+def test_trace_like_preserves_labels() -> None:
+    """``ArrayLike`` keeps labelled dims and leaves bare arrays unnamed."""
     labeled = xr.DataArray(np.zeros((4, 8), dtype="uint16"), dims=["sweep", "c"])
     arr = ArrayLike.validate(labeled)
     assert arr.value.dims == ("sweep", "c")
     assert arr.value.shape == (4, 8)
 
-    # Bare arrays carry no labels, so xarray's default names are assigned.
+    # Bare arrays carry no labels: the placeholders stay until axes name them.
     bare = ArrayLike.validate(np.zeros((1000,), dtype="uint16"))
     assert bare.value.dims == ("dim_0",)
     assert hasattr(bare, "key")
 
 
-def test_trace_like_coerces_to_c() -> None:
-    """``TraceLike`` coerces a bare array to the canonical 1-D ``c`` layout."""
-    # TraceLike forces the canonical 1-D ``c`` layout.
-    trace = TraceLike.validate(np.zeros((1000,), dtype="float32"))
-    assert trace.value.dims == ("c",)
-    assert trace.value.shape == (1000,)
+def test_unnamed_dims_are_not_written_into_the_store() -> None:
+    """A placeholder name would be refused by the server's axis check; a null is not."""
+    from elektro.io.obstore import _dimension_names
+
+    assert _dimension_names(xr.DataArray(np.zeros((4, 8)))) is None
+    assert _dimension_names(xr.DataArray(np.zeros((4, 8)), dims=["t", "c"])) == ["t", "c"]
+    assert _dimension_names(xr.DataArray(np.zeros((4, 8)), dims=["t", "dim_1"])) == ["t", None]
 
 
 def test_write_dataarray_to_zarr_streams_arbitrary_dims() -> None:
@@ -182,3 +192,34 @@ def test_write_dataarray_to_zarr_streams_arbitrary_dims() -> None:
     back = zarr.open_array(sp, mode="r")
     assert back.metadata.dimension_names == ("sweep", "c")
     assert np.array_equal(back[:], source)
+
+
+def test_trace_layout_is_small_chunks_in_bounded_shards() -> None:
+    """A long (t, c) trace: 1 MiB inner chunks, 16 MiB shards; a small level stays unsharded."""
+    from elektro.io.obstore import _zarr_chunk_layout
+
+    def layout(shape: tuple[int, ...]) -> tuple:
+        return _zarr_chunk_layout(xr.DataArray(np.empty(shape, np.float32), dims=["t", "c"][: len(shape)]))
+
+    assert layout((25_000_000, 4)) == ((65_536, 4), (1_048_576, 4))
+    assert layout((25_000_000,)) == ((262_144,), (4_194_304,))
+    # Under one shard's worth: sharding would make the whole array one object anyway.
+    assert layout((250_000, 4)) == ((65_536, 4), None)
+    assert layout((1_000,)) == ((1_000,), None)
+
+
+@pytest.mark.parametrize("dask_backed", [False, True])
+def test_sharded_write_round_trips_in_a_layout_the_server_accepts(dask_backed: bool) -> None:
+    """A sharded trace reads back exactly, with sharding_indexed as the sole top-level codec."""
+    values = np.random.default_rng(0).standard_normal((1_500_000, 4)).astype(np.float32)  # 24 MB
+    data = da.from_array(values, chunks=(100_000, 4)) if dask_backed else values
+    sp = _store_path()
+
+    write_dataarray_to_zarr(sp, xr.DataArray(data, dims=["t", "c"]))
+
+    back = zarr.open_array(sp, mode="r")
+    assert back.shards == (1_048_576, 4) and back.chunks == (65_536, 4)
+    codecs = back.metadata.to_dict()["codecs"]
+    assert [c["name"] for c in codecs] == ["sharding_indexed"]
+    assert codecs[0]["configuration"]["index_location"] in ("start", "end")
+    np.testing.assert_array_equal(back[:], values)

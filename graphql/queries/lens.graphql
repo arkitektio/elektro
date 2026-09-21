@@ -1,0 +1,11 @@
+query GetLens($id: ID!) {
+  lens(id: $id) {
+    ...Lens
+  }
+}
+
+query ListLenses($filter: LensFilter, $pagination: OffsetPaginationInput) {
+  lenses(filters: $filter, pagination: $pagination) {
+    ...Lens
+  }
+}

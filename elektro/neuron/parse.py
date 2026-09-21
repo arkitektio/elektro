@@ -10,7 +10,7 @@ from kanne.scalars import parse_dimension, parse_unit
 
 if TYPE_CHECKING:
     from elektro.api.schema import ModEnvironment
-    from elektro.rath import ElektroRath
+    from elektro.elektro import Elektro
 
 
 # ==========================================
@@ -159,48 +159,42 @@ def build_and_zip_environment(
 
 
 async def acreate_mod_environment_from_directory(
+    elektro: "Elektro",
     name: str,
     directory_path: str,
     description: Optional[str] = None,
     output_zip_path: str = "/tmp/mechanisms.zip",
-    rath: Optional["ElektroRath"] = None,
 ) -> "ModEnvironment":
     """Zip a mechanisms directory, parse its ``.mod`` files, and create a
-    ModEnvironment asynchronously.
+    ModEnvironment asynchronously, through ``elektro``.
 
     The zip is passed as a ``BigFileLike`` (``zip_file``); the UploadMiddleware
     uploads it to S3 via obstore and swaps it for its store id before the
     ``createModEnvironment`` mutation runs.
     """
-    from elektro.api.schema import acreate_mod_environment
-
     zip_path, mechanisms = build_and_zip_environment(directory_path, output_zip_path)
-    return await acreate_mod_environment(
+    return await elektro.acreate_mod_environment(
         name=name,
         zip_file=zip_path,
         mechanisms=mechanisms,
         description=description,
-        rath=rath,
     )
 
 
 def create_mod_environment_from_directory(
+    elektro: "Elektro",
     name: str,
     directory_path: str,
     description: Optional[str] = None,
     output_zip_path: str = "/tmp/mechanisms.zip",
-    rath: Optional["ElektroRath"] = None,
 ) -> "ModEnvironment":
     """Zip a mechanisms directory, parse its ``.mod`` files, and create a
     ModEnvironment synchronously. See :func:`acreate_mod_environment_from_directory`.
     """
-    from elektro.api.schema import create_mod_environment
-
     zip_path, mechanisms = build_and_zip_environment(directory_path, output_zip_path)
-    return create_mod_environment(
+    return elektro.create_mod_environment(
         name=name,
         zip_file=zip_path,
         mechanisms=mechanisms,
         description=description,
-        rath=rath,
     )

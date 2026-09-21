@@ -1,5 +1,0 @@
-mutation CreateSimulation($input: CreateSimulationInput!) {
-  createSimulation(input: $input) {
-   ...Simulation
-  }
-}
