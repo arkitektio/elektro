@@ -67,7 +67,7 @@ def test_elektro_imports_and_builds_a_client_with_arkitekt_unavailable() -> None
         "sys.modules['arkitekt'] = None\n"  # makes every `import arkitekt` raise ImportError
         "import elektro, elektro.client, elektro.io.download\n"
         "from elektro.elektro import Elektro\n"
-        "client = Elektro.model_construct(rath=object(), datalayer=object(), task_token=None)\n"
+        "client = Elektro.model_construct(rath=object(), datalayer=object())\n"
         "assert elektro.client.client_of(None, client) is client\n"
         "assert callable(client.aget_lens)\n"
         "print('ok')\n"

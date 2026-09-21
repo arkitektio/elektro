@@ -64,21 +64,7 @@ class Elektro(Composition, ElektroApi):
         ...,
         description="The rath for interacting with the elektro api",
     )
-    task_token: str | None = Field(
-        default=None,
-        description="The provenance token its requests carry; set on a per-task view only",
-    )
 
-    def for_task(self, task: Any) -> "Elektro":  # noqa: ANN401
-        """A view of this client whose requests name the task they are made for.
-
-        ``task`` is the task being run (rekuest's ``Task``; only its ``token`` is
-        read). The view shares the rath and the datalayer, and so their
-        connections; only the token differs, so concurrent tasks sharing one
-        client stay attributable. rekuest hands an injected ``elektro: Elektro``
-        out through this.
-        """
-        return self.model_copy(update={"task_token": task.token})
 
     def _origin(self) -> dict[str, Any]:
         """What the objects of a result should remember: the client that fetched them.
@@ -92,11 +78,11 @@ class Elektro(Composition, ElektroApi):
     def _headers(self, task: "TaskLike | None" = None) -> dict[str, Any] | None:
         """The per-call headers: the provenance token of the task this call is for.
 
-        ``task`` when the caller named one, else whichever task is running. A
-        per-task view of this client (``for_task``) still wins while it exists --
-        it is on its way out, and until then it is the more specific answer.
+        ``task`` when the caller named one, else whichever task is running. There
+        is no per-task copy of this client: one instance serves every task, and
+        what a request is attributed to is decided per call.
         """
-        token = self.task_token if self.task_token else token_of(task)
+        token = token_of(task)
         return {TASK_HEADER: token} if token else None
 
     def _apply_middlewares(

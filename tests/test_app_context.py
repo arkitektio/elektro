@@ -67,7 +67,7 @@ class FakeApp:
         self.datalayer = DataLayer(endpoint_url=f"http://{name}.invalid")
         # A real client over fakes: `client_of` only follows an origin that is one.
         self.elektro = Elektro.model_construct(
-            rath=self.rath, datalayer=self.datalayer, task_token=None
+            rath=self.rath, datalayer=self.datalayer
         )
 
     def get(self, key: type) -> Any:  # noqa: ANN401
@@ -168,7 +168,7 @@ def test_the_generated_operations_are_methods_of_the_client() -> None:
 
     assert issubclass(Elektro, ElektroApi)
     assert callable(Elektro.aget_lens) and callable(Elektro.get_lens)
-    assert set(Elektro.model_fields) == {"datalayer", "rath", "task_token"}
+    assert set(Elektro.model_fields) == {"datalayer", "rath"}
 
 
 # --------------------------------------------------------------------------- #
@@ -371,22 +371,6 @@ async def test_rekuest_expands_through_the_client_its_registry_was_bound_to(
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.asyncio
-async def test_a_task_view_stamps_its_token_and_shares_the_clients() -> None:
-    """Requests from the view name the task; the shared client is never changed."""
-    rath = FakeRath("shared")
-    client = Elektro.model_construct(
-        rath=rath, datalayer=DataLayer(endpoint_url="http://x.invalid"), task_token=None
-    )
-    view = client.for_task(SimpleNamespace(token="token-1"))
-
-    await client.aexecute(GetStore, {"id": "store-1"})
-    result = await view.aexecute(GetStore, {"id": "store-1"})
-
-    assert rath.headers == [None, {TASK_HEADER: "token-1"}]
-    assert view.rath is client.rath and view.datalayer is client.datalayer
-    assert client.task_token is None
-    assert result.store.bound_client() is view
 
 
 @pytest.mark.asyncio
@@ -395,9 +379,7 @@ async def test_the_ambient_task_is_stamped_without_a_view() -> None:
     from rath.task import task_scope
 
     rath = FakeRath("shared")
-    client = Elektro.model_construct(
-        rath=rath, datalayer=DataLayer(endpoint_url="http://x.invalid"), task_token=None
-    )
+    client = Elektro.model_construct(rath=rath, datalayer=DataLayer(endpoint_url="http://x.invalid"))
 
     await client.aexecute(GetStore, {"id": "store-1"})
     with task_scope(SimpleNamespace(token="token-1")):
@@ -405,7 +387,7 @@ async def test_the_ambient_task_is_stamped_without_a_view() -> None:
     await client.aexecute(GetStore, {"id": "store-1"})
 
     assert rath.headers == [None, {TASK_HEADER: "token-1"}, None]
-    assert client.task_token is None, "the shared client is never changed"
+    assert "task_token" not in Elektro.model_fields, "no per-task copy exists"
 
 
 @pytest.mark.asyncio
@@ -413,9 +395,7 @@ async def test_a_task_named_at_the_call_beats_the_ambient_one() -> None:
     from rath.task import task_scope
 
     rath = FakeRath("shared")
-    client = Elektro.model_construct(
-        rath=rath, datalayer=DataLayer(endpoint_url="http://x.invalid"), task_token=None
-    )
+    client = Elektro.model_construct(rath=rath, datalayer=DataLayer(endpoint_url="http://x.invalid"))
 
     with task_scope(SimpleNamespace(token="ambient")):
         await client.aexecute(

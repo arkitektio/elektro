@@ -77,12 +77,16 @@ def _as_client(rath: ElektroRath, datalayer: DataLayer) -> "Elektro":
     """A client over an already-picked rath and datalayer, to call operations on.
 
     Not entered and not owning either: whoever picked them owns their lifetime.
-    It carries no task token, so access requests made through it are not
-    attributed to a task.
+    An access request made through it is attributed like any other call: to the
+    task running when it is made, if any. This used to be unattributable by
+    construction -- the client carried its token as a field and this one was built
+    without one -- and that is a deliberate change, not an oversight. A download
+    triggered from inside an action is work that action caused, so it now says so;
+    one triggered outside any task still says nothing.
     """
     from elektro.elektro import Elektro
 
-    return Elektro.model_construct(rath=rath, datalayer=datalayer, task_token=None)
+    return Elektro.model_construct(rath=rath, datalayer=datalayer)
 
 
 def _datalayer(datalayer: DataLayer | None, obj: Any) -> DataLayer:  # noqa: ANN401
