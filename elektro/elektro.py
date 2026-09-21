@@ -7,6 +7,7 @@ from koil import unkoil_gen
 from koil.composition import Composition
 from pydantic import Field
 from rath.origin import origin_context
+from rath.task import TASK_HEADER, TaskLike, current_task, token_of
 from rath.turms.funcs import TOperation
 
 from elektro.api.schema import ElektroApi
@@ -14,8 +15,6 @@ from elektro.datalayer import DataLayer
 from elektro.middleware.base import OperationMiddleware
 from elektro.rath import ElektroRath
 
-TASK_HEADER = "Rekuest-Task"
-"""The header a per-task client view stamps its provenance token under."""
 
 
 class Elektro(Composition, ElektroApi):
@@ -90,9 +89,15 @@ class Elektro(Composition, ElektroApi):
         """
         return origin_context(client=self, rath=self.rath, datalayer=self.datalayer)
 
-    def _headers(self) -> dict[str, Any] | None:
-        """The per-call headers: the task's provenance token, on a per-task view."""
-        return {TASK_HEADER: self.task_token} if self.task_token else None
+    def _headers(self, task: "TaskLike | None" = None) -> dict[str, Any] | None:
+        """The per-call headers: the provenance token of the task this call is for.
+
+        ``task`` when the caller named one, else whichever task is running. A
+        per-task view of this client (``for_task``) still wins while it exists --
+        it is on its way out, and until then it is the more specific answer.
+        """
+        token = self.task_token if self.task_token else token_of(task)
+        return {TASK_HEADER: token} if token else None
 
     def _apply_middlewares(
         self,
@@ -129,6 +134,7 @@ class Elektro(Composition, ElektroApi):
         self,
         operation: type[TOperation],
         variables: dict[str, Any],
+        task: "TaskLike | None" = None,
     ) -> TOperation:
         """Executes a query or mutation in a blocking way.
 
@@ -143,13 +149,14 @@ class Elektro(Composition, ElektroApi):
         # Apply sync middleware chain (e.g., upload arrays via obstore)
         serialized = self._apply_middlewares(serialized, operation, rath.middlewares)
 
-        x = rath.query(operation.Meta.document, serialized, headers=self._headers())
+        x = rath.query(operation.Meta.document, serialized, headers=self._headers(task))
         return operation.model_validate(x.data, context=self._origin())
 
     async def aexecute(
         self,
         operation: type[TOperation],
         variables: dict[str, Any],
+        task: "TaskLike | None" = None,
     ) -> TOperation:
         """Executes a query or mutation in a non-blocking way.
 
@@ -164,21 +171,28 @@ class Elektro(Composition, ElektroApi):
         # Apply async middleware chain (e.g., upload arrays via obstore)
         serialized = await self._aapply_middlewares(serialized, operation, rath.middlewares)
 
-        x = await rath.aquery(operation.Meta.document, serialized, headers=self._headers())
+        x = await rath.aquery(operation.Meta.document, serialized, headers=self._headers(task))
         return operation.model_validate(x.data, context=self._origin())
 
     def subscribe(
         self,
         operation: type[TOperation],
         variables: dict[str, Any],
+        task: "TaskLike | None" = None,
     ) -> Generator[TOperation, None, None]:
         """Subscribes to an operation in a blocking way."""
-        return unkoil_gen(self.asubscribe, operation, variables)
+        return unkoil_gen(
+            self.asubscribe,
+            operation,
+            variables,
+            task=task if task is not None else current_task.get(),
+        )
 
     async def asubscribe(
         self,
         operation: type[TOperation],
         variables: dict[str, Any],
+        task: "TaskLike | None" = None,
     ) -> AsyncGenerator[TOperation, None]:
         """Subscribes to an operation in a non-blocking way.
 
@@ -195,6 +209,6 @@ class Elektro(Composition, ElektroApi):
         serialized = await self._aapply_middlewares(serialized, operation, rath.middlewares)
 
         async for event in rath.asubscribe(
-            operation.Meta.document, serialized, headers=self._headers()
+            operation.Meta.document, serialized, headers=self._headers(task)
         ):
             yield operation.model_validate(event.data, context=self._origin())
