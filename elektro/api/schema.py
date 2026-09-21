@@ -7,6 +7,7 @@ from enum import Enum
 from kanne.scalars import Capacitance, Concentration, Dimension, Duration, ElectricCurrent, ElectricPotential, ElectricalConductance, ElectricalResistance, Frequency, GenericQuantity, Length, Resistivity, SpecificCapacitance, Temperature, Unit
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, TypeAdapter
 from rath.scalars import ID, IDCoercible
+from rath.task import TaskLike
 from typing import Annotated, Any, AsyncIterator, Iterable, Iterator, Literal
 
 class GraphQLDefault:
@@ -8936,7 +8937,7 @@ class ElektroApi:
 
 Each method hands its operation to ``execute``, ``aexecute``, ``subscribe``, ``asubscribe`` of ``self``, which the class this one is mixed into (or a base of it) provides."""
 
-    async def acreate_annotation(self, kind: AnnotationKind, vectors: Iterable[Iterable[float]], stroke_color: Iterable[int] | None | UnsetType=UNSET, fill_color: Iterable[int] | None | UnsetType=UNSET, collection: IDCoercible | None | UnsetType=UNSET, experiment: IDCoercible | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, coordinates: Iterable[CoordinateInput] | None | UnsetType=UNSET, stroke_width: float | None | UnsetType=UNSET, filled: bool | None | UnsetType=UNSET) -> Annotation:
+    async def acreate_annotation(self, kind: AnnotationKind, vectors: Iterable[Iterable[float]], stroke_color: Iterable[int] | None | UnsetType=UNSET, fill_color: Iterable[int] | None | UnsetType=UNSET, collection: IDCoercible | None | UnsetType=UNSET, experiment: IDCoercible | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, coordinates: Iterable[CoordinateInput] | None | UnsetType=UNSET, stroke_width: float | None | UnsetType=UNSET, filled: bool | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotation:
         """CreateAnnotation 
 
 Draw an annotation into a collection, or onto an experiment (exactly one of the two). Drawing on an experiment finds its annotation collection or mints it on first use: a coordinate system copying the world's axes, an identity registration into the world, and one annotation layer
@@ -8953,6 +8954,7 @@ Args:
     coordinates: A discrete coordinate a question is asked at, e.g. a channel or a sweep (required) (list)
     stroke_width: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     filled: The `Boolean` scalar type represents `true` or `false`.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Annotation
@@ -8980,9 +8982,9 @@ Returns:
         if filled is not UNSET:
             _input['filled'] = filled
         variables['input'] = _input
-        return (await self.aexecute(CreateAnnotationMutation, variables)).create_annotation
+        return (await self.aexecute(CreateAnnotationMutation, variables, task=task)).create_annotation
 
-    def create_annotation(self, kind: AnnotationKind, vectors: Iterable[Iterable[float]], stroke_color: Iterable[int] | None | UnsetType=UNSET, fill_color: Iterable[int] | None | UnsetType=UNSET, collection: IDCoercible | None | UnsetType=UNSET, experiment: IDCoercible | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, coordinates: Iterable[CoordinateInput] | None | UnsetType=UNSET, stroke_width: float | None | UnsetType=UNSET, filled: bool | None | UnsetType=UNSET) -> Annotation:
+    def create_annotation(self, kind: AnnotationKind, vectors: Iterable[Iterable[float]], stroke_color: Iterable[int] | None | UnsetType=UNSET, fill_color: Iterable[int] | None | UnsetType=UNSET, collection: IDCoercible | None | UnsetType=UNSET, experiment: IDCoercible | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, coordinates: Iterable[CoordinateInput] | None | UnsetType=UNSET, stroke_width: float | None | UnsetType=UNSET, filled: bool | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotation:
         """CreateAnnotation 
 
 Draw an annotation into a collection, or onto an experiment (exactly one of the two). Drawing on an experiment finds its annotation collection or mints it on first use: a coordinate system copying the world's axes, an identity registration into the world, and one annotation layer
@@ -8999,6 +9001,7 @@ Args:
     coordinates: A discrete coordinate a question is asked at, e.g. a channel or a sweep (required) (list)
     stroke_width: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     filled: The `Boolean` scalar type represents `true` or `false`.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Annotation
@@ -9026,9 +9029,9 @@ Returns:
         if filled is not UNSET:
             _input['filled'] = filled
         variables['input'] = _input
-        return self.execute(CreateAnnotationMutation, variables).create_annotation
+        return self.execute(CreateAnnotationMutation, variables, task=task).create_annotation
 
-    async def acreate_annotations(self, annotations: Iterable[AnnotationSpecInput], collection: IDCoercible | None | UnsetType=UNSET, experiment: IDCoercible | None | UnsetType=UNSET) -> list[Annotation]:
+    async def acreate_annotations(self, annotations: Iterable[AnnotationSpecInput], collection: IDCoercible | None | UnsetType=UNSET, experiment: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[Annotation]:
         """CreateAnnotations 
 
 Draw many annotations in one call -- a detector's whole output. One collection resolve, one chain resolve, one insert
@@ -9037,6 +9040,7 @@ Args:
     collection: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     experiment: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     annotations: One shape of a bulk draw: the per-annotation subset of CreateAnnotationInput, without the collection/experiment target (required) (list) (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[Annotation]
@@ -9049,9 +9053,9 @@ Returns:
             _input['experiment'] = experiment
         _input['annotations'] = annotations
         variables['input'] = _input
-        return (await self.aexecute(CreateAnnotationsMutation, variables)).create_annotations
+        return (await self.aexecute(CreateAnnotationsMutation, variables, task=task)).create_annotations
 
-    def create_annotations(self, annotations: Iterable[AnnotationSpecInput], collection: IDCoercible | None | UnsetType=UNSET, experiment: IDCoercible | None | UnsetType=UNSET) -> list[Annotation]:
+    def create_annotations(self, annotations: Iterable[AnnotationSpecInput], collection: IDCoercible | None | UnsetType=UNSET, experiment: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[Annotation]:
         """CreateAnnotations 
 
 Draw many annotations in one call -- a detector's whole output. One collection resolve, one chain resolve, one insert
@@ -9060,6 +9064,7 @@ Args:
     collection: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     experiment: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     annotations: One shape of a bulk draw: the per-annotation subset of CreateAnnotationInput, without the collection/experiment target (required) (list) (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[Annotation]
@@ -9072,9 +9077,9 @@ Returns:
             _input['experiment'] = experiment
         _input['annotations'] = annotations
         variables['input'] = _input
-        return self.execute(CreateAnnotationsMutation, variables).create_annotations
+        return self.execute(CreateAnnotationsMutation, variables, task=task).create_annotations
 
-    async def aupdate_annotation(self, id: IDCoercible, kind: AnnotationKind | None | UnsetType=UNSET, vectors: Iterable[Iterable[float]] | None | UnsetType=UNSET, stroke_color: Iterable[int] | None | UnsetType=UNSET, fill_color: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, coordinates: Iterable[CoordinateInput] | None | UnsetType=UNSET, stroke_width: float | None | UnsetType=UNSET, filled: bool | None | UnsetType=UNSET) -> Annotation:
+    async def aupdate_annotation(self, id: IDCoercible, kind: AnnotationKind | None | UnsetType=UNSET, vectors: Iterable[Iterable[float]] | None | UnsetType=UNSET, stroke_color: Iterable[int] | None | UnsetType=UNSET, fill_color: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, coordinates: Iterable[CoordinateInput] | None | UnsetType=UNSET, stroke_width: float | None | UnsetType=UNSET, filled: bool | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotation:
         """UpdateAnnotation 
 
 Edit an annotation. Only the supplied fields change; new vectors re-derive the bounding box
@@ -9090,6 +9095,7 @@ Args:
     coordinates: A discrete coordinate a question is asked at, e.g. a channel or a sweep (required) (list)
     stroke_width: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     filled: The `Boolean` scalar type represents `true` or `false`.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Annotation
@@ -9116,9 +9122,9 @@ Returns:
         if filled is not UNSET:
             _input['filled'] = filled
         variables['input'] = _input
-        return (await self.aexecute(UpdateAnnotationMutation, variables)).update_annotation
+        return (await self.aexecute(UpdateAnnotationMutation, variables, task=task)).update_annotation
 
-    def update_annotation(self, id: IDCoercible, kind: AnnotationKind | None | UnsetType=UNSET, vectors: Iterable[Iterable[float]] | None | UnsetType=UNSET, stroke_color: Iterable[int] | None | UnsetType=UNSET, fill_color: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, coordinates: Iterable[CoordinateInput] | None | UnsetType=UNSET, stroke_width: float | None | UnsetType=UNSET, filled: bool | None | UnsetType=UNSET) -> Annotation:
+    def update_annotation(self, id: IDCoercible, kind: AnnotationKind | None | UnsetType=UNSET, vectors: Iterable[Iterable[float]] | None | UnsetType=UNSET, stroke_color: Iterable[int] | None | UnsetType=UNSET, fill_color: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, coordinates: Iterable[CoordinateInput] | None | UnsetType=UNSET, stroke_width: float | None | UnsetType=UNSET, filled: bool | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotation:
         """UpdateAnnotation 
 
 Edit an annotation. Only the supplied fields change; new vectors re-derive the bounding box
@@ -9134,6 +9140,7 @@ Args:
     coordinates: A discrete coordinate a question is asked at, e.g. a channel or a sweep (required) (list)
     stroke_width: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     filled: The `Boolean` scalar type represents `true` or `false`.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Annotation
@@ -9160,15 +9167,16 @@ Returns:
         if filled is not UNSET:
             _input['filled'] = filled
         variables['input'] = _input
-        return self.execute(UpdateAnnotationMutation, variables).update_annotation
+        return self.execute(UpdateAnnotationMutation, variables, task=task).update_annotation
 
-    async def adelete_annotation(self, id: IDCoercible) -> ID:
+    async def adelete_annotation(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteAnnotation 
 
 Delete an annotation. Its collection, and the space it was drawn in, stay
 
 Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -9177,15 +9185,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return (await self.aexecute(DeleteAnnotationMutation, variables)).delete_annotation
+        return (await self.aexecute(DeleteAnnotationMutation, variables, task=task)).delete_annotation
 
-    def delete_annotation(self, id: IDCoercible) -> ID:
+    def delete_annotation(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteAnnotation 
 
 Delete an annotation. Its collection, and the space it was drawn in, stay
 
 Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -9194,9 +9203,9 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return self.execute(DeleteAnnotationMutation, variables).delete_annotation
+        return self.execute(DeleteAnnotationMutation, variables, task=task).delete_annotation
 
-    async def acreate_annotation_collection(self, name: str, axes: Iterable[AxisInput | str], description: str | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET) -> AnnotationCollection:
+    async def acreate_annotation_collection(self, name: str, axes: Iterable[AxisInput | str], description: str | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> AnnotationCollection:
         """CreateAnnotationCollection 
 
 Create an annotation collection, in a coordinate system of its own, optionally related to what its shapes are drawn over: a dataset's sample grid, a segment's clock. The common path for a timeline -- drawing on an experiment -- goes through createAnnotation instead, which mints the experiment's collection on first use
@@ -9206,6 +9215,7 @@ Args:
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     axes: Input type for one structural axis of a dataset's sample grid: its name and its semantic kind. Units and sampling rates do not belong here -- they belong to a clock, a separate coordinate system plus one edge (required) (list) (required)
     derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     AnnotationCollection
@@ -9219,9 +9229,9 @@ Returns:
         if derived_from is not UNSET:
             _input['derivedFrom'] = derived_from
         variables['input'] = _input
-        return (await self.aexecute(CreateAnnotationCollectionMutation, variables)).create_annotation_collection
+        return (await self.aexecute(CreateAnnotationCollectionMutation, variables, task=task)).create_annotation_collection
 
-    def create_annotation_collection(self, name: str, axes: Iterable[AxisInput | str], description: str | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET) -> AnnotationCollection:
+    def create_annotation_collection(self, name: str, axes: Iterable[AxisInput | str], description: str | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> AnnotationCollection:
         """CreateAnnotationCollection 
 
 Create an annotation collection, in a coordinate system of its own, optionally related to what its shapes are drawn over: a dataset's sample grid, a segment's clock. The common path for a timeline -- drawing on an experiment -- goes through createAnnotation instead, which mints the experiment's collection on first use
@@ -9231,6 +9241,7 @@ Args:
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     axes: Input type for one structural axis of a dataset's sample grid: its name and its semantic kind. Units and sampling rates do not belong here -- they belong to a clock, a separate coordinate system plus one edge (required) (list) (required)
     derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     AnnotationCollection
@@ -9244,15 +9255,16 @@ Returns:
         if derived_from is not UNSET:
             _input['derivedFrom'] = derived_from
         variables['input'] = _input
-        return self.execute(CreateAnnotationCollectionMutation, variables).create_annotation_collection
+        return self.execute(CreateAnnotationCollectionMutation, variables, task=task).create_annotation_collection
 
-    async def adelete_annotation_collection(self, id: IDCoercible) -> ID:
+    async def adelete_annotation_collection(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteAnnotationCollection 
 
 Delete an annotation collection. Its annotations, its experiment layers and the drawing space it owned go with it; what it was drawn over is untouched
 
 Args:
     id: The ID of the annotation collection to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -9261,15 +9273,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return (await self.aexecute(DeleteAnnotationCollectionMutation, variables)).delete_annotation_collection
+        return (await self.aexecute(DeleteAnnotationCollectionMutation, variables, task=task)).delete_annotation_collection
 
-    def delete_annotation_collection(self, id: IDCoercible) -> ID:
+    def delete_annotation_collection(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteAnnotationCollection 
 
 Delete an annotation collection. Its annotations, its experiment layers and the drawing space it owned go with it; what it was drawn over is untouched
 
 Args:
     id: The ID of the annotation collection to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -9278,9 +9291,9 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return self.execute(DeleteAnnotationCollectionMutation, variables).delete_annotation_collection
+        return self.execute(DeleteAnnotationCollectionMutation, variables, task=task).delete_annotation_collection
 
-    async def acreate_array_dataset(self, data: ArrayCoercible, scales: Iterable[ScaleInput], name: str, axes: Iterable[AxisInput | str], folder: IDCoercible | None | UnsetType=UNSET, anchors: Iterable[CoordinateAnchorInput] | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET) -> ArrayDataset:
+    async def acreate_array_dataset(self, data: ArrayCoercible, scales: Iterable[ScaleInput], name: str, axes: Iterable[AxisInput | str], folder: IDCoercible | None | UnsetType=UNSET, anchors: Iterable[CoordinateAnchorInput] | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> ArrayDataset:
         """CreateArrayDataset 
 
 Create a new dataset from array-like data, with its pyramid levels, optional coordinate anchors (a value unit, channel labels, the rig state) and derivation edges. One of the three ways data enters (with createTableDataset and createSparseDataset): when its samples were taken is said afterwards, by an edge onto a clock (`createSamplingLaw`), and what it is drawn as by an experiment layer
@@ -9294,6 +9307,7 @@ Args:
     anchors: Input type for a coordinate anchor, which specifies a list of dimension anchors to anchor to (required) (list)
     derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
     source_files: One file this container was produced from -- the ABF or NWB file a converter read to write these arrays. Recorded as a link between bytes and data, deliberately not as a coordinate-graph edge: a file has no space, so there is no map to state and `derivedFrom` is the wrong mechanism (required) (list)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ArrayDataset
@@ -9313,9 +9327,9 @@ Returns:
         if source_files is not UNSET:
             _input['sourceFiles'] = source_files
         variables['input'] = _input
-        return (await self.aexecute(CreateArrayDatasetMutation, variables)).create_array_dataset
+        return (await self.aexecute(CreateArrayDatasetMutation, variables, task=task)).create_array_dataset
 
-    def create_array_dataset(self, data: ArrayCoercible, scales: Iterable[ScaleInput], name: str, axes: Iterable[AxisInput | str], folder: IDCoercible | None | UnsetType=UNSET, anchors: Iterable[CoordinateAnchorInput] | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET) -> ArrayDataset:
+    def create_array_dataset(self, data: ArrayCoercible, scales: Iterable[ScaleInput], name: str, axes: Iterable[AxisInput | str], folder: IDCoercible | None | UnsetType=UNSET, anchors: Iterable[CoordinateAnchorInput] | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> ArrayDataset:
         """CreateArrayDataset 
 
 Create a new dataset from array-like data, with its pyramid levels, optional coordinate anchors (a value unit, channel labels, the rig state) and derivation edges. One of the three ways data enters (with createTableDataset and createSparseDataset): when its samples were taken is said afterwards, by an edge onto a clock (`createSamplingLaw`), and what it is drawn as by an experiment layer
@@ -9329,6 +9343,7 @@ Args:
     anchors: Input type for a coordinate anchor, which specifies a list of dimension anchors to anchor to (required) (list)
     derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
     source_files: One file this container was produced from -- the ABF or NWB file a converter read to write these arrays. Recorded as a link between bytes and data, deliberately not as a coordinate-graph edge: a file has no space, so there is no map to state and `derivedFrom` is the wrong mechanism (required) (list)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ArrayDataset
@@ -9348,9 +9363,9 @@ Returns:
         if source_files is not UNSET:
             _input['sourceFiles'] = source_files
         variables['input'] = _input
-        return self.execute(CreateArrayDatasetMutation, variables).create_array_dataset
+        return self.execute(CreateArrayDatasetMutation, variables, task=task).create_array_dataset
 
-    async def aupdate_array_dataset(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET) -> ArrayDataset:
+    async def aupdate_array_dataset(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> ArrayDataset:
         """UpdateArrayDataset 
 
 Rename a dataset or redescribe it -- the whole of what is editable, and audited on `provenanceEntries`. Its arrays, axes and coordinate systems are fixed at creation; a recomputation is a new dataset
@@ -9359,6 +9374,7 @@ Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ArrayDataset
@@ -9371,9 +9387,9 @@ Returns:
         if description is not UNSET:
             _input['description'] = description
         variables['input'] = _input
-        return (await self.aexecute(UpdateArrayDatasetMutation, variables)).update_array_dataset
+        return (await self.aexecute(UpdateArrayDatasetMutation, variables, task=task)).update_array_dataset
 
-    def update_array_dataset(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET) -> ArrayDataset:
+    def update_array_dataset(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> ArrayDataset:
         """UpdateArrayDataset 
 
 Rename a dataset or redescribe it -- the whole of what is editable, and audited on `provenanceEntries`. Its arrays, axes and coordinate systems are fixed at creation; a recomputation is a new dataset
@@ -9382,6 +9398,7 @@ Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ArrayDataset
@@ -9394,15 +9411,16 @@ Returns:
         if description is not UNSET:
             _input['description'] = description
         variables['input'] = _input
-        return self.execute(UpdateArrayDatasetMutation, variables).update_array_dataset
+        return self.execute(UpdateArrayDatasetMutation, variables, task=task).update_array_dataset
 
-    async def adelete_array_dataset(self, id: IDCoercible) -> ID:
+    async def adelete_array_dataset(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteArrayDataset 
 
 Delete an existing array dataset, with its levels, its lenses, every interpretation of it, and the coordinate systems nothing else lives in. Its stores are flagged, not deleted: `purge_orphaned_stores` collects them after a grace period
 
 Args:
     id: The ID of the array dataset to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -9411,15 +9429,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return (await self.aexecute(DeleteArrayDatasetMutation, variables)).delete_array_dataset
+        return (await self.aexecute(DeleteArrayDatasetMutation, variables, task=task)).delete_array_dataset
 
-    def delete_array_dataset(self, id: IDCoercible) -> ID:
+    def delete_array_dataset(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteArrayDataset 
 
 Delete an existing array dataset, with its levels, its lenses, every interpretation of it, and the coordinate systems nothing else lives in. Its stores are flagged, not deleted: `purge_orphaned_stores` collects them after a grace period
 
 Args:
     id: The ID of the array dataset to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -9428,15 +9447,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return self.execute(DeleteArrayDatasetMutation, variables).delete_array_dataset
+        return self.execute(DeleteArrayDatasetMutation, variables, task=task).delete_array_dataset
 
-    async def adelete_data_array(self, id: IDCoercible) -> ID:
+    async def adelete_data_array(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteDataArray 
 
 Delete one downsampled level of a dataset. Level 0 cannot be deleted: it is the dataset
 
 Args:
     id: The ID of the data array to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -9445,15 +9465,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return (await self.aexecute(DeleteDataArrayMutation, variables)).delete_data_array
+        return (await self.aexecute(DeleteDataArrayMutation, variables, task=task)).delete_data_array
 
-    def delete_data_array(self, id: IDCoercible) -> ID:
+    def delete_data_array(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteDataArray 
 
 Delete one downsampled level of a dataset. Level 0 cannot be deleted: it is the dataset
 
 Args:
     id: The ID of the data array to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -9462,9 +9483,9 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return self.execute(DeleteDataArrayMutation, variables).delete_data_array
+        return self.execute(DeleteDataArrayMutation, variables, task=task).delete_data_array
 
-    async def acreate_sampling_law(self, source: IDCoercible, clock: IDCoercible, sampling_rate: Frequency, t_start: Duration, validity: PlacementValidity | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET) -> Annotated[CreateSamplingLawMutationCreateSamplingLawBaseAffineTransformation | CreateSamplingLawMutationCreateSamplingLawBaseByDimensionTransformation | CreateSamplingLawMutationCreateSamplingLawBaseFieldTransformation | CreateSamplingLawMutationCreateSamplingLawBaseIdentityTransformation | CreateSamplingLawMutationCreateSamplingLawBaseMapAxisTransformation | CreateSamplingLawMutationCreateSamplingLawBaseRotationTransformation | CreateSamplingLawMutationCreateSamplingLawBaseScaleTransformation | CreateSamplingLawMutationCreateSamplingLawBaseSequenceTransformation | CreateSamplingLawMutationCreateSamplingLawBaseTranslationTransformation | CreateSamplingLawMutationCreateSamplingLawBaseUnmappableTransformation, Field(discriminator='typename')] | CreateSamplingLawMutationCreateSamplingLawBaseCatchAll:
+    async def acreate_sampling_law(self, source: IDCoercible, clock: IDCoercible, sampling_rate: Frequency, t_start: Duration, validity: PlacementValidity | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotated[CreateSamplingLawMutationCreateSamplingLawBaseAffineTransformation | CreateSamplingLawMutationCreateSamplingLawBaseByDimensionTransformation | CreateSamplingLawMutationCreateSamplingLawBaseFieldTransformation | CreateSamplingLawMutationCreateSamplingLawBaseIdentityTransformation | CreateSamplingLawMutationCreateSamplingLawBaseMapAxisTransformation | CreateSamplingLawMutationCreateSamplingLawBaseRotationTransformation | CreateSamplingLawMutationCreateSamplingLawBaseScaleTransformation | CreateSamplingLawMutationCreateSamplingLawBaseSequenceTransformation | CreateSamplingLawMutationCreateSamplingLawBaseTranslationTransformation | CreateSamplingLawMutationCreateSamplingLawBaseUnmappableTransformation, Field(discriminator='typename')] | CreateSamplingLawMutationCreateSamplingLawBaseCatchAll:
         """CreateSamplingLaw 
  `t = sample / samplingRate + tStart`: one sampling law, a dataset's (or a
  raster's) grid onto a clock.
@@ -9476,6 +9497,7 @@ Args:
     t_start: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``). (required)
     validity: PlacementValidity
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Transformation
@@ -9491,9 +9513,9 @@ Returns:
         if name is not UNSET:
             _input['name'] = name
         variables['input'] = _input
-        return (await self.aexecute(CreateSamplingLawMutation, variables)).create_sampling_law
+        return (await self.aexecute(CreateSamplingLawMutation, variables, task=task)).create_sampling_law
 
-    def create_sampling_law(self, source: IDCoercible, clock: IDCoercible, sampling_rate: Frequency, t_start: Duration, validity: PlacementValidity | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET) -> Annotated[CreateSamplingLawMutationCreateSamplingLawBaseAffineTransformation | CreateSamplingLawMutationCreateSamplingLawBaseByDimensionTransformation | CreateSamplingLawMutationCreateSamplingLawBaseFieldTransformation | CreateSamplingLawMutationCreateSamplingLawBaseIdentityTransformation | CreateSamplingLawMutationCreateSamplingLawBaseMapAxisTransformation | CreateSamplingLawMutationCreateSamplingLawBaseRotationTransformation | CreateSamplingLawMutationCreateSamplingLawBaseScaleTransformation | CreateSamplingLawMutationCreateSamplingLawBaseSequenceTransformation | CreateSamplingLawMutationCreateSamplingLawBaseTranslationTransformation | CreateSamplingLawMutationCreateSamplingLawBaseUnmappableTransformation, Field(discriminator='typename')] | CreateSamplingLawMutationCreateSamplingLawBaseCatchAll:
+    def create_sampling_law(self, source: IDCoercible, clock: IDCoercible, sampling_rate: Frequency, t_start: Duration, validity: PlacementValidity | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotated[CreateSamplingLawMutationCreateSamplingLawBaseAffineTransformation | CreateSamplingLawMutationCreateSamplingLawBaseByDimensionTransformation | CreateSamplingLawMutationCreateSamplingLawBaseFieldTransformation | CreateSamplingLawMutationCreateSamplingLawBaseIdentityTransformation | CreateSamplingLawMutationCreateSamplingLawBaseMapAxisTransformation | CreateSamplingLawMutationCreateSamplingLawBaseRotationTransformation | CreateSamplingLawMutationCreateSamplingLawBaseScaleTransformation | CreateSamplingLawMutationCreateSamplingLawBaseSequenceTransformation | CreateSamplingLawMutationCreateSamplingLawBaseTranslationTransformation | CreateSamplingLawMutationCreateSamplingLawBaseUnmappableTransformation, Field(discriminator='typename')] | CreateSamplingLawMutationCreateSamplingLawBaseCatchAll:
         """CreateSamplingLaw 
  `t = sample / samplingRate + tStart`: one sampling law, a dataset's (or a
  raster's) grid onto a clock.
@@ -9505,6 +9527,7 @@ Args:
     t_start: A quantity of time (``"5 ms"``, ``"2 s"``, ``"1 hour"``). (required)
     validity: PlacementValidity
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Transformation
@@ -9520,9 +9543,9 @@ Returns:
         if name is not UNSET:
             _input['name'] = name
         variables['input'] = _input
-        return self.execute(CreateSamplingLawMutation, variables).create_sampling_law
+        return self.execute(CreateSamplingLawMutation, variables, task=task).create_sampling_law
 
-    async def acreate_clock_offset(self, clock: IDCoercible, onto: IDCoercible, drift_ppm: float, offset: Duration | None | UnsetType=UNSET, validity: PlacementValidity | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET) -> Annotated[CreateClockOffsetMutationCreateClockOffsetBaseAffineTransformation | CreateClockOffsetMutationCreateClockOffsetBaseByDimensionTransformation | CreateClockOffsetMutationCreateClockOffsetBaseFieldTransformation | CreateClockOffsetMutationCreateClockOffsetBaseIdentityTransformation | CreateClockOffsetMutationCreateClockOffsetBaseMapAxisTransformation | CreateClockOffsetMutationCreateClockOffsetBaseRotationTransformation | CreateClockOffsetMutationCreateClockOffsetBaseScaleTransformation | CreateClockOffsetMutationCreateClockOffsetBaseSequenceTransformation | CreateClockOffsetMutationCreateClockOffsetBaseTranslationTransformation | CreateClockOffsetMutationCreateClockOffsetBaseUnmappableTransformation, Field(discriminator='typename')] | CreateClockOffsetMutationCreateClockOffsetBaseCatchAll:
+    async def acreate_clock_offset(self, clock: IDCoercible, onto: IDCoercible, drift_ppm: float, offset: Duration | None | UnsetType=UNSET, validity: PlacementValidity | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotated[CreateClockOffsetMutationCreateClockOffsetBaseAffineTransformation | CreateClockOffsetMutationCreateClockOffsetBaseByDimensionTransformation | CreateClockOffsetMutationCreateClockOffsetBaseFieldTransformation | CreateClockOffsetMutationCreateClockOffsetBaseIdentityTransformation | CreateClockOffsetMutationCreateClockOffsetBaseMapAxisTransformation | CreateClockOffsetMutationCreateClockOffsetBaseRotationTransformation | CreateClockOffsetMutationCreateClockOffsetBaseScaleTransformation | CreateClockOffsetMutationCreateClockOffsetBaseSequenceTransformation | CreateClockOffsetMutationCreateClockOffsetBaseTranslationTransformation | CreateClockOffsetMutationCreateClockOffsetBaseUnmappableTransformation, Field(discriminator='typename')] | CreateClockOffsetMutationCreateClockOffsetBaseCatchAll:
         """CreateClockOffset 
  Where one clock sits on another: a segment on its session, a run on an
  experiment's world. Shared by everything timed on `clock`.
@@ -9534,6 +9557,7 @@ Args:
     drift_ppm: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point). (required)
     validity: PlacementValidity
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Transformation
@@ -9550,9 +9574,9 @@ Returns:
         if name is not UNSET:
             _input['name'] = name
         variables['input'] = _input
-        return (await self.aexecute(CreateClockOffsetMutation, variables)).create_clock_offset
+        return (await self.aexecute(CreateClockOffsetMutation, variables, task=task)).create_clock_offset
 
-    def create_clock_offset(self, clock: IDCoercible, onto: IDCoercible, drift_ppm: float, offset: Duration | None | UnsetType=UNSET, validity: PlacementValidity | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET) -> Annotated[CreateClockOffsetMutationCreateClockOffsetBaseAffineTransformation | CreateClockOffsetMutationCreateClockOffsetBaseByDimensionTransformation | CreateClockOffsetMutationCreateClockOffsetBaseFieldTransformation | CreateClockOffsetMutationCreateClockOffsetBaseIdentityTransformation | CreateClockOffsetMutationCreateClockOffsetBaseMapAxisTransformation | CreateClockOffsetMutationCreateClockOffsetBaseRotationTransformation | CreateClockOffsetMutationCreateClockOffsetBaseScaleTransformation | CreateClockOffsetMutationCreateClockOffsetBaseSequenceTransformation | CreateClockOffsetMutationCreateClockOffsetBaseTranslationTransformation | CreateClockOffsetMutationCreateClockOffsetBaseUnmappableTransformation, Field(discriminator='typename')] | CreateClockOffsetMutationCreateClockOffsetBaseCatchAll:
+    def create_clock_offset(self, clock: IDCoercible, onto: IDCoercible, drift_ppm: float, offset: Duration | None | UnsetType=UNSET, validity: PlacementValidity | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotated[CreateClockOffsetMutationCreateClockOffsetBaseAffineTransformation | CreateClockOffsetMutationCreateClockOffsetBaseByDimensionTransformation | CreateClockOffsetMutationCreateClockOffsetBaseFieldTransformation | CreateClockOffsetMutationCreateClockOffsetBaseIdentityTransformation | CreateClockOffsetMutationCreateClockOffsetBaseMapAxisTransformation | CreateClockOffsetMutationCreateClockOffsetBaseRotationTransformation | CreateClockOffsetMutationCreateClockOffsetBaseScaleTransformation | CreateClockOffsetMutationCreateClockOffsetBaseSequenceTransformation | CreateClockOffsetMutationCreateClockOffsetBaseTranslationTransformation | CreateClockOffsetMutationCreateClockOffsetBaseUnmappableTransformation, Field(discriminator='typename')] | CreateClockOffsetMutationCreateClockOffsetBaseCatchAll:
         """CreateClockOffset 
  Where one clock sits on another: a segment on its session, a run on an
  experiment's world. Shared by everything timed on `clock`.
@@ -9564,6 +9588,7 @@ Args:
     drift_ppm: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point). (required)
     validity: PlacementValidity
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Transformation
@@ -9580,9 +9605,9 @@ Returns:
         if name is not UNSET:
             _input['name'] = name
         variables['input'] = _input
-        return self.execute(CreateClockOffsetMutation, variables).create_clock_offset
+        return self.execute(CreateClockOffsetMutation, variables, task=task).create_clock_offset
 
-    async def acreate_coordinate_system(self, name: str, axes: Iterable[PhysicalAxisInput], registrations: Iterable[RegistrationPathInput], epoch: datetime | None | UnsetType=UNSET) -> CoordinateSystem:
+    async def acreate_coordinate_system(self, name: str, axes: Iterable[PhysicalAxisInput], registrations: Iterable[RegistrationPathInput], epoch: datetime | None | UnsetType=UNSET, task: TaskLike | None=None) -> CoordinateSystem:
         """CreateCoordinateSystem 
 
 Create a SHARED coordinate system (a space nothing lives in: a clock, a world) and, in one call, author the edges registering any number of sources (datasets, lenses, coordinate systems) into it
@@ -9592,6 +9617,7 @@ Args:
     axes: Input type for one axis of a unit-carrying coordinate system: its name, its semantic kind and its physical unit (required) (list) (required)
     epoch: Date with time (isoformat)
     registrations: A source (dataset, lens, annotation collection, or coordinate system) to register into a shared space, plus the edge that places it. The edge points from the source's own coordinate system to the shared space; the transform is validated exactly as createTransformation validates one (required) (list) (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     CoordinateSystem
@@ -9604,9 +9630,9 @@ Returns:
             _input['epoch'] = epoch
         _input['registrations'] = registrations
         variables['input'] = _input
-        return (await self.aexecute(CreateCoordinateSystemMutation, variables)).create_coordinate_system
+        return (await self.aexecute(CreateCoordinateSystemMutation, variables, task=task)).create_coordinate_system
 
-    def create_coordinate_system(self, name: str, axes: Iterable[PhysicalAxisInput], registrations: Iterable[RegistrationPathInput], epoch: datetime | None | UnsetType=UNSET) -> CoordinateSystem:
+    def create_coordinate_system(self, name: str, axes: Iterable[PhysicalAxisInput], registrations: Iterable[RegistrationPathInput], epoch: datetime | None | UnsetType=UNSET, task: TaskLike | None=None) -> CoordinateSystem:
         """CreateCoordinateSystem 
 
 Create a SHARED coordinate system (a space nothing lives in: a clock, a world) and, in one call, author the edges registering any number of sources (datasets, lenses, coordinate systems) into it
@@ -9616,6 +9642,7 @@ Args:
     axes: Input type for one axis of a unit-carrying coordinate system: its name, its semantic kind and its physical unit (required) (list) (required)
     epoch: Date with time (isoformat)
     registrations: A source (dataset, lens, annotation collection, or coordinate system) to register into a shared space, plus the edge that places it. The edge points from the source's own coordinate system to the shared space; the transform is validated exactly as createTransformation validates one (required) (list) (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     CoordinateSystem
@@ -9628,9 +9655,9 @@ Returns:
             _input['epoch'] = epoch
         _input['registrations'] = registrations
         variables['input'] = _input
-        return self.execute(CreateCoordinateSystemMutation, variables).create_coordinate_system
+        return self.execute(CreateCoordinateSystemMutation, variables, task=task).create_coordinate_system
 
-    async def aupdate_coordinate_system(self, id: IDCoercible, name: str | None | UnsetType=UNSET, epoch: datetime | None | UnsetType=UNSET) -> CoordinateSystem:
+    async def aupdate_coordinate_system(self, id: IDCoercible, name: str | None | UnsetType=UNSET, epoch: datetime | None | UnsetType=UNSET, task: TaskLike | None=None) -> CoordinateSystem:
         """UpdateCoordinateSystem 
 
 Rename a shared coordinate system or anchor its clock. Shared spaces only -- a space data lives in is described by that data, and where data sits is an edge (updateTransformation), not a property of the space
@@ -9639,6 +9666,7 @@ Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     epoch: Date with time (isoformat)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     CoordinateSystem
@@ -9651,9 +9679,9 @@ Returns:
         if epoch is not UNSET:
             _input['epoch'] = epoch
         variables['input'] = _input
-        return (await self.aexecute(UpdateCoordinateSystemMutation, variables)).update_coordinate_system
+        return (await self.aexecute(UpdateCoordinateSystemMutation, variables, task=task)).update_coordinate_system
 
-    def update_coordinate_system(self, id: IDCoercible, name: str | None | UnsetType=UNSET, epoch: datetime | None | UnsetType=UNSET) -> CoordinateSystem:
+    def update_coordinate_system(self, id: IDCoercible, name: str | None | UnsetType=UNSET, epoch: datetime | None | UnsetType=UNSET, task: TaskLike | None=None) -> CoordinateSystem:
         """UpdateCoordinateSystem 
 
 Rename a shared coordinate system or anchor its clock. Shared spaces only -- a space data lives in is described by that data, and where data sits is an edge (updateTransformation), not a property of the space
@@ -9662,6 +9690,7 @@ Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     epoch: Date with time (isoformat)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     CoordinateSystem
@@ -9674,15 +9703,16 @@ Returns:
         if epoch is not UNSET:
             _input['epoch'] = epoch
         variables['input'] = _input
-        return self.execute(UpdateCoordinateSystemMutation, variables).update_coordinate_system
+        return self.execute(UpdateCoordinateSystemMutation, variables, task=task).update_coordinate_system
 
-    async def adelete_coordinate_system(self, id: IDCoercible) -> ID:
+    async def adelete_coordinate_system(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteCoordinateSystem 
 
 Delete an unused shared coordinate system. Refused while data lives in it, while anything is laid out over it (an experiment), or while any transformation edge touches it. This is the only door a shared space leaves through -- deleting an experiment never deletes one
 
 Args:
     id: The ID of the shared coordinate system to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -9691,15 +9721,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return (await self.aexecute(DeleteCoordinateSystemMutation, variables)).delete_coordinate_system
+        return (await self.aexecute(DeleteCoordinateSystemMutation, variables, task=task)).delete_coordinate_system
 
-    def delete_coordinate_system(self, id: IDCoercible) -> ID:
+    def delete_coordinate_system(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteCoordinateSystem 
 
 Delete an unused shared coordinate system. Refused while data lives in it, while anything is laid out over it (an experiment), or while any transformation edge touches it. This is the only door a shared space leaves through -- deleting an experiment never deletes one
 
 Args:
     id: The ID of the shared coordinate system to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -9708,15 +9739,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return self.execute(DeleteCoordinateSystemMutation, variables).delete_coordinate_system
+        return self.execute(DeleteCoordinateSystemMutation, variables, task=task).delete_coordinate_system
 
-    async def aclear_coordinate_system(self, id: IDCoercible) -> list[ID]:
+    async def aclear_coordinate_system(self, id: IDCoercible, task: TaskLike | None=None) -> list[ID]:
         """ClearCoordinateSystem 
 
 Delete every registration INTO a shared space in one call, returning the deleted edge ids. The space, whatever is laid out over it (its layers drop to UNREGISTERED) and the space's own claims into wider spaces all survive
 
 Args:
     id: The ID of the shared coordinate system to clear
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[ID]
@@ -9725,15 +9757,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return (await self.aexecute(ClearCoordinateSystemMutation, variables)).clear_coordinate_system
+        return (await self.aexecute(ClearCoordinateSystemMutation, variables, task=task)).clear_coordinate_system
 
-    def clear_coordinate_system(self, id: IDCoercible) -> list[ID]:
+    def clear_coordinate_system(self, id: IDCoercible, task: TaskLike | None=None) -> list[ID]:
         """ClearCoordinateSystem 
 
 Delete every registration INTO a shared space in one call, returning the deleted edge ids. The space, whatever is laid out over it (its layers drop to UNREGISTERED) and the space's own claims into wider spaces all survive
 
 Args:
     id: The ID of the shared coordinate system to clear
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[ID]
@@ -9742,9 +9775,9 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return self.execute(ClearCoordinateSystemMutation, variables).clear_coordinate_system
+        return self.execute(ClearCoordinateSystemMutation, variables, task=task).clear_coordinate_system
 
-    async def adelete_registration(self, world: IDCoercible, dataset: IDCoercible | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, annotation_collection: IDCoercible | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET) -> list[ID]:
+    async def adelete_registration(self, world: IDCoercible, dataset: IDCoercible | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, annotation_collection: IDCoercible | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[ID]:
         """DeleteRegistration 
 
 Un-register a source from a space by naming the source and the space rather than the edge. Deletes every edge from the source's spaces into that one -- rivals are allowed, so there is no single edge to mean -- and returns their ids. An UNMAPPABLE declaration is not a placement and is never matched
@@ -9755,6 +9788,7 @@ Args:
     annotation_collection: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     coordinate_system: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     world: The shared space the registration goes into
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[ID]
@@ -9771,9 +9805,9 @@ Returns:
             _input['coordinateSystem'] = coordinate_system
         _input['world'] = world
         variables['input'] = _input
-        return (await self.aexecute(DeleteRegistrationMutation, variables)).delete_registration
+        return (await self.aexecute(DeleteRegistrationMutation, variables, task=task)).delete_registration
 
-    def delete_registration(self, world: IDCoercible, dataset: IDCoercible | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, annotation_collection: IDCoercible | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET) -> list[ID]:
+    def delete_registration(self, world: IDCoercible, dataset: IDCoercible | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, annotation_collection: IDCoercible | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[ID]:
         """DeleteRegistration 
 
 Un-register a source from a space by naming the source and the space rather than the edge. Deletes every edge from the source's spaces into that one -- rivals are allowed, so there is no single edge to mean -- and returns their ids. An UNMAPPABLE declaration is not a placement and is never matched
@@ -9784,6 +9818,7 @@ Args:
     annotation_collection: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     coordinate_system: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     world: The shared space the registration goes into
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[ID]
@@ -9800,9 +9835,9 @@ Returns:
             _input['coordinateSystem'] = coordinate_system
         _input['world'] = world
         variables['input'] = _input
-        return self.execute(DeleteRegistrationMutation, variables).delete_registration
+        return self.execute(DeleteRegistrationMutation, variables, task=task).delete_registration
 
-    async def arequest_bigfile_upload(self, original_file_name: str, file_size: int | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET) -> BigFileUploadGrant:
+    async def arequest_bigfile_upload(self, original_file_name: str, file_size: int | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> BigFileUploadGrant:
         """RequestBigfileUpload 
 
 Request an upload grant for a big file store
@@ -9813,6 +9848,7 @@ Args:
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     BigFileUploadGrant
@@ -9829,9 +9865,9 @@ Returns:
         if port is not UNSET:
             _input['port'] = port
         variables['input'] = _input
-        return (await self.aexecute(RequestBigfileUploadMutation, variables)).request_bigfile_upload
+        return (await self.aexecute(RequestBigfileUploadMutation, variables, task=task)).request_bigfile_upload
 
-    def request_bigfile_upload(self, original_file_name: str, file_size: int | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET) -> BigFileUploadGrant:
+    def request_bigfile_upload(self, original_file_name: str, file_size: int | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> BigFileUploadGrant:
         """RequestBigfileUpload 
 
 Request an upload grant for a big file store
@@ -9842,6 +9878,7 @@ Args:
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     BigFileUploadGrant
@@ -9858,9 +9895,9 @@ Returns:
         if port is not UNSET:
             _input['port'] = port
         variables['input'] = _input
-        return self.execute(RequestBigfileUploadMutation, variables).request_bigfile_upload
+        return self.execute(RequestBigfileUploadMutation, variables, task=task).request_bigfile_upload
 
-    async def afinish_bigfile_upload(self, store_id: str, valid: bool) -> BigFileStore:
+    async def afinish_bigfile_upload(self, store_id: str, valid: bool, task: TaskLike | None=None) -> BigFileStore:
         """FinishBigfileUpload 
 
 Finalize a big file upload after the client has written the object
@@ -9868,6 +9905,7 @@ Finalize a big file upload after the client has written the object
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     valid: The `Boolean` scalar type represents `true` or `false`. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     BigFileStore
@@ -9877,9 +9915,9 @@ Returns:
         _input['storeId'] = store_id
         _input['valid'] = valid
         variables['input'] = _input
-        return (await self.aexecute(FinishBigfileUploadMutation, variables)).finish_bigfile_upload
+        return (await self.aexecute(FinishBigfileUploadMutation, variables, task=task)).finish_bigfile_upload
 
-    def finish_bigfile_upload(self, store_id: str, valid: bool) -> BigFileStore:
+    def finish_bigfile_upload(self, store_id: str, valid: bool, task: TaskLike | None=None) -> BigFileStore:
         """FinishBigfileUpload 
 
 Finalize a big file upload after the client has written the object
@@ -9887,6 +9925,7 @@ Finalize a big file upload after the client has written the object
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     valid: The `Boolean` scalar type represents `true` or `false`. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     BigFileStore
@@ -9896,15 +9935,16 @@ Returns:
         _input['storeId'] = store_id
         _input['valid'] = valid
         variables['input'] = _input
-        return self.execute(FinishBigfileUploadMutation, variables).finish_bigfile_upload
+        return self.execute(FinishBigfileUploadMutation, variables, task=task).finish_bigfile_upload
 
-    async def arequest_bigfile_access(self, store_id: str) -> BigFileAccessGrant:
+    async def arequest_bigfile_access(self, store_id: str, task: TaskLike | None=None) -> BigFileAccessGrant:
         """RequestBigfileAccess 
 
 Request temporary S3 read credentials for a big file
 
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     BigFileAccessGrant
@@ -9913,15 +9953,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['storeId'] = store_id
         variables['input'] = _input
-        return (await self.aexecute(RequestBigfileAccessMutation, variables)).request_bigfile_access
+        return (await self.aexecute(RequestBigfileAccessMutation, variables, task=task)).request_bigfile_access
 
-    def request_bigfile_access(self, store_id: str) -> BigFileAccessGrant:
+    def request_bigfile_access(self, store_id: str, task: TaskLike | None=None) -> BigFileAccessGrant:
         """RequestBigfileAccess 
 
 Request temporary S3 read credentials for a big file
 
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     BigFileAccessGrant
@@ -9930,9 +9971,9 @@ Returns:
         _input: dict[str, Any] = {}
         _input['storeId'] = store_id
         variables['input'] = _input
-        return self.execute(RequestBigfileAccessMutation, variables).request_bigfile_access
+        return self.execute(RequestBigfileAccessMutation, variables, task=task).request_bigfile_access
 
-    async def arequest_media_upload(self, original_file_name: str, file_size: int | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET) -> MediaUploadGrant:
+    async def arequest_media_upload(self, original_file_name: str, file_size: int | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> MediaUploadGrant:
         """RequestMediaUpload 
 
 Upload media and return a URL for access
@@ -9941,6 +9982,7 @@ Args:
     original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     file_size: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     MediaUploadGrant
@@ -9953,9 +9995,9 @@ Returns:
         if content_type is not UNSET:
             _input['contentType'] = content_type
         variables['input'] = _input
-        return (await self.aexecute(RequestMediaUploadMutation, variables)).request_media_upload
+        return (await self.aexecute(RequestMediaUploadMutation, variables, task=task)).request_media_upload
 
-    def request_media_upload(self, original_file_name: str, file_size: int | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET) -> MediaUploadGrant:
+    def request_media_upload(self, original_file_name: str, file_size: int | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> MediaUploadGrant:
         """RequestMediaUpload 
 
 Upload media and return a URL for access
@@ -9964,6 +10006,7 @@ Args:
     original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     file_size: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     MediaUploadGrant
@@ -9976,9 +10019,9 @@ Returns:
         if content_type is not UNSET:
             _input['contentType'] = content_type
         variables['input'] = _input
-        return self.execute(RequestMediaUploadMutation, variables).request_media_upload
+        return self.execute(RequestMediaUploadMutation, variables, task=task).request_media_upload
 
-    async def afinish_media_upload(self, store_id: str, valid: bool) -> MediaStore:
+    async def afinish_media_upload(self, store_id: str, valid: bool, task: TaskLike | None=None) -> MediaStore:
         """FinishMediaUpload 
 
 Finalize a media upload after the client has written the object
@@ -9986,6 +10029,7 @@ Finalize a media upload after the client has written the object
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     valid: The `Boolean` scalar type represents `true` or `false`. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     MediaStore
@@ -9995,9 +10039,9 @@ Returns:
         _input['storeId'] = store_id
         _input['valid'] = valid
         variables['input'] = _input
-        return (await self.aexecute(FinishMediaUploadMutation, variables)).finish_media_upload
+        return (await self.aexecute(FinishMediaUploadMutation, variables, task=task)).finish_media_upload
 
-    def finish_media_upload(self, store_id: str, valid: bool) -> MediaStore:
+    def finish_media_upload(self, store_id: str, valid: bool, task: TaskLike | None=None) -> MediaStore:
         """FinishMediaUpload 
 
 Finalize a media upload after the client has written the object
@@ -10005,6 +10049,7 @@ Finalize a media upload after the client has written the object
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     valid: The `Boolean` scalar type represents `true` or `false`. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     MediaStore
@@ -10014,15 +10059,16 @@ Returns:
         _input['storeId'] = store_id
         _input['valid'] = valid
         variables['input'] = _input
-        return self.execute(FinishMediaUploadMutation, variables).finish_media_upload
+        return self.execute(FinishMediaUploadMutation, variables, task=task).finish_media_upload
 
-    async def arequest_media_access(self, store_id: str) -> MediaAccessGrant:
+    async def arequest_media_access(self, store_id: str, task: TaskLike | None=None) -> MediaAccessGrant:
         """RequestMediaAccess 
 
 Request temporary S3 read credentials for a media file
 
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     MediaAccessGrant
@@ -10031,15 +10077,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['storeId'] = store_id
         variables['input'] = _input
-        return (await self.aexecute(RequestMediaAccessMutation, variables)).request_media_access
+        return (await self.aexecute(RequestMediaAccessMutation, variables, task=task)).request_media_access
 
-    def request_media_access(self, store_id: str) -> MediaAccessGrant:
+    def request_media_access(self, store_id: str, task: TaskLike | None=None) -> MediaAccessGrant:
         """RequestMediaAccess 
 
 Request temporary S3 read credentials for a media file
 
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     MediaAccessGrant
@@ -10048,9 +10095,9 @@ Returns:
         _input: dict[str, Any] = {}
         _input['storeId'] = store_id
         variables['input'] = _input
-        return self.execute(RequestMediaAccessMutation, variables).request_media_access
+        return self.execute(RequestMediaAccessMutation, variables, task=task).request_media_access
 
-    async def arequest_parquet_upload(self, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET) -> ParquetUploadGrant:
+    async def arequest_parquet_upload(self, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ParquetUploadGrant:
         """RequestParquetUpload 
 
 Request an upload grant for a Parquet store
@@ -10059,6 +10106,7 @@ Args:
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ParquetUploadGrant
@@ -10072,9 +10120,9 @@ Returns:
         if port is not UNSET:
             _input['port'] = port
         variables['input'] = _input
-        return (await self.aexecute(RequestParquetUploadMutation, variables)).request_parquet_upload
+        return (await self.aexecute(RequestParquetUploadMutation, variables, task=task)).request_parquet_upload
 
-    def request_parquet_upload(self, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET) -> ParquetUploadGrant:
+    def request_parquet_upload(self, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ParquetUploadGrant:
         """RequestParquetUpload 
 
 Request an upload grant for a Parquet store
@@ -10083,6 +10131,7 @@ Args:
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ParquetUploadGrant
@@ -10096,9 +10145,9 @@ Returns:
         if port is not UNSET:
             _input['port'] = port
         variables['input'] = _input
-        return self.execute(RequestParquetUploadMutation, variables).request_parquet_upload
+        return self.execute(RequestParquetUploadMutation, variables, task=task).request_parquet_upload
 
-    async def afinish_parquet_upload(self, store_id: str, valid: bool) -> ParquetStore:
+    async def afinish_parquet_upload(self, store_id: str, valid: bool, task: TaskLike | None=None) -> ParquetStore:
         """FinishParquetUpload 
 
 Finalize a Parquet upload after the client has written the object
@@ -10106,6 +10155,7 @@ Finalize a Parquet upload after the client has written the object
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     valid: The `Boolean` scalar type represents `true` or `false`. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ParquetStore
@@ -10115,9 +10165,9 @@ Returns:
         _input['storeId'] = store_id
         _input['valid'] = valid
         variables['input'] = _input
-        return (await self.aexecute(FinishParquetUploadMutation, variables)).finish_parquet_upload
+        return (await self.aexecute(FinishParquetUploadMutation, variables, task=task)).finish_parquet_upload
 
-    def finish_parquet_upload(self, store_id: str, valid: bool) -> ParquetStore:
+    def finish_parquet_upload(self, store_id: str, valid: bool, task: TaskLike | None=None) -> ParquetStore:
         """FinishParquetUpload 
 
 Finalize a Parquet upload after the client has written the object
@@ -10125,6 +10175,7 @@ Finalize a Parquet upload after the client has written the object
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     valid: The `Boolean` scalar type represents `true` or `false`. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ParquetStore
@@ -10134,15 +10185,16 @@ Returns:
         _input['storeId'] = store_id
         _input['valid'] = valid
         variables['input'] = _input
-        return self.execute(FinishParquetUploadMutation, variables).finish_parquet_upload
+        return self.execute(FinishParquetUploadMutation, variables, task=task).finish_parquet_upload
 
-    async def arequest_parquet_access(self, store_id: str) -> ParquetAccessGrant:
+    async def arequest_parquet_access(self, store_id: str, task: TaskLike | None=None) -> ParquetAccessGrant:
         """RequestParquetAccess 
 
 Request temporary S3 read credentials for a Parquet file
 
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ParquetAccessGrant
@@ -10151,15 +10203,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['storeId'] = store_id
         variables['input'] = _input
-        return (await self.aexecute(RequestParquetAccessMutation, variables)).request_parquet_access
+        return (await self.aexecute(RequestParquetAccessMutation, variables, task=task)).request_parquet_access
 
-    def request_parquet_access(self, store_id: str) -> ParquetAccessGrant:
+    def request_parquet_access(self, store_id: str, task: TaskLike | None=None) -> ParquetAccessGrant:
         """RequestParquetAccess 
 
 Request temporary S3 read credentials for a Parquet file
 
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ParquetAccessGrant
@@ -10168,9 +10221,9 @@ Returns:
         _input: dict[str, Any] = {}
         _input['storeId'] = store_id
         variables['input'] = _input
-        return self.execute(RequestParquetAccessMutation, variables).request_parquet_access
+        return self.execute(RequestParquetAccessMutation, variables, task=task).request_parquet_access
 
-    async def arequest_sparse_upload(self, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET) -> SparseUploadGrant:
+    async def arequest_sparse_upload(self, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> SparseUploadGrant:
         """RequestSparseUpload 
 
 Request an upload grant for a sparse store. The grant covers the whole prefix, so one request authorizes the group's metadata and all three of its arrays. It declares nothing about the matrix: the group states its encoding, shape and chunking, and the server reads them when the upload is finished
@@ -10178,6 +10231,7 @@ Request an upload grant for a sparse store. The grant covers the whole prefix, s
 Args:
     host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     SparseUploadGrant
@@ -10189,9 +10243,9 @@ Returns:
         if port is not UNSET:
             _input['port'] = port
         variables['input'] = _input
-        return (await self.aexecute(RequestSparseUploadMutation, variables)).request_sparse_upload
+        return (await self.aexecute(RequestSparseUploadMutation, variables, task=task)).request_sparse_upload
 
-    def request_sparse_upload(self, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET) -> SparseUploadGrant:
+    def request_sparse_upload(self, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> SparseUploadGrant:
         """RequestSparseUpload 
 
 Request an upload grant for a sparse store. The grant covers the whole prefix, so one request authorizes the group's metadata and all three of its arrays. It declares nothing about the matrix: the group states its encoding, shape and chunking, and the server reads them when the upload is finished
@@ -10199,6 +10253,7 @@ Request an upload grant for a sparse store. The grant covers the whole prefix, s
 Args:
     host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     SparseUploadGrant
@@ -10210,9 +10265,9 @@ Returns:
         if port is not UNSET:
             _input['port'] = port
         variables['input'] = _input
-        return self.execute(RequestSparseUploadMutation, variables).request_sparse_upload
+        return self.execute(RequestSparseUploadMutation, variables, task=task).request_sparse_upload
 
-    async def afinish_sparse_upload(self, store_id: str, valid: bool) -> SparseStore:
+    async def afinish_sparse_upload(self, store_id: str, valid: bool, task: TaskLike | None=None) -> SparseStore:
         """FinishSparseUpload 
 
 Finalize a sparse upload, which is when the group's own metadata is read. A missing encoding, a missing array, or an `indptr` whose length contradicts the declared shape are all refused here -- that is what an interrupted upload looks like, and catching it now beats a reader discovering it later
@@ -10220,6 +10275,7 @@ Finalize a sparse upload, which is when the group's own metadata is read. A miss
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     valid: The `Boolean` scalar type represents `true` or `false`. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     SparseStore
@@ -10229,9 +10285,9 @@ Returns:
         _input['storeId'] = store_id
         _input['valid'] = valid
         variables['input'] = _input
-        return (await self.aexecute(FinishSparseUploadMutation, variables)).finish_sparse_upload
+        return (await self.aexecute(FinishSparseUploadMutation, variables, task=task)).finish_sparse_upload
 
-    def finish_sparse_upload(self, store_id: str, valid: bool) -> SparseStore:
+    def finish_sparse_upload(self, store_id: str, valid: bool, task: TaskLike | None=None) -> SparseStore:
         """FinishSparseUpload 
 
 Finalize a sparse upload, which is when the group's own metadata is read. A missing encoding, a missing array, or an `indptr` whose length contradicts the declared shape are all refused here -- that is what an interrupted upload looks like, and catching it now beats a reader discovering it later
@@ -10239,6 +10295,7 @@ Finalize a sparse upload, which is when the group's own metadata is read. A miss
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     valid: The `Boolean` scalar type represents `true` or `false`. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     SparseStore
@@ -10248,9 +10305,9 @@ Returns:
         _input['storeId'] = store_id
         _input['valid'] = valid
         variables['input'] = _input
-        return self.execute(FinishSparseUploadMutation, variables).finish_sparse_upload
+        return self.execute(FinishSparseUploadMutation, variables, task=task).finish_sparse_upload
 
-    async def arequest_zarr_upload(self, shape: Iterable[int] | None | UnsetType=UNSET, chunks: Iterable[int] | None | UnsetType=UNSET, version: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET) -> ZarrUploadGrant:
+    async def arequest_zarr_upload(self, shape: Iterable[int] | None | UnsetType=UNSET, chunks: Iterable[int] | None | UnsetType=UNSET, version: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ZarrUploadGrant:
         """RequestZarrUpload 
 
 Request an upload grant for a Zarr store
@@ -10261,6 +10318,7 @@ Args:
     version: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ZarrUploadGrant
@@ -10278,9 +10336,9 @@ Returns:
         if port is not UNSET:
             _input['port'] = port
         variables['input'] = _input
-        return (await self.aexecute(RequestZarrUploadMutation, variables)).request_zarr_upload
+        return (await self.aexecute(RequestZarrUploadMutation, variables, task=task)).request_zarr_upload
 
-    def request_zarr_upload(self, shape: Iterable[int] | None | UnsetType=UNSET, chunks: Iterable[int] | None | UnsetType=UNSET, version: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET) -> ZarrUploadGrant:
+    def request_zarr_upload(self, shape: Iterable[int] | None | UnsetType=UNSET, chunks: Iterable[int] | None | UnsetType=UNSET, version: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ZarrUploadGrant:
         """RequestZarrUpload 
 
 Request an upload grant for a Zarr store
@@ -10291,6 +10349,7 @@ Args:
     version: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ZarrUploadGrant
@@ -10308,9 +10367,9 @@ Returns:
         if port is not UNSET:
             _input['port'] = port
         variables['input'] = _input
-        return self.execute(RequestZarrUploadMutation, variables).request_zarr_upload
+        return self.execute(RequestZarrUploadMutation, variables, task=task).request_zarr_upload
 
-    async def afinish_zarr_upload(self, store_id: str, valid: bool) -> ZarrStore:
+    async def afinish_zarr_upload(self, store_id: str, valid: bool, task: TaskLike | None=None) -> ZarrStore:
         """FinishZarrUpload 
 
 Finalize a Zarr upload after the client has written the object
@@ -10318,6 +10377,7 @@ Finalize a Zarr upload after the client has written the object
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     valid: The `Boolean` scalar type represents `true` or `false`. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ZarrStore
@@ -10327,9 +10387,9 @@ Returns:
         _input['storeId'] = store_id
         _input['valid'] = valid
         variables['input'] = _input
-        return (await self.aexecute(FinishZarrUploadMutation, variables)).finish_zarr_upload
+        return (await self.aexecute(FinishZarrUploadMutation, variables, task=task)).finish_zarr_upload
 
-    def finish_zarr_upload(self, store_id: str, valid: bool) -> ZarrStore:
+    def finish_zarr_upload(self, store_id: str, valid: bool, task: TaskLike | None=None) -> ZarrStore:
         """FinishZarrUpload 
 
 Finalize a Zarr upload after the client has written the object
@@ -10337,6 +10397,7 @@ Finalize a Zarr upload after the client has written the object
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     valid: The `Boolean` scalar type represents `true` or `false`. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ZarrStore
@@ -10346,15 +10407,16 @@ Returns:
         _input['storeId'] = store_id
         _input['valid'] = valid
         variables['input'] = _input
-        return self.execute(FinishZarrUploadMutation, variables).finish_zarr_upload
+        return self.execute(FinishZarrUploadMutation, variables, task=task).finish_zarr_upload
 
-    async def arequest_zarr_access(self, store_id: str) -> ZarrAccessGrant:
+    async def arequest_zarr_access(self, store_id: str, task: TaskLike | None=None) -> ZarrAccessGrant:
         """RequestZarrAccess 
 
 Request temporary S3 read credentials for a Zarr store
 
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ZarrAccessGrant
@@ -10363,15 +10425,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['storeId'] = store_id
         variables['input'] = _input
-        return (await self.aexecute(RequestZarrAccessMutation, variables)).request_zarr_access
+        return (await self.aexecute(RequestZarrAccessMutation, variables, task=task)).request_zarr_access
 
-    def request_zarr_access(self, store_id: str) -> ZarrAccessGrant:
+    def request_zarr_access(self, store_id: str, task: TaskLike | None=None) -> ZarrAccessGrant:
         """RequestZarrAccess 
 
 Request temporary S3 read credentials for a Zarr store
 
 Args:
     store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ZarrAccessGrant
@@ -10380,9 +10443,9 @@ Returns:
         _input: dict[str, Any] = {}
         _input['storeId'] = store_id
         variables['input'] = _input
-        return self.execute(RequestZarrAccessMutation, variables).request_zarr_access
+        return self.execute(RequestZarrAccessMutation, variables, task=task).request_zarr_access
 
-    async def acreate_mod_environment(self, name: str, zip_file: BigFileLikeCoercible, mechanisms: Iterable[MechanismInput], description: str | None | UnsetType=UNSET) -> ModEnvironment:
+    async def acreate_mod_environment(self, name: str, zip_file: BigFileLikeCoercible, mechanisms: Iterable[MechanismInput], description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> ModEnvironment:
         """CreateModEnvironment 
 
 Create a mechanism from a mod file
@@ -10392,6 +10455,7 @@ Args:
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     zip_file: A type representing a big file store reference, which can be either a string ID or a more complex object. (required)
     mechanisms: Input for creating a mechanism (required) (list) (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ModEnvironment
@@ -10404,9 +10468,9 @@ Returns:
         _input['zipFile'] = zip_file
         _input['mechanisms'] = mechanisms
         variables['input'] = _input
-        return (await self.aexecute(CreateModEnvironmentMutation, variables)).create_mod_environment
+        return (await self.aexecute(CreateModEnvironmentMutation, variables, task=task)).create_mod_environment
 
-    def create_mod_environment(self, name: str, zip_file: BigFileLikeCoercible, mechanisms: Iterable[MechanismInput], description: str | None | UnsetType=UNSET) -> ModEnvironment:
+    def create_mod_environment(self, name: str, zip_file: BigFileLikeCoercible, mechanisms: Iterable[MechanismInput], description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> ModEnvironment:
         """CreateModEnvironment 
 
 Create a mechanism from a mod file
@@ -10416,6 +10480,7 @@ Args:
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     zip_file: A type representing a big file store reference, which can be either a string ID or a more complex object. (required)
     mechanisms: Input for creating a mechanism (required) (list) (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ModEnvironment
@@ -10428,9 +10493,9 @@ Returns:
         _input['zipFile'] = zip_file
         _input['mechanisms'] = mechanisms
         variables['input'] = _input
-        return self.execute(CreateModEnvironmentMutation, variables).create_mod_environment
+        return self.execute(CreateModEnvironmentMutation, variables, task=task).create_mod_environment
 
-    async def acreate_experiment(self, name: str, description: str | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, axes: Iterable[PhysicalAxisInput] | None | UnsetType=UNSET, epoch: datetime | None | UnsetType=UNSET) -> Experiment:
+    async def acreate_experiment(self, name: str, description: str | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, axes: Iterable[PhysicalAxisInput] | None | UnsetType=UNSET, epoch: datetime | None | UnsetType=UNSET, task: TaskLike | None=None) -> Experiment:
         """CreateExperiment 
  An experiment adopts a world -- an existing clock (`coordinateSystem`) or a new
  space built from `axes` -- and is then filled with layers, one mutation each
@@ -10443,6 +10508,7 @@ Args:
     coordinate_system: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     axes: Input type for one axis of a unit-carrying coordinate system: its name, its semantic kind and its physical unit (required) (list)
     epoch: Date with time (isoformat)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Experiment
@@ -10459,9 +10525,9 @@ Returns:
         if epoch is not UNSET:
             _input['epoch'] = epoch
         variables['input'] = _input
-        return (await self.aexecute(CreateExperimentMutation, variables)).create_experiment
+        return (await self.aexecute(CreateExperimentMutation, variables, task=task)).create_experiment
 
-    def create_experiment(self, name: str, description: str | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, axes: Iterable[PhysicalAxisInput] | None | UnsetType=UNSET, epoch: datetime | None | UnsetType=UNSET) -> Experiment:
+    def create_experiment(self, name: str, description: str | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, axes: Iterable[PhysicalAxisInput] | None | UnsetType=UNSET, epoch: datetime | None | UnsetType=UNSET, task: TaskLike | None=None) -> Experiment:
         """CreateExperiment 
  An experiment adopts a world -- an existing clock (`coordinateSystem`) or a new
  space built from `axes` -- and is then filled with layers, one mutation each
@@ -10474,6 +10540,7 @@ Args:
     coordinate_system: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     axes: Input type for one axis of a unit-carrying coordinate system: its name, its semantic kind and its physical unit (required) (list)
     epoch: Date with time (isoformat)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Experiment
@@ -10490,9 +10557,9 @@ Returns:
         if epoch is not UNSET:
             _input['epoch'] = epoch
         variables['input'] = _input
-        return self.execute(CreateExperimentMutation, variables).create_experiment
+        return self.execute(CreateExperimentMutation, variables, task=task).create_experiment
 
-    async def acreate_experiment_from_coordinate_system(self, coordinate_system: IDCoercible, name: str | None | UnsetType=UNSET, policy: ExperimentPolicyInput | None | UnsetType=UNSET) -> Experiment:
+    async def acreate_experiment_from_coordinate_system(self, coordinate_system: IDCoercible, name: str | None | UnsetType=UNSET, policy: ExperimentPolicyInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> Experiment:
         """CreateExperimentFromCoordinateSystem 
  mikro's `createSceneFromCoordinateSystem`: a layer for everything that reaches
  the clock -- TRACE per timed array dataset, SPIKES per raster, EVENTS per table
@@ -10502,6 +10569,7 @@ Args:
     coordinate_system: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     policy: What `createExperimentFromCoordinateSystem` stages. mikro's ScenePolicyInput, for time series
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Experiment
@@ -10514,9 +10582,9 @@ Returns:
         if policy is not UNSET:
             _input['policy'] = policy
         variables['input'] = _input
-        return (await self.aexecute(CreateExperimentFromCoordinateSystemMutation, variables)).create_experiment_from_coordinate_system
+        return (await self.aexecute(CreateExperimentFromCoordinateSystemMutation, variables, task=task)).create_experiment_from_coordinate_system
 
-    def create_experiment_from_coordinate_system(self, coordinate_system: IDCoercible, name: str | None | UnsetType=UNSET, policy: ExperimentPolicyInput | None | UnsetType=UNSET) -> Experiment:
+    def create_experiment_from_coordinate_system(self, coordinate_system: IDCoercible, name: str | None | UnsetType=UNSET, policy: ExperimentPolicyInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> Experiment:
         """CreateExperimentFromCoordinateSystem 
  mikro's `createSceneFromCoordinateSystem`: a layer for everything that reaches
  the clock -- TRACE per timed array dataset, SPIKES per raster, EVENTS per table
@@ -10526,6 +10594,7 @@ Args:
     coordinate_system: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     policy: What `createExperimentFromCoordinateSystem` stages. mikro's ScenePolicyInput, for time series
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Experiment
@@ -10538,9 +10607,9 @@ Returns:
         if policy is not UNSET:
             _input['policy'] = policy
         variables['input'] = _input
-        return self.execute(CreateExperimentFromCoordinateSystemMutation, variables).create_experiment_from_coordinate_system
+        return self.execute(CreateExperimentFromCoordinateSystemMutation, variables, task=task).create_experiment_from_coordinate_system
 
-    async def aupdate_experiment(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET) -> Experiment:
+    async def aupdate_experiment(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> Experiment:
         """UpdateExperiment 
 
 Rename or redescribe an experiment
@@ -10549,6 +10618,7 @@ Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Experiment
@@ -10561,9 +10631,9 @@ Returns:
         if description is not UNSET:
             _input['description'] = description
         variables['input'] = _input
-        return (await self.aexecute(UpdateExperimentMutation, variables)).update_experiment
+        return (await self.aexecute(UpdateExperimentMutation, variables, task=task)).update_experiment
 
-    def update_experiment(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET) -> Experiment:
+    def update_experiment(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> Experiment:
         """UpdateExperiment 
 
 Rename or redescribe an experiment
@@ -10572,6 +10642,7 @@ Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Experiment
@@ -10584,15 +10655,16 @@ Returns:
         if description is not UNSET:
             _input['description'] = description
         variables['input'] = _input
-        return self.execute(UpdateExperimentMutation, variables).update_experiment
+        return self.execute(UpdateExperimentMutation, variables, task=task).update_experiment
 
-    async def adelete_experiment(self, id: IDCoercible) -> ID:
+    async def adelete_experiment(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteExperiment 
 
 Delete an experiment and its layers. Its world and everything drawn in it stay
 
 Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -10601,15 +10673,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return (await self.aexecute(DeleteExperimentMutation, variables)).delete_experiment
+        return (await self.aexecute(DeleteExperimentMutation, variables, task=task)).delete_experiment
 
-    def delete_experiment(self, id: IDCoercible) -> ID:
+    def delete_experiment(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteExperiment 
 
 Delete an experiment and its layers. Its world and everything drawn in it stay
 
 Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -10618,9 +10691,9 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return self.execute(DeleteExperimentMutation, variables).delete_experiment
+        return self.execute(DeleteExperimentMutation, variables, task=task).delete_experiment
 
-    async def afrom_file_like(self, file: FileLikeCoercible, file_name: str, folder: IDCoercible | None | UnsetType=UNSET, export_of: Iterable[ExportOfInput] | None | UnsetType=UNSET) -> File:
+    async def afrom_file_like(self, file: FileLikeCoercible, file_name: str, folder: IDCoercible | None | UnsetType=UNSET, export_of: Iterable[ExportOfInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> File:
         """FromFileLike 
 
 Create a file from file-like data
@@ -10630,6 +10703,7 @@ Args:
     file_name: The name of the file
     folder: The ID of the folder to put the file in (defaults to the current default folder)
     export_of: The containers this file was written from
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     File
@@ -10643,9 +10717,9 @@ Returns:
         if export_of is not UNSET:
             _input['exportOf'] = export_of
         variables['input'] = _input
-        return (await self.aexecute(FromFileLikeMutation, variables)).from_file_like
+        return (await self.aexecute(FromFileLikeMutation, variables, task=task)).from_file_like
 
-    def from_file_like(self, file: FileLikeCoercible, file_name: str, folder: IDCoercible | None | UnsetType=UNSET, export_of: Iterable[ExportOfInput] | None | UnsetType=UNSET) -> File:
+    def from_file_like(self, file: FileLikeCoercible, file_name: str, folder: IDCoercible | None | UnsetType=UNSET, export_of: Iterable[ExportOfInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> File:
         """FromFileLike 
 
 Create a file from file-like data
@@ -10655,6 +10729,7 @@ Args:
     file_name: The name of the file
     folder: The ID of the folder to put the file in (defaults to the current default folder)
     export_of: The containers this file was written from
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     File
@@ -10668,9 +10743,9 @@ Returns:
         if export_of is not UNSET:
             _input['exportOf'] = export_of
         variables['input'] = _input
-        return self.execute(FromFileLikeMutation, variables).from_file_like
+        return self.execute(FromFileLikeMutation, variables, task=task).from_file_like
 
-    async def alink_file(self, source_of: Iterable[ExportOfInput] | None | UnsetType=UNSET, file: IDCoercible | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, table_dataset: IDCoercible | None | UnsetType=UNSET, annotation_collection: IDCoercible | None | UnsetType=UNSET, sparse_dataset: IDCoercible | None | UnsetType=UNSET) -> list[FileLink]:
+    async def alink_file(self, source_of: Iterable[ExportOfInput] | None | UnsetType=UNSET, file: IDCoercible | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, table_dataset: IDCoercible | None | UnsetType=UNSET, annotation_collection: IDCoercible | None | UnsetType=UNSET, sparse_dataset: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[FileLink]:
         """LinkFile 
 
 Record a link between a file and the data it encodes, after both already exist
@@ -10683,6 +10758,7 @@ Args:
     table_dataset: The table dataset the files were read into
     annotation_collection: The annotation collection the files were read into
     sparse_dataset: The sparse dataset the files were read into
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[FileLink]
@@ -10704,9 +10780,9 @@ Returns:
         if sparse_dataset is not UNSET:
             _input['sparseDataset'] = sparse_dataset
         variables['input'] = _input
-        return (await self.aexecute(LinkFileMutation, variables)).link_file
+        return (await self.aexecute(LinkFileMutation, variables, task=task)).link_file
 
-    def link_file(self, source_of: Iterable[ExportOfInput] | None | UnsetType=UNSET, file: IDCoercible | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, table_dataset: IDCoercible | None | UnsetType=UNSET, annotation_collection: IDCoercible | None | UnsetType=UNSET, sparse_dataset: IDCoercible | None | UnsetType=UNSET) -> list[FileLink]:
+    def link_file(self, source_of: Iterable[ExportOfInput] | None | UnsetType=UNSET, file: IDCoercible | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, table_dataset: IDCoercible | None | UnsetType=UNSET, annotation_collection: IDCoercible | None | UnsetType=UNSET, sparse_dataset: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[FileLink]:
         """LinkFile 
 
 Record a link between a file and the data it encodes, after both already exist
@@ -10719,6 +10795,7 @@ Args:
     table_dataset: The table dataset the files were read into
     annotation_collection: The annotation collection the files were read into
     sparse_dataset: The sparse dataset the files were read into
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[FileLink]
@@ -10740,15 +10817,16 @@ Returns:
         if sparse_dataset is not UNSET:
             _input['sparseDataset'] = sparse_dataset
         variables['input'] = _input
-        return self.execute(LinkFileMutation, variables).link_file
+        return self.execute(LinkFileMutation, variables, task=task).link_file
 
-    async def aunlink_file(self, id: IDCoercible) -> ID:
+    async def aunlink_file(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """UnlinkFile 
 
 Delete a file link. Neither the file nor the container is touched
 
 Args:
     id: The ID of the file link to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -10757,15 +10835,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return (await self.aexecute(UnlinkFileMutation, variables)).unlink_file
+        return (await self.aexecute(UnlinkFileMutation, variables, task=task)).unlink_file
 
-    def unlink_file(self, id: IDCoercible) -> ID:
+    def unlink_file(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """UnlinkFile 
 
 Delete a file link. Neither the file nor the container is touched
 
 Args:
     id: The ID of the file link to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -10774,9 +10853,9 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return self.execute(UnlinkFileMutation, variables).unlink_file
+        return self.execute(UnlinkFileMutation, variables, task=task).unlink_file
 
-    async def acreate_folder(self, name: str, parent: IDCoercible | None | UnsetType=UNSET) -> Folder:
+    async def acreate_folder(self, name: str, parent: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> Folder:
         """CreateFolder 
 
 Create a new folder to organize data
@@ -10784,6 +10863,7 @@ Create a new folder to organize data
 Args:
     name: The name of the folder
     parent: The ID of the parent folder to nest this folder under
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Folder
@@ -10794,9 +10874,9 @@ Returns:
         if parent is not UNSET:
             _input['parent'] = parent
         variables['input'] = _input
-        return (await self.aexecute(CreateFolderMutation, variables)).create_folder
+        return (await self.aexecute(CreateFolderMutation, variables, task=task)).create_folder
 
-    def create_folder(self, name: str, parent: IDCoercible | None | UnsetType=UNSET) -> Folder:
+    def create_folder(self, name: str, parent: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> Folder:
         """CreateFolder 
 
 Create a new folder to organize data
@@ -10804,6 +10884,7 @@ Create a new folder to organize data
 Args:
     name: The name of the folder
     parent: The ID of the parent folder to nest this folder under
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Folder
@@ -10814,9 +10895,9 @@ Returns:
         if parent is not UNSET:
             _input['parent'] = parent
         variables['input'] = _input
-        return self.execute(CreateFolderMutation, variables).create_folder
+        return self.execute(CreateFolderMutation, variables, task=task).create_folder
 
-    async def aensure_folder(self, name: str, parent: IDCoercible | None | UnsetType=UNSET) -> Folder:
+    async def aensure_folder(self, name: str, parent: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> Folder:
         """EnsureFolder 
 
 Create a new folder to organize data, or return the one the current user already has under this name and parent
@@ -10824,6 +10905,7 @@ Create a new folder to organize data, or return the one the current user already
 Args:
     name: The name of the folder
     parent: The ID of the parent folder to nest this folder under
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Folder
@@ -10834,9 +10916,9 @@ Returns:
         if parent is not UNSET:
             _input['parent'] = parent
         variables['input'] = _input
-        return (await self.aexecute(EnsureFolderMutation, variables)).ensure_folder
+        return (await self.aexecute(EnsureFolderMutation, variables, task=task)).ensure_folder
 
-    def ensure_folder(self, name: str, parent: IDCoercible | None | UnsetType=UNSET) -> Folder:
+    def ensure_folder(self, name: str, parent: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> Folder:
         """EnsureFolder 
 
 Create a new folder to organize data, or return the one the current user already has under this name and parent
@@ -10844,6 +10926,7 @@ Create a new folder to organize data, or return the one the current user already
 Args:
     name: The name of the folder
     parent: The ID of the parent folder to nest this folder under
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Folder
@@ -10854,9 +10937,9 @@ Returns:
         if parent is not UNSET:
             _input['parent'] = parent
         variables['input'] = _input
-        return self.execute(EnsureFolderMutation, variables).ensure_folder
+        return self.execute(EnsureFolderMutation, variables, task=task).ensure_folder
 
-    async def aupdate_folder(self, name: str, id: IDCoercible, parent: IDCoercible | None | UnsetType=UNSET) -> Folder:
+    async def aupdate_folder(self, name: str, id: IDCoercible, parent: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> Folder:
         """UpdateFolder 
 
 Update folder metadata
@@ -10865,6 +10948,7 @@ Args:
     name: The name of the folder
     parent: The ID of the parent folder to nest this folder under
     id: The ID of the folder to change
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Folder
@@ -10876,9 +10960,9 @@ Returns:
             _input['parent'] = parent
         _input['id'] = id
         variables['input'] = _input
-        return (await self.aexecute(UpdateFolderMutation, variables)).update_folder
+        return (await self.aexecute(UpdateFolderMutation, variables, task=task)).update_folder
 
-    def update_folder(self, name: str, id: IDCoercible, parent: IDCoercible | None | UnsetType=UNSET) -> Folder:
+    def update_folder(self, name: str, id: IDCoercible, parent: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> Folder:
         """UpdateFolder 
 
 Update folder metadata
@@ -10887,6 +10971,7 @@ Args:
     name: The name of the folder
     parent: The ID of the parent folder to nest this folder under
     id: The ID of the folder to change
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Folder
@@ -10898,9 +10983,9 @@ Returns:
             _input['parent'] = parent
         _input['id'] = id
         variables['input'] = _input
-        return self.execute(UpdateFolderMutation, variables).update_folder
+        return self.execute(UpdateFolderMutation, variables, task=task).update_folder
 
-    async def arevert_folder(self, id: IDCoercible, history_id: IDCoercible) -> Folder:
+    async def arevert_folder(self, id: IDCoercible, history_id: IDCoercible, task: TaskLike | None=None) -> Folder:
         """RevertFolder 
 
 Revert folder to a previous version
@@ -10908,6 +10993,7 @@ Revert folder to a previous version
 Args:
     id: The ID of the folder to revert
     history_id: The ID of the provenance history entry to revert the folder to
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Folder
@@ -10917,9 +11003,9 @@ Returns:
         _input['id'] = id
         _input['historyId'] = history_id
         variables['input'] = _input
-        return (await self.aexecute(RevertFolderMutation, variables)).revert_folder
+        return (await self.aexecute(RevertFolderMutation, variables, task=task)).revert_folder
 
-    def revert_folder(self, id: IDCoercible, history_id: IDCoercible) -> Folder:
+    def revert_folder(self, id: IDCoercible, history_id: IDCoercible, task: TaskLike | None=None) -> Folder:
         """RevertFolder 
 
 Revert folder to a previous version
@@ -10927,6 +11013,7 @@ Revert folder to a previous version
 Args:
     id: The ID of the folder to revert
     history_id: The ID of the provenance history entry to revert the folder to
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Folder
@@ -10936,9 +11023,9 @@ Returns:
         _input['id'] = id
         _input['historyId'] = history_id
         variables['input'] = _input
-        return self.execute(RevertFolderMutation, variables).revert_folder
+        return self.execute(RevertFolderMutation, variables, task=task).revert_folder
 
-    async def acreate_trace_layer(self, experiment: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, window: WindowInput | None | UnsetType=UNSET, clock: IDCoercible | None | UnsetType=UNSET) -> ExperimentLayerTraceLayer:
+    async def acreate_trace_layer(self, experiment: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, window: WindowInput | None | UnsetType=UNSET, clock: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerTraceLayer:
         """CreateTraceLayer 
  One mutation per kind, as mikro's `createXxxLayer`. A layer carries view state
  only; where its data sits in time is the graph's answer.
@@ -10959,6 +11046,7 @@ Args:
     dataset: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     window: A stretch of time on the dataset's OWN clock, e.g. the first 200 ms of a sweep. Lowered to a lens by inverting the sampling law, so it needs one
     clock: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayerTraceLayer
@@ -10995,9 +11083,9 @@ Returns:
         if clock is not UNSET:
             _input['clock'] = clock
         variables['input'] = _input
-        return (await self.aexecute(CreateTraceLayerMutation, variables)).create_trace_layer
+        return (await self.aexecute(CreateTraceLayerMutation, variables, task=task)).create_trace_layer
 
-    def create_trace_layer(self, experiment: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, window: WindowInput | None | UnsetType=UNSET, clock: IDCoercible | None | UnsetType=UNSET) -> ExperimentLayerTraceLayer:
+    def create_trace_layer(self, experiment: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, window: WindowInput | None | UnsetType=UNSET, clock: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerTraceLayer:
         """CreateTraceLayer 
  One mutation per kind, as mikro's `createXxxLayer`. A layer carries view state
  only; where its data sits in time is the graph's answer.
@@ -11018,6 +11106,7 @@ Args:
     dataset: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     window: A stretch of time on the dataset's OWN clock, e.g. the first 200 ms of a sweep. Lowered to a lens by inverting the sampling law, so it needs one
     clock: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayerTraceLayer
@@ -11054,9 +11143,9 @@ Returns:
         if clock is not UNSET:
             _input['clock'] = clock
         variables['input'] = _input
-        return self.execute(CreateTraceLayerMutation, variables).create_trace_layer
+        return self.execute(CreateTraceLayerMutation, variables, task=task).create_trace_layer
 
-    async def aupdate_trace_layer(self, id: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET) -> ExperimentLayerTraceLayer:
+    async def aupdate_trace_layer(self, id: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerTraceLayer:
         """UpdateTraceLayer 
 
 Restyle a trace layer, or point it at another lens
@@ -11074,6 +11163,7 @@ Args:
     clim_max: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     lens: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayerTraceLayer
@@ -11104,9 +11194,9 @@ Returns:
         if lens is not UNSET:
             _input['lens'] = lens
         variables['input'] = _input
-        return (await self.aexecute(UpdateTraceLayerMutation, variables)).update_trace_layer
+        return (await self.aexecute(UpdateTraceLayerMutation, variables, task=task)).update_trace_layer
 
-    def update_trace_layer(self, id: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET) -> ExperimentLayerTraceLayer:
+    def update_trace_layer(self, id: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerTraceLayer:
         """UpdateTraceLayer 
 
 Restyle a trace layer, or point it at another lens
@@ -11124,6 +11214,7 @@ Args:
     clim_max: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     lens: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayerTraceLayer
@@ -11154,9 +11245,9 @@ Returns:
         if lens is not UNSET:
             _input['lens'] = lens
         variables['input'] = _input
-        return self.execute(UpdateTraceLayerMutation, variables).update_trace_layer
+        return self.execute(UpdateTraceLayerMutation, variables, task=task).update_trace_layer
 
-    async def acreate_spikes_layer(self, experiment: IDCoercible, sparse_dataset: IDCoercible, tick_height: float | None | UnsetType=UNSET, row_order_column: str | None | UnsetType=UNSET, value_mode: SpikeValueMode | None | UnsetType=UNSET, rate_bin: Duration | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET) -> ExperimentLayerSpikesLayer:
+    async def acreate_spikes_layer(self, experiment: IDCoercible, sparse_dataset: IDCoercible, tick_height: float | None | UnsetType=UNSET, row_order_column: str | None | UnsetType=UNSET, value_mode: SpikeValueMode | None | UnsetType=UNSET, rate_bin: Duration | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerSpikesLayer:
         """CreateSpikesLayer 
 
 Draw a spike raster: a tick per spike and a row per unit, coloured and ordered by the unit table
@@ -11181,6 +11272,7 @@ Args:
     opacity: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     visible: The `Boolean` scalar type represents `true` or `false`.
     order: The position top to bottom. Omit to append
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayerSpikesLayer
@@ -11224,9 +11316,9 @@ Returns:
         if order is not UNSET:
             _input['order'] = order
         variables['input'] = _input
-        return (await self.aexecute(CreateSpikesLayerMutation, variables)).create_spikes_layer
+        return (await self.aexecute(CreateSpikesLayerMutation, variables, task=task)).create_spikes_layer
 
-    def create_spikes_layer(self, experiment: IDCoercible, sparse_dataset: IDCoercible, tick_height: float | None | UnsetType=UNSET, row_order_column: str | None | UnsetType=UNSET, value_mode: SpikeValueMode | None | UnsetType=UNSET, rate_bin: Duration | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET) -> ExperimentLayerSpikesLayer:
+    def create_spikes_layer(self, experiment: IDCoercible, sparse_dataset: IDCoercible, tick_height: float | None | UnsetType=UNSET, row_order_column: str | None | UnsetType=UNSET, value_mode: SpikeValueMode | None | UnsetType=UNSET, rate_bin: Duration | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerSpikesLayer:
         """CreateSpikesLayer 
 
 Draw a spike raster: a tick per spike and a row per unit, coloured and ordered by the unit table
@@ -11251,6 +11343,7 @@ Args:
     opacity: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     visible: The `Boolean` scalar type represents `true` or `false`.
     order: The position top to bottom. Omit to append
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayerSpikesLayer
@@ -11294,9 +11387,9 @@ Returns:
         if order is not UNSET:
             _input['order'] = order
         variables['input'] = _input
-        return self.execute(CreateSpikesLayerMutation, variables).create_spikes_layer
+        return self.execute(CreateSpikesLayerMutation, variables, task=task).create_spikes_layer
 
-    async def aupdate_spikes_layer(self, id: IDCoercible, sparse_dataset: IDCoercible | None | UnsetType=UNSET, tick_height: float | None | UnsetType=UNSET, row_order_column: str | None | UnsetType=UNSET, value_mode: SpikeValueMode | None | UnsetType=UNSET, rate_bin: Duration | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET) -> ExperimentLayerSpikesLayer:
+    async def aupdate_spikes_layer(self, id: IDCoercible, sparse_dataset: IDCoercible | None | UnsetType=UNSET, tick_height: float | None | UnsetType=UNSET, row_order_column: str | None | UnsetType=UNSET, value_mode: SpikeValueMode | None | UnsetType=UNSET, rate_bin: Duration | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerSpikesLayer:
         """UpdateSpikesLayer 
 
 Restyle a spikes layer, or point it at another raster
@@ -11321,6 +11414,7 @@ Args:
     opacity: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     visible: The `Boolean` scalar type represents `true` or `false`.
     order: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayerSpikesLayer
@@ -11365,9 +11459,9 @@ Returns:
         if order is not UNSET:
             _input['order'] = order
         variables['input'] = _input
-        return (await self.aexecute(UpdateSpikesLayerMutation, variables)).update_spikes_layer
+        return (await self.aexecute(UpdateSpikesLayerMutation, variables, task=task)).update_spikes_layer
 
-    def update_spikes_layer(self, id: IDCoercible, sparse_dataset: IDCoercible | None | UnsetType=UNSET, tick_height: float | None | UnsetType=UNSET, row_order_column: str | None | UnsetType=UNSET, value_mode: SpikeValueMode | None | UnsetType=UNSET, rate_bin: Duration | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET) -> ExperimentLayerSpikesLayer:
+    def update_spikes_layer(self, id: IDCoercible, sparse_dataset: IDCoercible | None | UnsetType=UNSET, tick_height: float | None | UnsetType=UNSET, row_order_column: str | None | UnsetType=UNSET, value_mode: SpikeValueMode | None | UnsetType=UNSET, rate_bin: Duration | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerSpikesLayer:
         """UpdateSpikesLayer 
 
 Restyle a spikes layer, or point it at another raster
@@ -11392,6 +11486,7 @@ Args:
     opacity: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     visible: The `Boolean` scalar type represents `true` or `false`.
     order: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayerSpikesLayer
@@ -11436,9 +11531,9 @@ Returns:
         if order is not UNSET:
             _input['order'] = order
         variables['input'] = _input
-        return self.execute(UpdateSpikesLayerMutation, variables).update_spikes_layer
+        return self.execute(UpdateSpikesLayerMutation, variables, task=task).update_spikes_layer
 
-    async def acreate_events_layer(self, experiment: IDCoercible, table_dataset: IDCoercible, stop_column: str | None | UnsetType=UNSET, label_column: str | None | UnsetType=UNSET, lane_column: str | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET) -> ExperimentLayerEventsLayer:
+    async def acreate_events_layer(self, experiment: IDCoercible, table_dataset: IDCoercible, stop_column: str | None | UnsetType=UNSET, label_column: str | None | UnsetType=UNSET, lane_column: str | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerEventsLayer:
         """CreateEventsLayer 
 
 Draw an event table: a mark per row at its TIME column, or an interval with `stopColumn`
@@ -11460,6 +11555,7 @@ Args:
     opacity: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     visible: The `Boolean` scalar type represents `true` or `false`.
     order: The position top to bottom. Omit to append
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayerEventsLayer
@@ -11497,9 +11593,9 @@ Returns:
         if order is not UNSET:
             _input['order'] = order
         variables['input'] = _input
-        return (await self.aexecute(CreateEventsLayerMutation, variables)).create_events_layer
+        return (await self.aexecute(CreateEventsLayerMutation, variables, task=task)).create_events_layer
 
-    def create_events_layer(self, experiment: IDCoercible, table_dataset: IDCoercible, stop_column: str | None | UnsetType=UNSET, label_column: str | None | UnsetType=UNSET, lane_column: str | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET) -> ExperimentLayerEventsLayer:
+    def create_events_layer(self, experiment: IDCoercible, table_dataset: IDCoercible, stop_column: str | None | UnsetType=UNSET, label_column: str | None | UnsetType=UNSET, lane_column: str | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerEventsLayer:
         """CreateEventsLayer 
 
 Draw an event table: a mark per row at its TIME column, or an interval with `stopColumn`
@@ -11521,6 +11617,7 @@ Args:
     opacity: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     visible: The `Boolean` scalar type represents `true` or `false`.
     order: The position top to bottom. Omit to append
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayerEventsLayer
@@ -11558,9 +11655,9 @@ Returns:
         if order is not UNSET:
             _input['order'] = order
         variables['input'] = _input
-        return self.execute(CreateEventsLayerMutation, variables).create_events_layer
+        return self.execute(CreateEventsLayerMutation, variables, task=task).create_events_layer
 
-    async def aupdate_events_layer(self, id: IDCoercible, table_dataset: IDCoercible | None | UnsetType=UNSET, stop_column: str | None | UnsetType=UNSET, label_column: str | None | UnsetType=UNSET, lane_column: str | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET) -> ExperimentLayerEventsLayer:
+    async def aupdate_events_layer(self, id: IDCoercible, table_dataset: IDCoercible | None | UnsetType=UNSET, stop_column: str | None | UnsetType=UNSET, label_column: str | None | UnsetType=UNSET, lane_column: str | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerEventsLayer:
         """UpdateEventsLayer 
 
 Restyle an events layer, or point it at another table
@@ -11582,6 +11679,7 @@ Args:
     opacity: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     visible: The `Boolean` scalar type represents `true` or `false`.
     order: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayerEventsLayer
@@ -11620,9 +11718,9 @@ Returns:
         if order is not UNSET:
             _input['order'] = order
         variables['input'] = _input
-        return (await self.aexecute(UpdateEventsLayerMutation, variables)).update_events_layer
+        return (await self.aexecute(UpdateEventsLayerMutation, variables, task=task)).update_events_layer
 
-    def update_events_layer(self, id: IDCoercible, table_dataset: IDCoercible | None | UnsetType=UNSET, stop_column: str | None | UnsetType=UNSET, label_column: str | None | UnsetType=UNSET, lane_column: str | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET) -> ExperimentLayerEventsLayer:
+    def update_events_layer(self, id: IDCoercible, table_dataset: IDCoercible | None | UnsetType=UNSET, stop_column: str | None | UnsetType=UNSET, label_column: str | None | UnsetType=UNSET, lane_column: str | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerEventsLayer:
         """UpdateEventsLayer 
 
 Restyle an events layer, or point it at another table
@@ -11644,6 +11742,7 @@ Args:
     opacity: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     visible: The `Boolean` scalar type represents `true` or `false`.
     order: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayerEventsLayer
@@ -11682,9 +11781,9 @@ Returns:
         if order is not UNSET:
             _input['order'] = order
         variables['input'] = _input
-        return self.execute(UpdateEventsLayerMutation, variables).update_events_layer
+        return self.execute(UpdateEventsLayerMutation, variables, task=task).update_events_layer
 
-    async def acreate_annotation_layer(self, experiment: IDCoercible, annotation_collection: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET) -> ExperimentLayerAnnotationLayer:
+    async def acreate_annotation_layer(self, experiment: IDCoercible, annotation_collection: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerAnnotationLayer:
         """CreateAnnotationLayer 
 
 Draw an annotation collection's marks in an experiment
@@ -11697,6 +11796,7 @@ Args:
     order: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
     experiment: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     annotation_collection: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayerAnnotationLayer
@@ -11716,9 +11816,9 @@ Returns:
         _input['experiment'] = experiment
         _input['annotationCollection'] = annotation_collection
         variables['input'] = _input
-        return (await self.aexecute(CreateAnnotationLayerMutation, variables)).create_annotation_layer
+        return (await self.aexecute(CreateAnnotationLayerMutation, variables, task=task)).create_annotation_layer
 
-    def create_annotation_layer(self, experiment: IDCoercible, annotation_collection: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET) -> ExperimentLayerAnnotationLayer:
+    def create_annotation_layer(self, experiment: IDCoercible, annotation_collection: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerAnnotationLayer:
         """CreateAnnotationLayer 
 
 Draw an annotation collection's marks in an experiment
@@ -11731,6 +11831,7 @@ Args:
     order: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
     experiment: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     annotation_collection: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayerAnnotationLayer
@@ -11750,9 +11851,9 @@ Returns:
         _input['experiment'] = experiment
         _input['annotationCollection'] = annotation_collection
         variables['input'] = _input
-        return self.execute(CreateAnnotationLayerMutation, variables).create_annotation_layer
+        return self.execute(CreateAnnotationLayerMutation, variables, task=task).create_annotation_layer
 
-    async def acreate_layer(self, experiment: IDCoercible, kind: ExperimentLayerKind, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, sparse_dataset: IDCoercible | None | UnsetType=UNSET, table_dataset: IDCoercible | None | UnsetType=UNSET, annotation_collection: IDCoercible | None | UnsetType=UNSET) -> Annotated[CreateLayerMutationCreateLayerBaseAnnotationLayer | CreateLayerMutationCreateLayerBaseEventsLayer | CreateLayerMutationCreateLayerBaseHeatmapLayer | CreateLayerMutationCreateLayerBasePointLayer | CreateLayerMutationCreateLayerBaseSeriesLayer | CreateLayerMutationCreateLayerBaseSpikesLayer | CreateLayerMutationCreateLayerBaseTraceLayer | CreateLayerMutationCreateLayerBaseWaveformLayer, Field(discriminator='typename')] | CreateLayerMutationCreateLayerBaseCatchAll:
+    async def acreate_layer(self, experiment: IDCoercible, kind: ExperimentLayerKind, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, sparse_dataset: IDCoercible | None | UnsetType=UNSET, table_dataset: IDCoercible | None | UnsetType=UNSET, annotation_collection: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotated[CreateLayerMutationCreateLayerBaseAnnotationLayer | CreateLayerMutationCreateLayerBaseEventsLayer | CreateLayerMutationCreateLayerBaseHeatmapLayer | CreateLayerMutationCreateLayerBasePointLayer | CreateLayerMutationCreateLayerBaseSeriesLayer | CreateLayerMutationCreateLayerBaseSpikesLayer | CreateLayerMutationCreateLayerBaseTraceLayer | CreateLayerMutationCreateLayerBaseWaveformLayer, Field(discriminator='typename')] | CreateLayerMutationCreateLayerBaseCatchAll:
         """CreateLayer 
  The generic forms: any kind by `kind` plus exactly one source, and the
  compositing fields every kind shares.
@@ -11769,6 +11870,7 @@ Args:
     sparse_dataset: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     table_dataset: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     annotation_collection: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayer
@@ -11796,9 +11898,9 @@ Returns:
         if annotation_collection is not UNSET:
             _input['annotationCollection'] = annotation_collection
         variables['input'] = _input
-        return (await self.aexecute(CreateLayerMutation, variables)).create_layer
+        return (await self.aexecute(CreateLayerMutation, variables, task=task)).create_layer
 
-    def create_layer(self, experiment: IDCoercible, kind: ExperimentLayerKind, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, sparse_dataset: IDCoercible | None | UnsetType=UNSET, table_dataset: IDCoercible | None | UnsetType=UNSET, annotation_collection: IDCoercible | None | UnsetType=UNSET) -> Annotated[CreateLayerMutationCreateLayerBaseAnnotationLayer | CreateLayerMutationCreateLayerBaseEventsLayer | CreateLayerMutationCreateLayerBaseHeatmapLayer | CreateLayerMutationCreateLayerBasePointLayer | CreateLayerMutationCreateLayerBaseSeriesLayer | CreateLayerMutationCreateLayerBaseSpikesLayer | CreateLayerMutationCreateLayerBaseTraceLayer | CreateLayerMutationCreateLayerBaseWaveformLayer, Field(discriminator='typename')] | CreateLayerMutationCreateLayerBaseCatchAll:
+    def create_layer(self, experiment: IDCoercible, kind: ExperimentLayerKind, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, sparse_dataset: IDCoercible | None | UnsetType=UNSET, table_dataset: IDCoercible | None | UnsetType=UNSET, annotation_collection: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotated[CreateLayerMutationCreateLayerBaseAnnotationLayer | CreateLayerMutationCreateLayerBaseEventsLayer | CreateLayerMutationCreateLayerBaseHeatmapLayer | CreateLayerMutationCreateLayerBasePointLayer | CreateLayerMutationCreateLayerBaseSeriesLayer | CreateLayerMutationCreateLayerBaseSpikesLayer | CreateLayerMutationCreateLayerBaseTraceLayer | CreateLayerMutationCreateLayerBaseWaveformLayer, Field(discriminator='typename')] | CreateLayerMutationCreateLayerBaseCatchAll:
         """CreateLayer 
  The generic forms: any kind by `kind` plus exactly one source, and the
  compositing fields every kind shares.
@@ -11815,6 +11917,7 @@ Args:
     sparse_dataset: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     table_dataset: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     annotation_collection: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayer
@@ -11842,9 +11945,9 @@ Returns:
         if annotation_collection is not UNSET:
             _input['annotationCollection'] = annotation_collection
         variables['input'] = _input
-        return self.execute(CreateLayerMutation, variables).create_layer
+        return self.execute(CreateLayerMutation, variables, task=task).create_layer
 
-    async def aupdate_layer(self, id: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET) -> Annotated[UpdateLayerMutationUpdateLayerBaseAnnotationLayer | UpdateLayerMutationUpdateLayerBaseEventsLayer | UpdateLayerMutationUpdateLayerBaseHeatmapLayer | UpdateLayerMutationUpdateLayerBasePointLayer | UpdateLayerMutationUpdateLayerBaseSeriesLayer | UpdateLayerMutationUpdateLayerBaseSpikesLayer | UpdateLayerMutationUpdateLayerBaseTraceLayer | UpdateLayerMutationUpdateLayerBaseWaveformLayer, Field(discriminator='typename')] | UpdateLayerMutationUpdateLayerBaseCatchAll:
+    async def aupdate_layer(self, id: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotated[UpdateLayerMutationUpdateLayerBaseAnnotationLayer | UpdateLayerMutationUpdateLayerBaseEventsLayer | UpdateLayerMutationUpdateLayerBaseHeatmapLayer | UpdateLayerMutationUpdateLayerBasePointLayer | UpdateLayerMutationUpdateLayerBaseSeriesLayer | UpdateLayerMutationUpdateLayerBaseSpikesLayer | UpdateLayerMutationUpdateLayerBaseTraceLayer | UpdateLayerMutationUpdateLayerBaseWaveformLayer, Field(discriminator='typename')] | UpdateLayerMutationUpdateLayerBaseCatchAll:
         """UpdateLayer 
 
 Restyle any layer's compositing: name, blending, opacity, visibility, order
@@ -11856,6 +11959,7 @@ Args:
     visible: The `Boolean` scalar type represents `true` or `false`.
     order: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayer
@@ -11874,9 +11978,9 @@ Returns:
             _input['order'] = order
         _input['id'] = id
         variables['input'] = _input
-        return (await self.aexecute(UpdateLayerMutation, variables)).update_layer
+        return (await self.aexecute(UpdateLayerMutation, variables, task=task)).update_layer
 
-    def update_layer(self, id: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET) -> Annotated[UpdateLayerMutationUpdateLayerBaseAnnotationLayer | UpdateLayerMutationUpdateLayerBaseEventsLayer | UpdateLayerMutationUpdateLayerBaseHeatmapLayer | UpdateLayerMutationUpdateLayerBasePointLayer | UpdateLayerMutationUpdateLayerBaseSeriesLayer | UpdateLayerMutationUpdateLayerBaseSpikesLayer | UpdateLayerMutationUpdateLayerBaseTraceLayer | UpdateLayerMutationUpdateLayerBaseWaveformLayer, Field(discriminator='typename')] | UpdateLayerMutationUpdateLayerBaseCatchAll:
+    def update_layer(self, id: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotated[UpdateLayerMutationUpdateLayerBaseAnnotationLayer | UpdateLayerMutationUpdateLayerBaseEventsLayer | UpdateLayerMutationUpdateLayerBaseHeatmapLayer | UpdateLayerMutationUpdateLayerBasePointLayer | UpdateLayerMutationUpdateLayerBaseSeriesLayer | UpdateLayerMutationUpdateLayerBaseSpikesLayer | UpdateLayerMutationUpdateLayerBaseTraceLayer | UpdateLayerMutationUpdateLayerBaseWaveformLayer, Field(discriminator='typename')] | UpdateLayerMutationUpdateLayerBaseCatchAll:
         """UpdateLayer 
 
 Restyle any layer's compositing: name, blending, opacity, visibility, order
@@ -11888,6 +11992,7 @@ Args:
     visible: The `Boolean` scalar type represents `true` or `false`.
     order: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayer
@@ -11906,15 +12011,16 @@ Returns:
             _input['order'] = order
         _input['id'] = id
         variables['input'] = _input
-        return self.execute(UpdateLayerMutation, variables).update_layer
+        return self.execute(UpdateLayerMutation, variables, task=task).update_layer
 
-    async def adelete_layer(self, id: IDCoercible) -> ID:
+    async def adelete_layer(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteLayer 
 
 Remove a layer from its experiment. What it drew is untouched
 
 Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -11923,15 +12029,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return (await self.aexecute(DeleteLayerMutation, variables)).delete_layer
+        return (await self.aexecute(DeleteLayerMutation, variables, task=task)).delete_layer
 
-    def delete_layer(self, id: IDCoercible) -> ID:
+    def delete_layer(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteLayer 
 
 Remove a layer from its experiment. What it drew is untouched
 
 Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -11940,9 +12047,9 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return self.execute(DeleteLayerMutation, variables).delete_layer
+        return self.execute(DeleteLayerMutation, variables, task=task).delete_layer
 
-    async def acreate_lens(self, dataset: IDCoercible, slices: Iterable[SliceInput] | None | UnsetType=UNSET) -> Lens:
+    async def acreate_lens(self, dataset: IDCoercible, slices: Iterable[SliceInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> Lens:
         """CreateLens 
 
 Create a lens: an immutable selection over a dataset. A sliced lens gets its own coordinate system and the derived edge recording the shift
@@ -11950,6 +12057,7 @@ Create a lens: an immutable selection over a dataset. A sliced lens gets its own
 Args:
     dataset: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     slices: A slice along one named axis, with python's half-open `start:stop:step` semantics. Indices are SAMPLE indices along that axis of the dataset, never physical units (required) (list)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Lens
@@ -11960,9 +12068,9 @@ Returns:
         if slices is not UNSET:
             _input['slices'] = slices
         variables['input'] = _input
-        return (await self.aexecute(CreateLensMutation, variables)).create_lens
+        return (await self.aexecute(CreateLensMutation, variables, task=task)).create_lens
 
-    def create_lens(self, dataset: IDCoercible, slices: Iterable[SliceInput] | None | UnsetType=UNSET) -> Lens:
+    def create_lens(self, dataset: IDCoercible, slices: Iterable[SliceInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> Lens:
         """CreateLens 
 
 Create a lens: an immutable selection over a dataset. A sliced lens gets its own coordinate system and the derived edge recording the shift
@@ -11970,6 +12078,7 @@ Create a lens: an immutable selection over a dataset. A sliced lens gets its own
 Args:
     dataset: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     slices: A slice along one named axis, with python's half-open `start:stop:step` semantics. Indices are SAMPLE indices along that axis of the dataset, never physical units (required) (list)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Lens
@@ -11980,15 +12089,16 @@ Returns:
         if slices is not UNSET:
             _input['slices'] = slices
         variables['input'] = _input
-        return self.execute(CreateLensMutation, variables).create_lens
+        return self.execute(CreateLensMutation, variables, task=task).create_lens
 
-    async def adelete_lens(self, id: IDCoercible) -> ID:
+    async def adelete_lens(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteLens 
 
 Delete a lens, and the coordinate system it owned if it was sliced
 
 Args:
     id: The ID of the lens to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -11997,15 +12107,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return (await self.aexecute(DeleteLensMutation, variables)).delete_lens
+        return (await self.aexecute(DeleteLensMutation, variables, task=task)).delete_lens
 
-    def delete_lens(self, id: IDCoercible) -> ID:
+    def delete_lens(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteLens 
 
 Delete a lens, and the coordinate system it owned if it was sliced
 
 Args:
     id: The ID of the lens to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -12014,9 +12125,9 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return self.execute(DeleteLensMutation, variables).delete_lens
+        return self.execute(DeleteLensMutation, variables, task=task).delete_lens
 
-    async def acreate_model_collection(self, name: str, models: Iterable[IDCoercible], description: str | None | UnsetType=UNSET) -> ModelCollection:
+    async def acreate_model_collection(self, name: str, models: Iterable[IDCoercible], description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> ModelCollection:
         """CreateModelCollection 
 
 Create a new model collection
@@ -12025,6 +12136,7 @@ Args:
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     models: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required) (list) (required)
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ModelCollection
@@ -12036,9 +12148,9 @@ Returns:
         if description is not UNSET:
             _input['description'] = description
         variables['input'] = _input
-        return (await self.aexecute(CreateModelCollectionMutation, variables)).create_model_collection
+        return (await self.aexecute(CreateModelCollectionMutation, variables, task=task)).create_model_collection
 
-    def create_model_collection(self, name: str, models: Iterable[IDCoercible], description: str | None | UnsetType=UNSET) -> ModelCollection:
+    def create_model_collection(self, name: str, models: Iterable[IDCoercible], description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> ModelCollection:
         """CreateModelCollection 
 
 Create a new model collection
@@ -12047,6 +12159,7 @@ Args:
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     models: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required) (list) (required)
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ModelCollection
@@ -12058,9 +12171,9 @@ Returns:
         if description is not UNSET:
             _input['description'] = description
         variables['input'] = _input
-        return self.execute(CreateModelCollectionMutation, variables).create_model_collection
+        return self.execute(CreateModelCollectionMutation, variables, task=task).create_model_collection
 
-    async def acreate_neuronmodel(self, name: str, config: ModelConfigInput, environment: IDCoercible | None | UnsetType=UNSET, parent: IDCoercible | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET) -> NeuronModel:
+    async def acreate_neuronmodel(self, name: str, config: ModelConfigInput, environment: IDCoercible | None | UnsetType=UNSET, parent: IDCoercible | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> NeuronModel:
         """CreateNeuronmodel 
 
 Create a new neuron model
@@ -12071,6 +12184,7 @@ Args:
     parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     config: Input for the configuration of a model. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     NeuronModel
@@ -12086,9 +12200,9 @@ Returns:
             _input['description'] = description
         _input['config'] = config
         variables['input'] = _input
-        return (await self.aexecute(CreateNeuronmodelMutation, variables)).create_neuron_model
+        return (await self.aexecute(CreateNeuronmodelMutation, variables, task=task)).create_neuron_model
 
-    def create_neuronmodel(self, name: str, config: ModelConfigInput, environment: IDCoercible | None | UnsetType=UNSET, parent: IDCoercible | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET) -> NeuronModel:
+    def create_neuronmodel(self, name: str, config: ModelConfigInput, environment: IDCoercible | None | UnsetType=UNSET, parent: IDCoercible | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> NeuronModel:
         """CreateNeuronmodel 
 
 Create a new neuron model
@@ -12099,6 +12213,7 @@ Args:
     parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     config: Input for the configuration of a model. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     NeuronModel
@@ -12114,9 +12229,9 @@ Returns:
             _input['description'] = description
         _input['config'] = config
         variables['input'] = _input
-        return self.execute(CreateNeuronmodelMutation, variables).create_neuron_model
+        return self.execute(CreateNeuronmodelMutation, variables, task=task).create_neuron_model
 
-    async def acreate_session(self, datasets: Iterable[IDCoercible], time_unit: Unit, name: str | None | UnsetType=UNSET, clock: IDCoercible | None | UnsetType=UNSET, time_dataset: IDCoercible | None | UnsetType=UNSET, sampling: SamplingInput | None | UnsetType=UNSET) -> CoordinateSystem:
+    async def acreate_session(self, datasets: Iterable[IDCoercible], time_unit: Unit, name: str | None | UnsetType=UNSET, clock: IDCoercible | None | UnsetType=UNSET, time_dataset: IDCoercible | None | UnsetType=UNSET, sampling: SamplingInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> CoordinateSystem:
         """CreateSession 
  lookup) each: a recording session, or one run of a neuron model -- a run is its
  clock. `name` mints a new clock, `clock` adds a second batch to an existing
@@ -12134,6 +12249,7 @@ Args:
 A string scalar validating that the value parses as a pint unit — a bad unit,
 a bare quantity (``"5 mV"``), or a dimension is rejected. Compact exponent
 spelling (``"cm2"``) is accepted and the given spelling is preserved. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     CoordinateSystem
@@ -12151,9 +12267,9 @@ Returns:
             _input['sampling'] = sampling
         _input['timeUnit'] = time_unit
         variables['input'] = _input
-        return (await self.aexecute(CreateSessionMutation, variables)).create_session
+        return (await self.aexecute(CreateSessionMutation, variables, task=task)).create_session
 
-    def create_session(self, datasets: Iterable[IDCoercible], time_unit: Unit, name: str | None | UnsetType=UNSET, clock: IDCoercible | None | UnsetType=UNSET, time_dataset: IDCoercible | None | UnsetType=UNSET, sampling: SamplingInput | None | UnsetType=UNSET) -> CoordinateSystem:
+    def create_session(self, datasets: Iterable[IDCoercible], time_unit: Unit, name: str | None | UnsetType=UNSET, clock: IDCoercible | None | UnsetType=UNSET, time_dataset: IDCoercible | None | UnsetType=UNSET, sampling: SamplingInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> CoordinateSystem:
         """CreateSession 
  lookup) each: a recording session, or one run of a neuron model -- a run is its
  clock. `name` mints a new clock, `clock` adds a second batch to an existing
@@ -12171,6 +12287,7 @@ Args:
 A string scalar validating that the value parses as a pint unit — a bad unit,
 a bare quantity (``"5 mV"``), or a dimension is rejected. Compact exponent
 spelling (``"cm2"``) is accepted and the given spelling is preserved. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     CoordinateSystem
@@ -12188,9 +12305,9 @@ Returns:
             _input['sampling'] = sampling
         _input['timeUnit'] = time_unit
         variables['input'] = _input
-        return self.execute(CreateSessionMutation, variables).create_session
+        return self.execute(CreateSessionMutation, variables, task=task).create_session
 
-    async def acreate_sparse_dataset(self, name: str, store: SporadikCoercible, axes: Iterable[SparseAxisInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET) -> SparseDataset:
+    async def acreate_sparse_dataset(self, name: str, store: SporadikCoercible, axes: Iterable[SparseAxisInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> SparseDataset:
         """CreateSparseDataset 
 
 Create a sparse dataset from an uploaded sparse store. Each INDEX axis says what its positions are through `identifiedBy`; one axis may be TIME (elektro's own) -- a spike raster's samples, identified by nothing and placed on a clock with `createSamplingLaw`. The spec, shape and layouts are read from the store, never declared
@@ -12203,6 +12320,7 @@ Args:
     folder: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
     source_files: One file this container was produced from -- the ABF or NWB file a converter read to write these arrays. Recorded as a link between bytes and data, deliberately not as a coordinate-graph edge: a file has no space, so there is no map to state and `derivedFrom` is the wrong mechanism (required) (list)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     SparseDataset
@@ -12221,9 +12339,9 @@ Returns:
         if source_files is not UNSET:
             _input['sourceFiles'] = source_files
         variables['input'] = _input
-        return (await self.aexecute(CreateSparseDatasetMutation, variables)).create_sparse_dataset
+        return (await self.aexecute(CreateSparseDatasetMutation, variables, task=task)).create_sparse_dataset
 
-    def create_sparse_dataset(self, name: str, store: SporadikCoercible, axes: Iterable[SparseAxisInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET) -> SparseDataset:
+    def create_sparse_dataset(self, name: str, store: SporadikCoercible, axes: Iterable[SparseAxisInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> SparseDataset:
         """CreateSparseDataset 
 
 Create a sparse dataset from an uploaded sparse store. Each INDEX axis says what its positions are through `identifiedBy`; one axis may be TIME (elektro's own) -- a spike raster's samples, identified by nothing and placed on a clock with `createSamplingLaw`. The spec, shape and layouts are read from the store, never declared
@@ -12236,6 +12354,7 @@ Args:
     folder: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
     source_files: One file this container was produced from -- the ABF or NWB file a converter read to write these arrays. Recorded as a link between bytes and data, deliberately not as a coordinate-graph edge: a file has no space, so there is no map to state and `derivedFrom` is the wrong mechanism (required) (list)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     SparseDataset
@@ -12254,9 +12373,9 @@ Returns:
         if source_files is not UNSET:
             _input['sourceFiles'] = source_files
         variables['input'] = _input
-        return self.execute(CreateSparseDatasetMutation, variables).create_sparse_dataset
+        return self.execute(CreateSparseDatasetMutation, variables, task=task).create_sparse_dataset
 
-    async def aupdate_sparse_dataset(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET) -> SparseDataset:
+    async def aupdate_sparse_dataset(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> SparseDataset:
         """UpdateSparseDataset 
 
 Rename a sparse dataset or redescribe it. Its store, axes and coordinate system are fixed at creation
@@ -12265,6 +12384,7 @@ Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     SparseDataset
@@ -12277,9 +12397,9 @@ Returns:
         if description is not UNSET:
             _input['description'] = description
         variables['input'] = _input
-        return (await self.aexecute(UpdateSparseDatasetMutation, variables)).update_sparse_dataset
+        return (await self.aexecute(UpdateSparseDatasetMutation, variables, task=task)).update_sparse_dataset
 
-    def update_sparse_dataset(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET) -> SparseDataset:
+    def update_sparse_dataset(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> SparseDataset:
         """UpdateSparseDataset 
 
 Rename a sparse dataset or redescribe it. Its store, axes and coordinate system are fixed at creation
@@ -12288,6 +12408,7 @@ Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     SparseDataset
@@ -12300,15 +12421,16 @@ Returns:
         if description is not UNSET:
             _input['description'] = description
         variables['input'] = _input
-        return self.execute(UpdateSparseDatasetMutation, variables).update_sparse_dataset
+        return self.execute(UpdateSparseDatasetMutation, variables, task=task).update_sparse_dataset
 
-    async def adelete_sparse_dataset(self, id: IDCoercible) -> ID:
+    async def adelete_sparse_dataset(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteSparseDataset 
 
 Delete a sparse dataset, and the coordinate system it owned if nothing else lives in it. Refused while a layer's picker names it
 
 Args:
     id: The ID of the sparse dataset to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -12317,15 +12439,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return (await self.aexecute(DeleteSparseDatasetMutation, variables)).delete_sparse_dataset
+        return (await self.aexecute(DeleteSparseDatasetMutation, variables, task=task)).delete_sparse_dataset
 
-    def delete_sparse_dataset(self, id: IDCoercible) -> ID:
+    def delete_sparse_dataset(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteSparseDataset 
 
 Delete a sparse dataset, and the coordinate system it owned if nothing else lives in it. Refused while a layer's picker names it
 
 Args:
     id: The ID of the sparse dataset to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -12334,9 +12457,9 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return self.execute(DeleteSparseDatasetMutation, variables).delete_sparse_dataset
+        return self.execute(DeleteSparseDatasetMutation, variables, task=task).delete_sparse_dataset
 
-    async def acreate_table_dataset(self, name: str, data: ParquetCoercible, columns: Iterable[ColumnInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET) -> TableDataset:
+    async def acreate_table_dataset(self, name: str, data: ParquetCoercible, columns: Iterable[ColumnInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> TableDataset:
         """CreateTableDataset 
 
 Create a table dataset from an uploaded parquet store: every column declared in file order, checked against the file. Columns with an `axisType` become the axes of the table's own coordinate system -- a TIME column makes it an event table, placeable on a clock. `identifiedBy` on a column says what its values are: a DATASET whose contents are the ids (a FIELD edge), or a TABLE whose rows they are (a foreign key -- a spike's unit id referencing the unit table)
@@ -12349,6 +12472,7 @@ Args:
     folder: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
     source_files: One file this container was produced from -- the ABF or NWB file a converter read to write these arrays. Recorded as a link between bytes and data, deliberately not as a coordinate-graph edge: a file has no space, so there is no map to state and `derivedFrom` is the wrong mechanism (required) (list)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     TableDataset
@@ -12367,9 +12491,9 @@ Returns:
         if source_files is not UNSET:
             _input['sourceFiles'] = source_files
         variables['input'] = _input
-        return (await self.aexecute(CreateTableDatasetMutation, variables)).create_table_dataset
+        return (await self.aexecute(CreateTableDatasetMutation, variables, task=task)).create_table_dataset
 
-    def create_table_dataset(self, name: str, data: ParquetCoercible, columns: Iterable[ColumnInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET) -> TableDataset:
+    def create_table_dataset(self, name: str, data: ParquetCoercible, columns: Iterable[ColumnInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> TableDataset:
         """CreateTableDataset 
 
 Create a table dataset from an uploaded parquet store: every column declared in file order, checked against the file. Columns with an `axisType` become the axes of the table's own coordinate system -- a TIME column makes it an event table, placeable on a clock. `identifiedBy` on a column says what its values are: a DATASET whose contents are the ids (a FIELD edge), or a TABLE whose rows they are (a foreign key -- a spike's unit id referencing the unit table)
@@ -12382,6 +12506,7 @@ Args:
     folder: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
     source_files: One file this container was produced from -- the ABF or NWB file a converter read to write these arrays. Recorded as a link between bytes and data, deliberately not as a coordinate-graph edge: a file has no space, so there is no map to state and `derivedFrom` is the wrong mechanism (required) (list)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     TableDataset
@@ -12400,9 +12525,9 @@ Returns:
         if source_files is not UNSET:
             _input['sourceFiles'] = source_files
         variables['input'] = _input
-        return self.execute(CreateTableDatasetMutation, variables).create_table_dataset
+        return self.execute(CreateTableDatasetMutation, variables, task=task).create_table_dataset
 
-    async def aupdate_table_dataset(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET) -> TableDataset:
+    async def aupdate_table_dataset(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> TableDataset:
         """UpdateTableDataset 
 
 Rename a table dataset or redescribe it. Its store, columns and coordinate system are fixed at creation
@@ -12411,6 +12536,7 @@ Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     TableDataset
@@ -12423,9 +12549,9 @@ Returns:
         if description is not UNSET:
             _input['description'] = description
         variables['input'] = _input
-        return (await self.aexecute(UpdateTableDatasetMutation, variables)).update_table_dataset
+        return (await self.aexecute(UpdateTableDatasetMutation, variables, task=task)).update_table_dataset
 
-    def update_table_dataset(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET) -> TableDataset:
+    def update_table_dataset(self, id: IDCoercible, name: str | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> TableDataset:
         """UpdateTableDataset 
 
 Rename a table dataset or redescribe it. Its store, columns and coordinate system are fixed at creation
@@ -12434,6 +12560,7 @@ Args:
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     TableDataset
@@ -12446,15 +12573,16 @@ Returns:
         if description is not UNSET:
             _input['description'] = description
         variables['input'] = _input
-        return self.execute(UpdateTableDatasetMutation, variables).update_table_dataset
+        return self.execute(UpdateTableDatasetMutation, variables, task=task).update_table_dataset
 
-    async def adelete_table_dataset(self, id: IDCoercible) -> ID:
+    async def adelete_table_dataset(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteTableDataset 
 
 Delete a table dataset, and the coordinate system it owned if nothing else lives in it. Refused while a layer's picker or a column elsewhere references it
 
 Args:
     id: The ID of the table dataset to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -12463,15 +12591,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return (await self.aexecute(DeleteTableDatasetMutation, variables)).delete_table_dataset
+        return (await self.aexecute(DeleteTableDatasetMutation, variables, task=task)).delete_table_dataset
 
-    def delete_table_dataset(self, id: IDCoercible) -> ID:
+    def delete_table_dataset(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteTableDataset 
 
 Delete a table dataset, and the coordinate system it owned if nothing else lives in it. Refused while a layer's picker or a column elsewhere references it
 
 Args:
     id: The ID of the table dataset to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -12480,9 +12609,9 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return self.execute(DeleteTableDatasetMutation, variables).delete_table_dataset
+        return self.execute(DeleteTableDatasetMutation, variables, task=task).delete_table_dataset
 
-    async def acreate_transformation(self, input: IDCoercible, output: IDCoercible, transform: TransformInput, name: str | None | UnsetType=UNSET, validity: PlacementValidity | None | UnsetType=UNSET, value_relation: ValueRelation | None | UnsetType=UNSET, selector: SelectorInput | None | UnsetType=UNSET) -> Annotated[CreateTransformationMutationCreateTransformationBaseAffineTransformation | CreateTransformationMutationCreateTransformationBaseByDimensionTransformation | CreateTransformationMutationCreateTransformationBaseFieldTransformation | CreateTransformationMutationCreateTransformationBaseIdentityTransformation | CreateTransformationMutationCreateTransformationBaseMapAxisTransformation | CreateTransformationMutationCreateTransformationBaseRotationTransformation | CreateTransformationMutationCreateTransformationBaseScaleTransformation | CreateTransformationMutationCreateTransformationBaseSequenceTransformation | CreateTransformationMutationCreateTransformationBaseTranslationTransformation | CreateTransformationMutationCreateTransformationBaseUnmappableTransformation, Field(discriminator='typename')] | CreateTransformationMutationCreateTransformationBaseCatchAll:
+    async def acreate_transformation(self, input: IDCoercible, output: IDCoercible, transform: TransformInput, name: str | None | UnsetType=UNSET, validity: PlacementValidity | None | UnsetType=UNSET, value_relation: ValueRelation | None | UnsetType=UNSET, selector: SelectorInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotated[CreateTransformationMutationCreateTransformationBaseAffineTransformation | CreateTransformationMutationCreateTransformationBaseByDimensionTransformation | CreateTransformationMutationCreateTransformationBaseFieldTransformation | CreateTransformationMutationCreateTransformationBaseIdentityTransformation | CreateTransformationMutationCreateTransformationBaseMapAxisTransformation | CreateTransformationMutationCreateTransformationBaseRotationTransformation | CreateTransformationMutationCreateTransformationBaseScaleTransformation | CreateTransformationMutationCreateTransformationBaseSequenceTransformation | CreateTransformationMutationCreateTransformationBaseTranslationTransformation | CreateTransformationMutationCreateTransformationBaseUnmappableTransformation, Field(discriminator='typename')] | CreateTransformationMutationCreateTransformationBaseCatchAll:
         """CreateTransformation 
 
 Create one edge of the coordinate graph, mapping an input coordinate system to an output one. This is where a sampling law is corrected, two clocks are synchronised, and a recording is registered into a world
@@ -12495,6 +12624,7 @@ Args:
     validity: PlacementValidity
     value_relation: ValueRelation
     selector: Where along one axis a transformation applies: the map holds at that index and makes no claim elsewhere
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Transformation
@@ -12513,9 +12643,9 @@ Returns:
         if selector is not UNSET:
             _input['selector'] = selector
         variables['input'] = _input
-        return (await self.aexecute(CreateTransformationMutation, variables)).create_transformation
+        return (await self.aexecute(CreateTransformationMutation, variables, task=task)).create_transformation
 
-    def create_transformation(self, input: IDCoercible, output: IDCoercible, transform: TransformInput, name: str | None | UnsetType=UNSET, validity: PlacementValidity | None | UnsetType=UNSET, value_relation: ValueRelation | None | UnsetType=UNSET, selector: SelectorInput | None | UnsetType=UNSET) -> Annotated[CreateTransformationMutationCreateTransformationBaseAffineTransformation | CreateTransformationMutationCreateTransformationBaseByDimensionTransformation | CreateTransformationMutationCreateTransformationBaseFieldTransformation | CreateTransformationMutationCreateTransformationBaseIdentityTransformation | CreateTransformationMutationCreateTransformationBaseMapAxisTransformation | CreateTransformationMutationCreateTransformationBaseRotationTransformation | CreateTransformationMutationCreateTransformationBaseScaleTransformation | CreateTransformationMutationCreateTransformationBaseSequenceTransformation | CreateTransformationMutationCreateTransformationBaseTranslationTransformation | CreateTransformationMutationCreateTransformationBaseUnmappableTransformation, Field(discriminator='typename')] | CreateTransformationMutationCreateTransformationBaseCatchAll:
+    def create_transformation(self, input: IDCoercible, output: IDCoercible, transform: TransformInput, name: str | None | UnsetType=UNSET, validity: PlacementValidity | None | UnsetType=UNSET, value_relation: ValueRelation | None | UnsetType=UNSET, selector: SelectorInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotated[CreateTransformationMutationCreateTransformationBaseAffineTransformation | CreateTransformationMutationCreateTransformationBaseByDimensionTransformation | CreateTransformationMutationCreateTransformationBaseFieldTransformation | CreateTransformationMutationCreateTransformationBaseIdentityTransformation | CreateTransformationMutationCreateTransformationBaseMapAxisTransformation | CreateTransformationMutationCreateTransformationBaseRotationTransformation | CreateTransformationMutationCreateTransformationBaseScaleTransformation | CreateTransformationMutationCreateTransformationBaseSequenceTransformation | CreateTransformationMutationCreateTransformationBaseTranslationTransformation | CreateTransformationMutationCreateTransformationBaseUnmappableTransformation, Field(discriminator='typename')] | CreateTransformationMutationCreateTransformationBaseCatchAll:
         """CreateTransformation 
 
 Create one edge of the coordinate graph, mapping an input coordinate system to an output one. This is where a sampling law is corrected, two clocks are synchronised, and a recording is registered into a world
@@ -12528,6 +12658,7 @@ Args:
     validity: PlacementValidity
     value_relation: ValueRelation
     selector: Where along one axis a transformation applies: the map holds at that index and makes no claim elsewhere
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Transformation
@@ -12546,9 +12677,9 @@ Returns:
         if selector is not UNSET:
             _input['selector'] = selector
         variables['input'] = _input
-        return self.execute(CreateTransformationMutation, variables).create_transformation
+        return self.execute(CreateTransformationMutation, variables, task=task).create_transformation
 
-    async def aupdate_transformation(self, id: IDCoercible, name: str | None | UnsetType=UNSET, scale: Iterable[float] | None | UnsetType=UNSET, translation: Iterable[float] | None | UnsetType=UNSET, affine: Iterable[Iterable[float]] | None | UnsetType=UNSET, validity: PlacementValidity | None | UnsetType=UNSET) -> Annotated[UpdateTransformationMutationUpdateTransformationBaseAffineTransformation | UpdateTransformationMutationUpdateTransformationBaseByDimensionTransformation | UpdateTransformationMutationUpdateTransformationBaseFieldTransformation | UpdateTransformationMutationUpdateTransformationBaseIdentityTransformation | UpdateTransformationMutationUpdateTransformationBaseMapAxisTransformation | UpdateTransformationMutationUpdateTransformationBaseRotationTransformation | UpdateTransformationMutationUpdateTransformationBaseScaleTransformation | UpdateTransformationMutationUpdateTransformationBaseSequenceTransformation | UpdateTransformationMutationUpdateTransformationBaseTranslationTransformation | UpdateTransformationMutationUpdateTransformationBaseUnmappableTransformation, Field(discriminator='typename')] | UpdateTransformationMutationUpdateTransformationBaseCatchAll:
+    async def aupdate_transformation(self, id: IDCoercible, name: str | None | UnsetType=UNSET, scale: Iterable[float] | None | UnsetType=UNSET, translation: Iterable[float] | None | UnsetType=UNSET, affine: Iterable[Iterable[float]] | None | UnsetType=UNSET, validity: PlacementValidity | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotated[UpdateTransformationMutationUpdateTransformationBaseAffineTransformation | UpdateTransformationMutationUpdateTransformationBaseByDimensionTransformation | UpdateTransformationMutationUpdateTransformationBaseFieldTransformation | UpdateTransformationMutationUpdateTransformationBaseIdentityTransformation | UpdateTransformationMutationUpdateTransformationBaseMapAxisTransformation | UpdateTransformationMutationUpdateTransformationBaseRotationTransformation | UpdateTransformationMutationUpdateTransformationBaseScaleTransformation | UpdateTransformationMutationUpdateTransformationBaseSequenceTransformation | UpdateTransformationMutationUpdateTransformationBaseTranslationTransformation | UpdateTransformationMutationUpdateTransformationBaseUnmappableTransformation, Field(discriminator='typename')] | UpdateTransformationMutationUpdateTransformationBaseCatchAll:
         """UpdateTransformation 
 
 Refine a transformation's parameters in place. Everything that looks through the edge moves with it, because nothing stores a composed path
@@ -12560,6 +12691,7 @@ Args:
     translation: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point). (required) (list)
     affine: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point). (required) (list) (required) (list)
     validity: PlacementValidity
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Transformation
@@ -12578,9 +12710,9 @@ Returns:
         if validity is not UNSET:
             _input['validity'] = validity
         variables['input'] = _input
-        return (await self.aexecute(UpdateTransformationMutation, variables)).update_transformation
+        return (await self.aexecute(UpdateTransformationMutation, variables, task=task)).update_transformation
 
-    def update_transformation(self, id: IDCoercible, name: str | None | UnsetType=UNSET, scale: Iterable[float] | None | UnsetType=UNSET, translation: Iterable[float] | None | UnsetType=UNSET, affine: Iterable[Iterable[float]] | None | UnsetType=UNSET, validity: PlacementValidity | None | UnsetType=UNSET) -> Annotated[UpdateTransformationMutationUpdateTransformationBaseAffineTransformation | UpdateTransformationMutationUpdateTransformationBaseByDimensionTransformation | UpdateTransformationMutationUpdateTransformationBaseFieldTransformation | UpdateTransformationMutationUpdateTransformationBaseIdentityTransformation | UpdateTransformationMutationUpdateTransformationBaseMapAxisTransformation | UpdateTransformationMutationUpdateTransformationBaseRotationTransformation | UpdateTransformationMutationUpdateTransformationBaseScaleTransformation | UpdateTransformationMutationUpdateTransformationBaseSequenceTransformation | UpdateTransformationMutationUpdateTransformationBaseTranslationTransformation | UpdateTransformationMutationUpdateTransformationBaseUnmappableTransformation, Field(discriminator='typename')] | UpdateTransformationMutationUpdateTransformationBaseCatchAll:
+    def update_transformation(self, id: IDCoercible, name: str | None | UnsetType=UNSET, scale: Iterable[float] | None | UnsetType=UNSET, translation: Iterable[float] | None | UnsetType=UNSET, affine: Iterable[Iterable[float]] | None | UnsetType=UNSET, validity: PlacementValidity | None | UnsetType=UNSET, task: TaskLike | None=None) -> Annotated[UpdateTransformationMutationUpdateTransformationBaseAffineTransformation | UpdateTransformationMutationUpdateTransformationBaseByDimensionTransformation | UpdateTransformationMutationUpdateTransformationBaseFieldTransformation | UpdateTransformationMutationUpdateTransformationBaseIdentityTransformation | UpdateTransformationMutationUpdateTransformationBaseMapAxisTransformation | UpdateTransformationMutationUpdateTransformationBaseRotationTransformation | UpdateTransformationMutationUpdateTransformationBaseScaleTransformation | UpdateTransformationMutationUpdateTransformationBaseSequenceTransformation | UpdateTransformationMutationUpdateTransformationBaseTranslationTransformation | UpdateTransformationMutationUpdateTransformationBaseUnmappableTransformation, Field(discriminator='typename')] | UpdateTransformationMutationUpdateTransformationBaseCatchAll:
         """UpdateTransformation 
 
 Refine a transformation's parameters in place. Everything that looks through the edge moves with it, because nothing stores a composed path
@@ -12592,6 +12724,7 @@ Args:
     translation: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point). (required) (list)
     affine: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point). (required) (list) (required) (list)
     validity: PlacementValidity
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Transformation
@@ -12610,15 +12743,16 @@ Returns:
         if validity is not UNSET:
             _input['validity'] = validity
         variables['input'] = _input
-        return self.execute(UpdateTransformationMutation, variables).update_transformation
+        return self.execute(UpdateTransformationMutation, variables, task=task).update_transformation
 
-    async def adelete_transformation(self, id: IDCoercible) -> ID:
+    async def adelete_transformation(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteTransformation 
 
 Delete an existing transformation. A wrapper takes its children with it
 
 Args:
     id: The ID of the transformation to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -12627,15 +12761,16 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return (await self.aexecute(DeleteTransformationMutation, variables)).delete_transformation
+        return (await self.aexecute(DeleteTransformationMutation, variables, task=task)).delete_transformation
 
-    def delete_transformation(self, id: IDCoercible) -> ID:
+    def delete_transformation(self, id: IDCoercible, task: TaskLike | None=None) -> ID:
         """DeleteTransformation 
 
 Delete an existing transformation. A wrapper takes its children with it
 
 Args:
     id: The ID of the transformation to delete
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ID
@@ -12644,39 +12779,41 @@ Returns:
         _input: dict[str, Any] = {}
         _input['id'] = id
         variables['input'] = _input
-        return self.execute(DeleteTransformationMutation, variables).delete_transformation
+        return self.execute(DeleteTransformationMutation, variables, task=task).delete_transformation
 
-    async def aget_annotation(self, id: IDCoercible) -> Annotation:
+    async def aget_annotation(self, id: IDCoercible, task: TaskLike | None=None) -> Annotation:
         """GetAnnotation 
 
 Get a single annotation by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Annotation
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetAnnotationQuery, variables)).annotation
+        return (await self.aexecute(GetAnnotationQuery, variables, task=task)).annotation
 
-    def get_annotation(self, id: IDCoercible) -> Annotation:
+    def get_annotation(self, id: IDCoercible, task: TaskLike | None=None) -> Annotation:
         """GetAnnotation 
 
 Get a single annotation by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Annotation
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetAnnotationQuery, variables).annotation
+        return self.execute(GetAnnotationQuery, variables, task=task).annotation
 
-    async def aget_annotations(self, filters: AnnotationFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[Annotation]:
+    async def aget_annotations(self, filters: AnnotationFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[Annotation]:
         """GetAnnotations 
 
 List annotations: events, epochs and measurements, each in its collection's coordinate system
@@ -12684,6 +12821,7 @@ List annotations: events, epochs and measurements, each in its collection's coor
 Args:
     filters (AnnotationFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[Annotation]
@@ -12693,9 +12831,9 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return (await self.aexecute(GetAnnotationsQuery, variables)).annotations
+        return (await self.aexecute(GetAnnotationsQuery, variables, task=task)).annotations
 
-    def get_annotations(self, filters: AnnotationFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[Annotation]:
+    def get_annotations(self, filters: AnnotationFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[Annotation]:
         """GetAnnotations 
 
 List annotations: events, epochs and measurements, each in its collection's coordinate system
@@ -12703,6 +12841,7 @@ List annotations: events, epochs and measurements, each in its collection's coor
 Args:
     filters (AnnotationFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[Annotation]
@@ -12712,39 +12851,41 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return self.execute(GetAnnotationsQuery, variables).annotations
+        return self.execute(GetAnnotationsQuery, variables, task=task).annotations
 
-    async def aget_annotation_collection(self, id: IDCoercible) -> AnnotationCollection:
+    async def aget_annotation_collection(self, id: IDCoercible, task: TaskLike | None=None) -> AnnotationCollection:
         """GetAnnotationCollection 
 
 Get a single annotation collection by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     AnnotationCollection
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetAnnotationCollectionQuery, variables)).annotation_collection
+        return (await self.aexecute(GetAnnotationCollectionQuery, variables, task=task)).annotation_collection
 
-    def get_annotation_collection(self, id: IDCoercible) -> AnnotationCollection:
+    def get_annotation_collection(self, id: IDCoercible, task: TaskLike | None=None) -> AnnotationCollection:
         """GetAnnotationCollection 
 
 Get a single annotation collection by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     AnnotationCollection
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetAnnotationCollectionQuery, variables).annotation_collection
+        return self.execute(GetAnnotationCollectionQuery, variables, task=task).annotation_collection
 
-    async def aget_annotation_collections(self, filters: AnnotationCollectionFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[AnnotationCollection]:
+    async def aget_annotation_collections(self, filters: AnnotationCollectionFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[AnnotationCollection]:
         """GetAnnotationCollections 
 
 List annotation collections: named sets of marks, each owning the coordinate system they are drawn in
@@ -12752,6 +12893,7 @@ List annotation collections: named sets of marks, each owning the coordinate sys
 Args:
     filters (AnnotationCollectionFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[AnnotationCollection]
@@ -12761,9 +12903,9 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return (await self.aexecute(GetAnnotationCollectionsQuery, variables)).annotation_collections
+        return (await self.aexecute(GetAnnotationCollectionsQuery, variables, task=task)).annotation_collections
 
-    def get_annotation_collections(self, filters: AnnotationCollectionFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[AnnotationCollection]:
+    def get_annotation_collections(self, filters: AnnotationCollectionFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[AnnotationCollection]:
         """GetAnnotationCollections 
 
 List annotation collections: named sets of marks, each owning the coordinate system they are drawn in
@@ -12771,6 +12913,7 @@ List annotation collections: named sets of marks, each owning the coordinate sys
 Args:
     filters (AnnotationCollectionFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[AnnotationCollection]
@@ -12780,9 +12923,9 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return self.execute(GetAnnotationCollectionsQuery, variables).annotation_collections
+        return self.execute(GetAnnotationCollectionsQuery, variables, task=task).annotation_collections
 
-    async def asearch_annotation_collections(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET) -> list[SearchAnnotationCollectionsQueryOptions]:
+    async def asearch_annotation_collections(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchAnnotationCollectionsQueryOptions]:
         """SearchAnnotationCollections 
 
 List annotation collections: named sets of marks, each owning the coordinate system they are drawn in
@@ -12792,6 +12935,7 @@ Args:
     values (list[ID] | None, optional): No description. 
     limit (int | None, optional): No description. 
     offset (int | None, optional): No description. Defaults to 0
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchAnnotationCollectionsQueryAnnotationCollections]
@@ -12805,9 +12949,9 @@ Returns:
             variables['limit'] = limit
         if offset is not UNSET:
             variables['offset'] = offset
-        return (await self.aexecute(SearchAnnotationCollectionsQuery, variables)).options
+        return (await self.aexecute(SearchAnnotationCollectionsQuery, variables, task=task)).options
 
-    def search_annotation_collections(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET) -> list[SearchAnnotationCollectionsQueryOptions]:
+    def search_annotation_collections(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchAnnotationCollectionsQueryOptions]:
         """SearchAnnotationCollections 
 
 List annotation collections: named sets of marks, each owning the coordinate system they are drawn in
@@ -12817,6 +12961,7 @@ Args:
     values (list[ID] | None, optional): No description. 
     limit (int | None, optional): No description. 
     offset (int | None, optional): No description. Defaults to 0
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchAnnotationCollectionsQueryAnnotationCollections]
@@ -12830,9 +12975,9 @@ Returns:
             variables['limit'] = limit
         if offset is not UNSET:
             variables['offset'] = offset
-        return self.execute(SearchAnnotationCollectionsQuery, variables).options
+        return self.execute(SearchAnnotationCollectionsQuery, variables, task=task).options
 
-    async def anearest_annotations(self, collection: IDCoercible, point: list[float], limit: int) -> list[Annotation]:
+    async def anearest_annotations(self, collection: IDCoercible, point: list[float], limit: int, task: TaskLike | None=None) -> list[Annotation]:
         """NearestAnnotations 
  The marks nearest a point, in the collection's own frame. Boxes only compare
  within one frame, so the collection is required.
@@ -12841,6 +12986,7 @@ Args:
     collection (ID): No description
     point (list[float]): No description
     limit (int): No description
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[Annotation]
@@ -12849,9 +12995,9 @@ Returns:
         variables['collection'] = collection
         variables['point'] = point
         variables['limit'] = limit
-        return (await self.aexecute(NearestAnnotationsQuery, variables)).nearest_annotations
+        return (await self.aexecute(NearestAnnotationsQuery, variables, task=task)).nearest_annotations
 
-    def nearest_annotations(self, collection: IDCoercible, point: list[float], limit: int) -> list[Annotation]:
+    def nearest_annotations(self, collection: IDCoercible, point: list[float], limit: int, task: TaskLike | None=None) -> list[Annotation]:
         """NearestAnnotations 
  The marks nearest a point, in the collection's own frame. Boxes only compare
  within one frame, so the collection is required.
@@ -12860,6 +13006,7 @@ Args:
     collection (ID): No description
     point (list[float]): No description
     limit (int): No description
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[Annotation]
@@ -12868,39 +13015,41 @@ Returns:
         variables['collection'] = collection
         variables['point'] = point
         variables['limit'] = limit
-        return self.execute(NearestAnnotationsQuery, variables).nearest_annotations
+        return self.execute(NearestAnnotationsQuery, variables, task=task).nearest_annotations
 
-    async def aget_array_dataset(self, id: IDCoercible) -> ArrayDataset:
+    async def aget_array_dataset(self, id: IDCoercible, task: TaskLike | None=None) -> ArrayDataset:
         """GetArrayDataset 
 
 Get a single array dataset by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ArrayDataset
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetArrayDatasetQuery, variables)).array_dataset
+        return (await self.aexecute(GetArrayDatasetQuery, variables, task=task)).array_dataset
 
-    def get_array_dataset(self, id: IDCoercible) -> ArrayDataset:
+    def get_array_dataset(self, id: IDCoercible, task: TaskLike | None=None) -> ArrayDataset:
         """GetArrayDataset 
 
 Get a single array dataset by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ArrayDataset
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetArrayDatasetQuery, variables).array_dataset
+        return self.execute(GetArrayDatasetQuery, variables, task=task).array_dataset
 
-    async def aget_array_datasets(self, filters: ArrayDatasetFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[ArrayDataset]:
+    async def aget_array_datasets(self, filters: ArrayDatasetFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[ArrayDataset]:
         """GetArrayDatasets 
 
 List array datasets: N-dimensional arrays with named dimensions and anchored metadata -- a recording, a stimulus, a vector of sample times, a unit's waveform templates
@@ -12908,6 +13057,7 @@ List array datasets: N-dimensional arrays with named dimensions and anchored met
 Args:
     filters (ArrayDatasetFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[ArrayDataset]
@@ -12917,9 +13067,9 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return (await self.aexecute(GetArrayDatasetsQuery, variables)).array_datasets
+        return (await self.aexecute(GetArrayDatasetsQuery, variables, task=task)).array_datasets
 
-    def get_array_datasets(self, filters: ArrayDatasetFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[ArrayDataset]:
+    def get_array_datasets(self, filters: ArrayDatasetFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[ArrayDataset]:
         """GetArrayDatasets 
 
 List array datasets: N-dimensional arrays with named dimensions and anchored metadata -- a recording, a stimulus, a vector of sample times, a unit's waveform templates
@@ -12927,6 +13077,7 @@ List array datasets: N-dimensional arrays with named dimensions and anchored met
 Args:
     filters (ArrayDatasetFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[ArrayDataset]
@@ -12936,9 +13087,9 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return self.execute(GetArrayDatasetsQuery, variables).array_datasets
+        return self.execute(GetArrayDatasetsQuery, variables, task=task).array_datasets
 
-    async def asearch_array_datasets(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET) -> list[SearchArrayDatasetsQueryOptions]:
+    async def asearch_array_datasets(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchArrayDatasetsQueryOptions]:
         """SearchArrayDatasets 
 
 List array datasets: N-dimensional arrays with named dimensions and anchored metadata -- a recording, a stimulus, a vector of sample times, a unit's waveform templates
@@ -12948,6 +13099,7 @@ Args:
     values (list[ID] | None, optional): No description. 
     limit (int | None, optional): No description. 
     offset (int | None, optional): No description. Defaults to 0
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchArrayDatasetsQueryArrayDatasets]
@@ -12961,9 +13113,9 @@ Returns:
             variables['limit'] = limit
         if offset is not UNSET:
             variables['offset'] = offset
-        return (await self.aexecute(SearchArrayDatasetsQuery, variables)).options
+        return (await self.aexecute(SearchArrayDatasetsQuery, variables, task=task)).options
 
-    def search_array_datasets(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET) -> list[SearchArrayDatasetsQueryOptions]:
+    def search_array_datasets(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchArrayDatasetsQueryOptions]:
         """SearchArrayDatasets 
 
 List array datasets: N-dimensional arrays with named dimensions and anchored metadata -- a recording, a stimulus, a vector of sample times, a unit's waveform templates
@@ -12973,6 +13125,7 @@ Args:
     values (list[ID] | None, optional): No description. 
     limit (int | None, optional): No description. 
     offset (int | None, optional): No description. Defaults to 0
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchArrayDatasetsQueryArrayDatasets]
@@ -12986,9 +13139,9 @@ Returns:
             variables['limit'] = limit
         if offset is not UNSET:
             variables['offset'] = offset
-        return self.execute(SearchArrayDatasetsQuery, variables).options
+        return self.execute(SearchArrayDatasetsQuery, variables, task=task).options
 
-    async def aget_coordinate_anchors(self, filters: CoordinateAnchorFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[CoordinateAnchor]:
+    async def aget_coordinate_anchors(self, filters: CoordinateAnchorFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[CoordinateAnchor]:
         """GetCoordinateAnchors 
 
 List coordinate anchors: the hubs pinning a value unit, a channel label or the rig state to coordinates of a dataset
@@ -12996,6 +13149,7 @@ List coordinate anchors: the hubs pinning a value unit, a channel label or the r
 Args:
     filters (CoordinateAnchorFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[CoordinateAnchor]
@@ -13005,9 +13159,9 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return (await self.aexecute(GetCoordinateAnchorsQuery, variables)).coordinate_anchors
+        return (await self.aexecute(GetCoordinateAnchorsQuery, variables, task=task)).coordinate_anchors
 
-    def get_coordinate_anchors(self, filters: CoordinateAnchorFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[CoordinateAnchor]:
+    def get_coordinate_anchors(self, filters: CoordinateAnchorFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[CoordinateAnchor]:
         """GetCoordinateAnchors 
 
 List coordinate anchors: the hubs pinning a value unit, a channel label or the rig state to coordinates of a dataset
@@ -13015,6 +13169,7 @@ List coordinate anchors: the hubs pinning a value unit, a channel label or the r
 Args:
     filters (CoordinateAnchorFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[CoordinateAnchor]
@@ -13024,9 +13179,9 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return self.execute(GetCoordinateAnchorsQuery, variables).coordinate_anchors
+        return self.execute(GetCoordinateAnchorsQuery, variables, task=task).coordinate_anchors
 
-    async def aget_array_dataset_anchors(self, id: IDCoercible) -> GetArrayDatasetAnchorsQueryArrayDataset:
+    async def aget_array_dataset_anchors(self, id: IDCoercible, task: TaskLike | None=None) -> GetArrayDatasetAnchorsQueryArrayDataset:
         """GetArrayDatasetAnchors 
  The anchors of one dataset. Kept off the `ArrayDataset` fragment on purpose:
  that fragment is spread inside lenses and experiments,
@@ -13034,15 +13189,16 @@ Returns:
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     GetArrayDatasetAnchorsQueryArrayDataset
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetArrayDatasetAnchorsQuery, variables)).array_dataset
+        return (await self.aexecute(GetArrayDatasetAnchorsQuery, variables, task=task)).array_dataset
 
-    def get_array_dataset_anchors(self, id: IDCoercible) -> GetArrayDatasetAnchorsQueryArrayDataset:
+    def get_array_dataset_anchors(self, id: IDCoercible, task: TaskLike | None=None) -> GetArrayDatasetAnchorsQueryArrayDataset:
         """GetArrayDatasetAnchors 
  The anchors of one dataset. Kept off the `ArrayDataset` fragment on purpose:
  that fragment is spread inside lenses and experiments,
@@ -13050,15 +13206,16 @@ Returns:
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     GetArrayDatasetAnchorsQueryArrayDataset
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetArrayDatasetAnchorsQuery, variables).array_dataset
+        return self.execute(GetArrayDatasetAnchorsQuery, variables, task=task).array_dataset
 
-    async def aget_coordinate_graph(self, coordinate_system: IDCoercible, max_depth: int | None | UnsetType=UNSET) -> GetCoordinateGraphQueryCoordinateGraph:
+    async def aget_coordinate_graph(self, coordinate_system: IDCoercible, max_depth: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> GetCoordinateGraphQueryCoordinateGraph:
         """GetCoordinateGraph 
 
 Walk the coordinate graph out from one system: every coordinate system it reaches and every top-level edge between them. Reachability is undirected (an edge pointing into the system relates to it as much as one pointing out), the edges keep their true direction, and nothing is composed -- what the list queries cannot answer is 'which edges relate to *this* one', because relatedness is transitive and a filter is not
@@ -13066,6 +13223,7 @@ Walk the coordinate graph out from one system: every coordinate system it reache
 Args:
     coordinate_system (ID): No description
     max_depth (int | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     GetCoordinateGraphQueryCoordinateGraph
@@ -13074,9 +13232,9 @@ Returns:
         variables['coordinateSystem'] = coordinate_system
         if max_depth is not UNSET:
             variables['maxDepth'] = max_depth
-        return (await self.aexecute(GetCoordinateGraphQuery, variables)).coordinate_graph
+        return (await self.aexecute(GetCoordinateGraphQuery, variables, task=task)).coordinate_graph
 
-    def get_coordinate_graph(self, coordinate_system: IDCoercible, max_depth: int | None | UnsetType=UNSET) -> GetCoordinateGraphQueryCoordinateGraph:
+    def get_coordinate_graph(self, coordinate_system: IDCoercible, max_depth: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> GetCoordinateGraphQueryCoordinateGraph:
         """GetCoordinateGraph 
 
 Walk the coordinate graph out from one system: every coordinate system it reaches and every top-level edge between them. Reachability is undirected (an edge pointing into the system relates to it as much as one pointing out), the edges keep their true direction, and nothing is composed -- what the list queries cannot answer is 'which edges relate to *this* one', because relatedness is transitive and a filter is not
@@ -13084,6 +13242,7 @@ Walk the coordinate graph out from one system: every coordinate system it reache
 Args:
     coordinate_system (ID): No description
     max_depth (int | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     GetCoordinateGraphQueryCoordinateGraph
@@ -13092,39 +13251,41 @@ Returns:
         variables['coordinateSystem'] = coordinate_system
         if max_depth is not UNSET:
             variables['maxDepth'] = max_depth
-        return self.execute(GetCoordinateGraphQuery, variables).coordinate_graph
+        return self.execute(GetCoordinateGraphQuery, variables, task=task).coordinate_graph
 
-    async def aget_coordinate_system(self, id: IDCoercible) -> CoordinateSystem:
+    async def aget_coordinate_system(self, id: IDCoercible, task: TaskLike | None=None) -> CoordinateSystem:
         """GetCoordinateSystem 
 
 Get a single coordinate system by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     CoordinateSystem
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetCoordinateSystemQuery, variables)).coordinate_system
+        return (await self.aexecute(GetCoordinateSystemQuery, variables, task=task)).coordinate_system
 
-    def get_coordinate_system(self, id: IDCoercible) -> CoordinateSystem:
+    def get_coordinate_system(self, id: IDCoercible, task: TaskLike | None=None) -> CoordinateSystem:
         """GetCoordinateSystem 
 
 Get a single coordinate system by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     CoordinateSystem
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetCoordinateSystemQuery, variables).coordinate_system
+        return self.execute(GetCoordinateSystemQuery, variables, task=task).coordinate_system
 
-    async def aget_coordinate_systems(self, filters: CoordinateSystemFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[CoordinateSystem]:
+    async def aget_coordinate_systems(self, filters: CoordinateSystemFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[CoordinateSystem]:
         """GetCoordinateSystems 
 
 List coordinate systems: the nodes of the coordinate graph -- a dataset's sample grid, a clock, an experiment's world
@@ -13132,6 +13293,7 @@ List coordinate systems: the nodes of the coordinate graph -- a dataset's sample
 Args:
     filters (CoordinateSystemFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[CoordinateSystem]
@@ -13141,9 +13303,9 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return (await self.aexecute(GetCoordinateSystemsQuery, variables)).coordinate_systems
+        return (await self.aexecute(GetCoordinateSystemsQuery, variables, task=task)).coordinate_systems
 
-    def get_coordinate_systems(self, filters: CoordinateSystemFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[CoordinateSystem]:
+    def get_coordinate_systems(self, filters: CoordinateSystemFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[CoordinateSystem]:
         """GetCoordinateSystems 
 
 List coordinate systems: the nodes of the coordinate graph -- a dataset's sample grid, a clock, an experiment's world
@@ -13151,6 +13313,7 @@ List coordinate systems: the nodes of the coordinate graph -- a dataset's sample
 Args:
     filters (CoordinateSystemFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[CoordinateSystem]
@@ -13160,9 +13323,9 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return self.execute(GetCoordinateSystemsQuery, variables).coordinate_systems
+        return self.execute(GetCoordinateSystemsQuery, variables, task=task).coordinate_systems
 
-    async def asearch_coordinate_systems(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET) -> list[SearchCoordinateSystemsQueryOptions]:
+    async def asearch_coordinate_systems(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchCoordinateSystemsQueryOptions]:
         """SearchCoordinateSystems 
 
 List coordinate systems: the nodes of the coordinate graph -- a dataset's sample grid, a clock, an experiment's world
@@ -13172,6 +13335,7 @@ Args:
     values (list[ID] | None, optional): No description. 
     limit (int | None, optional): No description. 
     offset (int | None, optional): No description. Defaults to 0
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchCoordinateSystemsQueryCoordinateSystems]
@@ -13185,9 +13349,9 @@ Returns:
             variables['limit'] = limit
         if offset is not UNSET:
             variables['offset'] = offset
-        return (await self.aexecute(SearchCoordinateSystemsQuery, variables)).options
+        return (await self.aexecute(SearchCoordinateSystemsQuery, variables, task=task)).options
 
-    def search_coordinate_systems(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET) -> list[SearchCoordinateSystemsQueryOptions]:
+    def search_coordinate_systems(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchCoordinateSystemsQueryOptions]:
         """SearchCoordinateSystems 
 
 List coordinate systems: the nodes of the coordinate graph -- a dataset's sample grid, a clock, an experiment's world
@@ -13197,6 +13361,7 @@ Args:
     values (list[ID] | None, optional): No description. 
     limit (int | None, optional): No description. 
     offset (int | None, optional): No description. Defaults to 0
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchCoordinateSystemsQueryCoordinateSystems]
@@ -13210,43 +13375,46 @@ Returns:
             variables['limit'] = limit
         if offset is not UNSET:
             variables['offset'] = offset
-        return self.execute(SearchCoordinateSystemsQuery, variables).options
+        return self.execute(SearchCoordinateSystemsQuery, variables, task=task).options
 
-    async def aget_experiment(self, id: IDCoercible) -> Experiment:
+    async def aget_experiment(self, id: IDCoercible, task: TaskLike | None=None) -> Experiment:
         """GetExperiment 
 
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Experiment
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetExperimentQuery, variables)).experiment
+        return (await self.aexecute(GetExperimentQuery, variables, task=task)).experiment
 
-    def get_experiment(self, id: IDCoercible) -> Experiment:
+    def get_experiment(self, id: IDCoercible, task: TaskLike | None=None) -> Experiment:
         """GetExperiment 
 
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Experiment
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetExperimentQuery, variables).experiment
+        return self.execute(GetExperimentQuery, variables, task=task).experiment
 
-    async def asearch_experiments(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET) -> list[SearchExperimentsQueryOptions]:
+    async def asearch_experiments(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchExperimentsQueryOptions]:
         """SearchExperiments 
 
 
 Args:
     search (str | None, optional): No description. 
     values (list[ID] | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchExperimentsQueryExperiments]
@@ -13256,15 +13424,16 @@ Returns:
             variables['search'] = search
         if values is not UNSET:
             variables['values'] = values
-        return (await self.aexecute(SearchExperimentsQuery, variables)).options
+        return (await self.aexecute(SearchExperimentsQuery, variables, task=task)).options
 
-    def search_experiments(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET) -> list[SearchExperimentsQueryOptions]:
+    def search_experiments(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchExperimentsQueryOptions]:
         """SearchExperiments 
 
 
 Args:
     search (str | None, optional): No description. 
     values (list[ID] | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchExperimentsQueryExperiments]
@@ -13274,15 +13443,16 @@ Returns:
             variables['search'] = search
         if values is not UNSET:
             variables['values'] = values
-        return self.execute(SearchExperimentsQuery, variables).options
+        return self.execute(SearchExperimentsQuery, variables, task=task).options
 
-    async def alist_experiments(self, filter: ExperimentFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[Experiment]:
+    async def alist_experiments(self, filter: ExperimentFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[Experiment]:
         """ListExperiments 
 
 
 Args:
     filter (ExperimentFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[Experiment]
@@ -13292,15 +13462,16 @@ Returns:
             variables['filter'] = filter
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return (await self.aexecute(ListExperimentsQuery, variables)).experiments
+        return (await self.aexecute(ListExperimentsQuery, variables, task=task)).experiments
 
-    def list_experiments(self, filter: ExperimentFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[Experiment]:
+    def list_experiments(self, filter: ExperimentFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[Experiment]:
         """ListExperiments 
 
 
 Args:
     filter (ExperimentFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[Experiment]
@@ -13310,37 +13481,39 @@ Returns:
             variables['filter'] = filter
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return self.execute(ListExperimentsQuery, variables).experiments
+        return self.execute(ListExperimentsQuery, variables, task=task).experiments
 
-    async def aget_file(self, id: IDCoercible) -> File:
+    async def aget_file(self, id: IDCoercible, task: TaskLike | None=None) -> File:
         """GetFile 
 
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     File
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetFileQuery, variables)).file
+        return (await self.aexecute(GetFileQuery, variables, task=task)).file
 
-    def get_file(self, id: IDCoercible) -> File:
+    def get_file(self, id: IDCoercible, task: TaskLike | None=None) -> File:
         """GetFile 
 
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     File
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetFileQuery, variables).file
+        return self.execute(GetFileQuery, variables, task=task).file
 
-    async def asearch_files(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET) -> list[SearchFilesQueryOptions]:
+    async def asearch_files(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchFilesQueryOptions]:
         """SearchFiles 
 
 
@@ -13349,6 +13522,7 @@ Args:
     values (list[ID] | None, optional): No description. 
     offset (int | None, optional): No description. 
     limit (int | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchFilesQueryFiles]
@@ -13362,9 +13536,9 @@ Returns:
             variables['offset'] = offset
         if limit is not UNSET:
             variables['limit'] = limit
-        return (await self.aexecute(SearchFilesQuery, variables)).options
+        return (await self.aexecute(SearchFilesQuery, variables, task=task)).options
 
-    def search_files(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET) -> list[SearchFilesQueryOptions]:
+    def search_files(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchFilesQueryOptions]:
         """SearchFiles 
 
 
@@ -13373,6 +13547,7 @@ Args:
     values (list[ID] | None, optional): No description. 
     offset (int | None, optional): No description. 
     limit (int | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchFilesQueryFiles]
@@ -13386,39 +13561,41 @@ Returns:
             variables['offset'] = offset
         if limit is not UNSET:
             variables['limit'] = limit
-        return self.execute(SearchFilesQuery, variables).options
+        return self.execute(SearchFilesQuery, variables, task=task).options
 
-    async def aget_folder(self, id: IDCoercible) -> Folder:
+    async def aget_folder(self, id: IDCoercible, task: TaskLike | None=None) -> Folder:
         """GetFolder 
 
 Get a single folder by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Folder
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetFolderQuery, variables)).folder
+        return (await self.aexecute(GetFolderQuery, variables, task=task)).folder
 
-    def get_folder(self, id: IDCoercible) -> Folder:
+    def get_folder(self, id: IDCoercible, task: TaskLike | None=None) -> Folder:
         """GetFolder 
 
 Get a single folder by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Folder
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetFolderQuery, variables).folder
+        return self.execute(GetFolderQuery, variables, task=task).folder
 
-    async def asearch_folders(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET) -> list[SearchFoldersQueryOptions]:
+    async def asearch_folders(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchFoldersQueryOptions]:
         """SearchFolders 
 
 List folders (collections of array, table and sparse datasets, annotation collections and files)
@@ -13428,6 +13605,7 @@ Args:
     values (list[ID] | None, optional): No description. 
     limit (int | None, optional): No description. 
     offset (int | None, optional): No description. Defaults to 0
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchFoldersQueryFolders]
@@ -13441,9 +13619,9 @@ Returns:
             variables['limit'] = limit
         if offset is not UNSET:
             variables['offset'] = offset
-        return (await self.aexecute(SearchFoldersQuery, variables)).options
+        return (await self.aexecute(SearchFoldersQuery, variables, task=task)).options
 
-    def search_folders(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET) -> list[SearchFoldersQueryOptions]:
+    def search_folders(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, limit: int | None | UnsetType=UNSET, offset: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchFoldersQueryOptions]:
         """SearchFolders 
 
 List folders (collections of array, table and sparse datasets, annotation collections and files)
@@ -13453,6 +13631,7 @@ Args:
     values (list[ID] | None, optional): No description. 
     limit (int | None, optional): No description. 
     offset (int | None, optional): No description. Defaults to 0
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchFoldersQueryFolders]
@@ -13466,39 +13645,41 @@ Returns:
             variables['limit'] = limit
         if offset is not UNSET:
             variables['offset'] = offset
-        return self.execute(SearchFoldersQuery, variables).options
+        return self.execute(SearchFoldersQuery, variables, task=task).options
 
-    async def aget_layer(self, id: IDCoercible) -> Annotated[GetLayerQueryLayerBaseAnnotationLayer | GetLayerQueryLayerBaseEventsLayer | GetLayerQueryLayerBaseHeatmapLayer | GetLayerQueryLayerBasePointLayer | GetLayerQueryLayerBaseSeriesLayer | GetLayerQueryLayerBaseSpikesLayer | GetLayerQueryLayerBaseTraceLayer | GetLayerQueryLayerBaseWaveformLayer, Field(discriminator='typename')] | GetLayerQueryLayerBaseCatchAll:
+    async def aget_layer(self, id: IDCoercible, task: TaskLike | None=None) -> Annotated[GetLayerQueryLayerBaseAnnotationLayer | GetLayerQueryLayerBaseEventsLayer | GetLayerQueryLayerBaseHeatmapLayer | GetLayerQueryLayerBasePointLayer | GetLayerQueryLayerBaseSeriesLayer | GetLayerQueryLayerBaseSpikesLayer | GetLayerQueryLayerBaseTraceLayer | GetLayerQueryLayerBaseWaveformLayer, Field(discriminator='typename')] | GetLayerQueryLayerBaseCatchAll:
         """GetLayer 
 
 Get a single experiment layer by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayer
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetLayerQuery, variables)).layer
+        return (await self.aexecute(GetLayerQuery, variables, task=task)).layer
 
-    def get_layer(self, id: IDCoercible) -> Annotated[GetLayerQueryLayerBaseAnnotationLayer | GetLayerQueryLayerBaseEventsLayer | GetLayerQueryLayerBaseHeatmapLayer | GetLayerQueryLayerBasePointLayer | GetLayerQueryLayerBaseSeriesLayer | GetLayerQueryLayerBaseSpikesLayer | GetLayerQueryLayerBaseTraceLayer | GetLayerQueryLayerBaseWaveformLayer, Field(discriminator='typename')] | GetLayerQueryLayerBaseCatchAll:
+    def get_layer(self, id: IDCoercible, task: TaskLike | None=None) -> Annotated[GetLayerQueryLayerBaseAnnotationLayer | GetLayerQueryLayerBaseEventsLayer | GetLayerQueryLayerBaseHeatmapLayer | GetLayerQueryLayerBasePointLayer | GetLayerQueryLayerBaseSeriesLayer | GetLayerQueryLayerBaseSpikesLayer | GetLayerQueryLayerBaseTraceLayer | GetLayerQueryLayerBaseWaveformLayer, Field(discriminator='typename')] | GetLayerQueryLayerBaseCatchAll:
         """GetLayer 
 
 Get a single experiment layer by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ExperimentLayer
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetLayerQuery, variables).layer
+        return self.execute(GetLayerQuery, variables, task=task).layer
 
-    async def alist_layers(self, filters: ExperimentLayerFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[Annotated[ListLayersQueryLayersBaseAnnotationLayer | ListLayersQueryLayersBaseEventsLayer | ListLayersQueryLayersBaseHeatmapLayer | ListLayersQueryLayersBasePointLayer | ListLayersQueryLayersBaseSeriesLayer | ListLayersQueryLayersBaseSpikesLayer | ListLayersQueryLayersBaseTraceLayer | ListLayersQueryLayersBaseWaveformLayer, Field(discriminator='typename')] | ListLayersQueryLayersBaseCatchAll]:
+    async def alist_layers(self, filters: ExperimentLayerFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[Annotated[ListLayersQueryLayersBaseAnnotationLayer | ListLayersQueryLayersBaseEventsLayer | ListLayersQueryLayersBaseHeatmapLayer | ListLayersQueryLayersBasePointLayer | ListLayersQueryLayersBaseSeriesLayer | ListLayersQueryLayersBaseSpikesLayer | ListLayersQueryLayersBaseTraceLayer | ListLayersQueryLayersBaseWaveformLayer, Field(discriminator='typename')] | ListLayersQueryLayersBaseCatchAll]:
         """ListLayers 
 
 List the layers of experiments: traces, spike rasters, event tables and annotation collections, each drawn in one experiment
@@ -13506,6 +13687,7 @@ List the layers of experiments: traces, spike rasters, event tables and annotati
 Args:
     filters (ExperimentLayerFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[ExperimentLayer]
@@ -13515,9 +13697,9 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return (await self.aexecute(ListLayersQuery, variables)).layers
+        return (await self.aexecute(ListLayersQuery, variables, task=task)).layers
 
-    def list_layers(self, filters: ExperimentLayerFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[Annotated[ListLayersQueryLayersBaseAnnotationLayer | ListLayersQueryLayersBaseEventsLayer | ListLayersQueryLayersBaseHeatmapLayer | ListLayersQueryLayersBasePointLayer | ListLayersQueryLayersBaseSeriesLayer | ListLayersQueryLayersBaseSpikesLayer | ListLayersQueryLayersBaseTraceLayer | ListLayersQueryLayersBaseWaveformLayer, Field(discriminator='typename')] | ListLayersQueryLayersBaseCatchAll]:
+    def list_layers(self, filters: ExperimentLayerFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[Annotated[ListLayersQueryLayersBaseAnnotationLayer | ListLayersQueryLayersBaseEventsLayer | ListLayersQueryLayersBaseHeatmapLayer | ListLayersQueryLayersBasePointLayer | ListLayersQueryLayersBaseSeriesLayer | ListLayersQueryLayersBaseSpikesLayer | ListLayersQueryLayersBaseTraceLayer | ListLayersQueryLayersBaseWaveformLayer, Field(discriminator='typename')] | ListLayersQueryLayersBaseCatchAll]:
         """ListLayers 
 
 List the layers of experiments: traces, spike rasters, event tables and annotation collections, each drawn in one experiment
@@ -13525,6 +13707,7 @@ List the layers of experiments: traces, spike rasters, event tables and annotati
 Args:
     filters (ExperimentLayerFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[ExperimentLayer]
@@ -13534,39 +13717,41 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return self.execute(ListLayersQuery, variables).layers
+        return self.execute(ListLayersQuery, variables, task=task).layers
 
-    async def aget_lens(self, id: IDCoercible) -> Lens:
+    async def aget_lens(self, id: IDCoercible, task: TaskLike | None=None) -> Lens:
         """GetLens 
 
 Get a single lens by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Lens
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetLensQuery, variables)).lens
+        return (await self.aexecute(GetLensQuery, variables, task=task)).lens
 
-    def get_lens(self, id: IDCoercible) -> Lens:
+    def get_lens(self, id: IDCoercible, task: TaskLike | None=None) -> Lens:
         """GetLens 
 
 Get a single lens by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Lens
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetLensQuery, variables).lens
+        return self.execute(GetLensQuery, variables, task=task).lens
 
-    async def alist_lenses(self, filter: LensFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[Lens]:
+    async def alist_lenses(self, filter: LensFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[Lens]:
         """ListLenses 
 
 List lenses: immutable selections over a dataset -- a sweep, an epoch window, a run of channels
@@ -13574,6 +13759,7 @@ List lenses: immutable selections over a dataset -- a sweep, an epoch window, a 
 Args:
     filter (LensFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[Lens]
@@ -13583,9 +13769,9 @@ Returns:
             variables['filter'] = filter
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return (await self.aexecute(ListLensesQuery, variables)).lenses
+        return (await self.aexecute(ListLensesQuery, variables, task=task)).lenses
 
-    def list_lenses(self, filter: LensFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[Lens]:
+    def list_lenses(self, filter: LensFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[Lens]:
         """ListLenses 
 
 List lenses: immutable selections over a dataset -- a sweep, an epoch window, a run of channels
@@ -13593,6 +13779,7 @@ List lenses: immutable selections over a dataset -- a sweep, an epoch window, a 
 Args:
     filter (LensFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[Lens]
@@ -13602,43 +13789,46 @@ Returns:
             variables['filter'] = filter
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return self.execute(ListLensesQuery, variables).lenses
+        return self.execute(ListLensesQuery, variables, task=task).lenses
 
-    async def aget_model_collection(self, id: IDCoercible) -> ModelCollection:
+    async def aget_model_collection(self, id: IDCoercible, task: TaskLike | None=None) -> ModelCollection:
         """GetModelCollection 
 
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ModelCollection
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetModelCollectionQuery, variables)).model_collection
+        return (await self.aexecute(GetModelCollectionQuery, variables, task=task)).model_collection
 
-    def get_model_collection(self, id: IDCoercible) -> ModelCollection:
+    def get_model_collection(self, id: IDCoercible, task: TaskLike | None=None) -> ModelCollection:
         """GetModelCollection 
 
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     ModelCollection
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetModelCollectionQuery, variables).model_collection
+        return self.execute(GetModelCollectionQuery, variables, task=task).model_collection
 
-    async def asearch_model_collection(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET) -> list[SearchModelCollectionQueryOptions]:
+    async def asearch_model_collection(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchModelCollectionQueryOptions]:
         """SearchModelCollection 
 
 
 Args:
     search (str | None, optional): No description. 
     values (list[ID] | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchModelCollectionQueryModelCollections]
@@ -13648,15 +13838,16 @@ Returns:
             variables['search'] = search
         if values is not UNSET:
             variables['values'] = values
-        return (await self.aexecute(SearchModelCollectionQuery, variables)).options
+        return (await self.aexecute(SearchModelCollectionQuery, variables, task=task)).options
 
-    def search_model_collection(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET) -> list[SearchModelCollectionQueryOptions]:
+    def search_model_collection(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchModelCollectionQueryOptions]:
         """SearchModelCollection 
 
 
 Args:
     search (str | None, optional): No description. 
     values (list[ID] | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchModelCollectionQueryModelCollections]
@@ -13666,15 +13857,16 @@ Returns:
             variables['search'] = search
         if values is not UNSET:
             variables['values'] = values
-        return self.execute(SearchModelCollectionQuery, variables).options
+        return self.execute(SearchModelCollectionQuery, variables, task=task).options
 
-    async def alist_model_collections(self, filter: ModelCollectionFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[ModelCollection]:
+    async def alist_model_collections(self, filter: ModelCollectionFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[ModelCollection]:
         """ListModelCollections 
 
 
 Args:
     filter (ModelCollectionFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[ModelCollection]
@@ -13684,15 +13876,16 @@ Returns:
             variables['filter'] = filter
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return (await self.aexecute(ListModelCollectionsQuery, variables)).model_collections
+        return (await self.aexecute(ListModelCollectionsQuery, variables, task=task)).model_collections
 
-    def list_model_collections(self, filter: ModelCollectionFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[ModelCollection]:
+    def list_model_collections(self, filter: ModelCollectionFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[ModelCollection]:
         """ListModelCollections 
 
 
 Args:
     filter (ModelCollectionFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[ModelCollection]
@@ -13702,45 +13895,48 @@ Returns:
             variables['filter'] = filter
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return self.execute(ListModelCollectionsQuery, variables).model_collections
+        return self.execute(ListModelCollectionsQuery, variables, task=task).model_collections
 
-    async def aget_neuron_model(self, id: IDCoercible) -> NeuronModel:
+    async def aget_neuron_model(self, id: IDCoercible, task: TaskLike | None=None) -> NeuronModel:
         """GetNeuronModel 
 
 Returns a single neuron model by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     NeuronModel
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetNeuronModelQuery, variables)).neuron_model
+        return (await self.aexecute(GetNeuronModelQuery, variables, task=task)).neuron_model
 
-    def get_neuron_model(self, id: IDCoercible) -> NeuronModel:
+    def get_neuron_model(self, id: IDCoercible, task: TaskLike | None=None) -> NeuronModel:
         """GetNeuronModel 
 
 Returns a single neuron model by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     NeuronModel
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetNeuronModelQuery, variables).neuron_model
+        return self.execute(GetNeuronModelQuery, variables, task=task).neuron_model
 
-    async def asearch_neuron_models(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET) -> list[SearchNeuronModelsQueryOptions]:
+    async def asearch_neuron_models(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchNeuronModelsQueryOptions]:
         """SearchNeuronModels 
 
 
 Args:
     search (str | None, optional): No description. 
     values (list[ID] | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchNeuronModelsQueryNeuronModels]
@@ -13750,15 +13946,16 @@ Returns:
             variables['search'] = search
         if values is not UNSET:
             variables['values'] = values
-        return (await self.aexecute(SearchNeuronModelsQuery, variables)).options
+        return (await self.aexecute(SearchNeuronModelsQuery, variables, task=task)).options
 
-    def search_neuron_models(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET) -> list[SearchNeuronModelsQueryOptions]:
+    def search_neuron_models(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchNeuronModelsQueryOptions]:
         """SearchNeuronModels 
 
 
 Args:
     search (str | None, optional): No description. 
     values (list[ID] | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchNeuronModelsQueryNeuronModels]
@@ -13768,15 +13965,16 @@ Returns:
             variables['search'] = search
         if values is not UNSET:
             variables['values'] = values
-        return self.execute(SearchNeuronModelsQuery, variables).options
+        return self.execute(SearchNeuronModelsQuery, variables, task=task).options
 
-    async def alist_neuron_models(self, filter: NeuronModelFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[NeuronModel]:
+    async def alist_neuron_models(self, filter: NeuronModelFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[NeuronModel]:
         """ListNeuronModels 
 
 
 Args:
     filter (NeuronModelFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[NeuronModel]
@@ -13786,15 +13984,16 @@ Returns:
             variables['filter'] = filter
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return (await self.aexecute(ListNeuronModelsQuery, variables)).neuron_models
+        return (await self.aexecute(ListNeuronModelsQuery, variables, task=task)).neuron_models
 
-    def list_neuron_models(self, filter: NeuronModelFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[NeuronModel]:
+    def list_neuron_models(self, filter: NeuronModelFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[NeuronModel]:
         """ListNeuronModels 
 
 
 Args:
     filter (NeuronModelFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[NeuronModel]
@@ -13804,9 +14003,9 @@ Returns:
             variables['filter'] = filter
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return self.execute(ListNeuronModelsQuery, variables).neuron_models
+        return self.execute(ListNeuronModelsQuery, variables, task=task).neuron_models
 
-    async def aget_neuron_model_sessions(self, id: IDCoercible) -> GetNeuronModelSessionsQueryNeuronModel:
+    async def aget_neuron_model_sessions(self, id: IDCoercible, task: TaskLike | None=None) -> GetNeuronModelSessionsQueryNeuronModel:
         """GetNeuronModelSessions 
  A model's runs, read off the graph: its simulated datasets (a `simulation`
  anchor on it) grouped by the clock they are timed onto. A run is its clock;
@@ -13814,15 +14013,16 @@ Returns:
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     GetNeuronModelSessionsQueryNeuronModel
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetNeuronModelSessionsQuery, variables)).neuron_model
+        return (await self.aexecute(GetNeuronModelSessionsQuery, variables, task=task)).neuron_model
 
-    def get_neuron_model_sessions(self, id: IDCoercible) -> GetNeuronModelSessionsQueryNeuronModel:
+    def get_neuron_model_sessions(self, id: IDCoercible, task: TaskLike | None=None) -> GetNeuronModelSessionsQueryNeuronModel:
         """GetNeuronModelSessions 
  A model's runs, read off the graph: its simulated datasets (a `simulation`
  anchor on it) grouped by the clock they are timed onto. A run is its clock;
@@ -13830,45 +14030,48 @@ Returns:
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     GetNeuronModelSessionsQueryNeuronModel
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetNeuronModelSessionsQuery, variables).neuron_model
+        return self.execute(GetNeuronModelSessionsQuery, variables, task=task).neuron_model
 
-    async def aget_sparse_dataset(self, id: IDCoercible) -> SparseDataset:
+    async def aget_sparse_dataset(self, id: IDCoercible, task: TaskLike | None=None) -> SparseDataset:
         """GetSparseDataset 
 
 Get a single sparse dataset by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     SparseDataset
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetSparseDatasetQuery, variables)).sparse_dataset
+        return (await self.aexecute(GetSparseDatasetQuery, variables, task=task)).sparse_dataset
 
-    def get_sparse_dataset(self, id: IDCoercible) -> SparseDataset:
+    def get_sparse_dataset(self, id: IDCoercible, task: TaskLike | None=None) -> SparseDataset:
         """GetSparseDataset 
 
 Get a single sparse dataset by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     SparseDataset
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetSparseDatasetQuery, variables).sparse_dataset
+        return self.execute(GetSparseDatasetQuery, variables, task=task).sparse_dataset
 
-    async def alist_sparse_datasets(self, filters: SparseDatasetFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[SparseDataset]:
+    async def alist_sparse_datasets(self, filters: SparseDatasetFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SparseDataset]:
         """ListSparseDatasets 
 
 List sparse datasets: sparse matrices -- a spike raster of units by samples is one, drawn as a spikes layer
@@ -13876,6 +14079,7 @@ List sparse datasets: sparse matrices -- a spike raster of units by samples is o
 Args:
     filters (SparseDatasetFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SparseDataset]
@@ -13885,9 +14089,9 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return (await self.aexecute(ListSparseDatasetsQuery, variables)).sparse_datasets
+        return (await self.aexecute(ListSparseDatasetsQuery, variables, task=task)).sparse_datasets
 
-    def list_sparse_datasets(self, filters: SparseDatasetFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[SparseDataset]:
+    def list_sparse_datasets(self, filters: SparseDatasetFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SparseDataset]:
         """ListSparseDatasets 
 
 List sparse datasets: sparse matrices -- a spike raster of units by samples is one, drawn as a spikes layer
@@ -13895,6 +14099,7 @@ List sparse datasets: sparse matrices -- a spike raster of units by samples is o
 Args:
     filters (SparseDatasetFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SparseDataset]
@@ -13904,9 +14109,9 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return self.execute(ListSparseDatasetsQuery, variables).sparse_datasets
+        return self.execute(ListSparseDatasetsQuery, variables, task=task).sparse_datasets
 
-    async def asearch_sparse_datasets(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET) -> list[SearchSparseDatasetsQueryOptions]:
+    async def asearch_sparse_datasets(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchSparseDatasetsQueryOptions]:
         """SearchSparseDatasets 
 
 List sparse datasets: sparse matrices -- a spike raster of units by samples is one, drawn as a spikes layer
@@ -13914,6 +14119,7 @@ List sparse datasets: sparse matrices -- a spike raster of units by samples is o
 Args:
     search (str | None, optional): No description. 
     values (list[ID] | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchSparseDatasetsQuerySparseDatasets]
@@ -13923,9 +14129,9 @@ Returns:
             variables['search'] = search
         if values is not UNSET:
             variables['values'] = values
-        return (await self.aexecute(SearchSparseDatasetsQuery, variables)).options
+        return (await self.aexecute(SearchSparseDatasetsQuery, variables, task=task)).options
 
-    def search_sparse_datasets(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET) -> list[SearchSparseDatasetsQueryOptions]:
+    def search_sparse_datasets(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchSparseDatasetsQueryOptions]:
         """SearchSparseDatasets 
 
 List sparse datasets: sparse matrices -- a spike raster of units by samples is one, drawn as a spikes layer
@@ -13933,6 +14139,7 @@ List sparse datasets: sparse matrices -- a spike raster of units by samples is o
 Args:
     search (str | None, optional): No description. 
     values (list[ID] | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchSparseDatasetsQuerySparseDatasets]
@@ -13942,39 +14149,41 @@ Returns:
             variables['search'] = search
         if values is not UNSET:
             variables['values'] = values
-        return self.execute(SearchSparseDatasetsQuery, variables).options
+        return self.execute(SearchSparseDatasetsQuery, variables, task=task).options
 
-    async def aget_table_dataset(self, id: IDCoercible) -> TableDataset:
+    async def aget_table_dataset(self, id: IDCoercible, task: TaskLike | None=None) -> TableDataset:
         """GetTableDataset 
 
 Get a single table dataset by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     TableDataset
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetTableDatasetQuery, variables)).table_dataset
+        return (await self.aexecute(GetTableDatasetQuery, variables, task=task)).table_dataset
 
-    def get_table_dataset(self, id: IDCoercible) -> TableDataset:
+    def get_table_dataset(self, id: IDCoercible, task: TaskLike | None=None) -> TableDataset:
         """GetTableDataset 
 
 Get a single table dataset by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     TableDataset
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetTableDatasetQuery, variables).table_dataset
+        return self.execute(GetTableDatasetQuery, variables, task=task).table_dataset
 
-    async def alist_table_datasets(self, filters: TableDatasetFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[TableDataset]:
+    async def alist_table_datasets(self, filters: TableDatasetFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[TableDataset]:
         """ListTableDatasets 
 
 List table datasets: parquet-backed tables -- event lists, trial tables, a sorter's unit table. One with a TIME coordinate column is drawn as an events layer
@@ -13982,6 +14191,7 @@ List table datasets: parquet-backed tables -- event lists, trial tables, a sorte
 Args:
     filters (TableDatasetFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[TableDataset]
@@ -13991,9 +14201,9 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return (await self.aexecute(ListTableDatasetsQuery, variables)).table_datasets
+        return (await self.aexecute(ListTableDatasetsQuery, variables, task=task)).table_datasets
 
-    def list_table_datasets(self, filters: TableDatasetFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET) -> list[TableDataset]:
+    def list_table_datasets(self, filters: TableDatasetFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[TableDataset]:
         """ListTableDatasets 
 
 List table datasets: parquet-backed tables -- event lists, trial tables, a sorter's unit table. One with a TIME coordinate column is drawn as an events layer
@@ -14001,6 +14211,7 @@ List table datasets: parquet-backed tables -- event lists, trial tables, a sorte
 Args:
     filters (TableDatasetFilter | None, optional): No description. 
     pagination (OffsetPaginationInput | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[TableDataset]
@@ -14010,9 +14221,9 @@ Returns:
             variables['filters'] = filters
         if pagination is not UNSET:
             variables['pagination'] = pagination
-        return self.execute(ListTableDatasetsQuery, variables).table_datasets
+        return self.execute(ListTableDatasetsQuery, variables, task=task).table_datasets
 
-    async def asearch_table_datasets(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET) -> list[SearchTableDatasetsQueryOptions]:
+    async def asearch_table_datasets(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchTableDatasetsQueryOptions]:
         """SearchTableDatasets 
 
 List table datasets: parquet-backed tables -- event lists, trial tables, a sorter's unit table. One with a TIME coordinate column is drawn as an events layer
@@ -14020,6 +14231,7 @@ List table datasets: parquet-backed tables -- event lists, trial tables, a sorte
 Args:
     search (str | None, optional): No description. 
     values (list[ID] | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchTableDatasetsQueryTableDatasets]
@@ -14029,9 +14241,9 @@ Returns:
             variables['search'] = search
         if values is not UNSET:
             variables['values'] = values
-        return (await self.aexecute(SearchTableDatasetsQuery, variables)).options
+        return (await self.aexecute(SearchTableDatasetsQuery, variables, task=task)).options
 
-    def search_table_datasets(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET) -> list[SearchTableDatasetsQueryOptions]:
+    def search_table_datasets(self, search: str | None | UnsetType=UNSET, values: list[IDCoercible] | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[SearchTableDatasetsQueryOptions]:
         """SearchTableDatasets 
 
 List table datasets: parquet-backed tables -- event lists, trial tables, a sorter's unit table. One with a TIME coordinate column is drawn as an events layer
@@ -14039,6 +14251,7 @@ List table datasets: parquet-backed tables -- event lists, trial tables, a sorte
 Args:
     search (str | None, optional): No description. 
     values (list[ID] | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[SearchTableDatasetsQueryTableDatasets]
@@ -14048,71 +14261,76 @@ Returns:
             variables['search'] = search
         if values is not UNSET:
             variables['values'] = values
-        return self.execute(SearchTableDatasetsQuery, variables).options
+        return self.execute(SearchTableDatasetsQuery, variables, task=task).options
 
-    async def aget_transformation(self, id: IDCoercible) -> Annotated[GetTransformationQueryTransformationBaseAffineTransformation | GetTransformationQueryTransformationBaseByDimensionTransformation | GetTransformationQueryTransformationBaseFieldTransformation | GetTransformationQueryTransformationBaseIdentityTransformation | GetTransformationQueryTransformationBaseMapAxisTransformation | GetTransformationQueryTransformationBaseRotationTransformation | GetTransformationQueryTransformationBaseScaleTransformation | GetTransformationQueryTransformationBaseSequenceTransformation | GetTransformationQueryTransformationBaseTranslationTransformation | GetTransformationQueryTransformationBaseUnmappableTransformation, Field(discriminator='typename')] | GetTransformationQueryTransformationBaseCatchAll:
+    async def aget_transformation(self, id: IDCoercible, task: TaskLike | None=None) -> Annotated[GetTransformationQueryTransformationBaseAffineTransformation | GetTransformationQueryTransformationBaseByDimensionTransformation | GetTransformationQueryTransformationBaseFieldTransformation | GetTransformationQueryTransformationBaseIdentityTransformation | GetTransformationQueryTransformationBaseMapAxisTransformation | GetTransformationQueryTransformationBaseRotationTransformation | GetTransformationQueryTransformationBaseScaleTransformation | GetTransformationQueryTransformationBaseSequenceTransformation | GetTransformationQueryTransformationBaseTranslationTransformation | GetTransformationQueryTransformationBaseUnmappableTransformation, Field(discriminator='typename')] | GetTransformationQueryTransformationBaseCatchAll:
         """GetTransformation 
 
 Get a single transformation by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Transformation
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return (await self.aexecute(GetTransformationQuery, variables)).transformation
+        return (await self.aexecute(GetTransformationQuery, variables, task=task)).transformation
 
-    def get_transformation(self, id: IDCoercible) -> Annotated[GetTransformationQueryTransformationBaseAffineTransformation | GetTransformationQueryTransformationBaseByDimensionTransformation | GetTransformationQueryTransformationBaseFieldTransformation | GetTransformationQueryTransformationBaseIdentityTransformation | GetTransformationQueryTransformationBaseMapAxisTransformation | GetTransformationQueryTransformationBaseRotationTransformation | GetTransformationQueryTransformationBaseScaleTransformation | GetTransformationQueryTransformationBaseSequenceTransformation | GetTransformationQueryTransformationBaseTranslationTransformation | GetTransformationQueryTransformationBaseUnmappableTransformation, Field(discriminator='typename')] | GetTransformationQueryTransformationBaseCatchAll:
+    def get_transformation(self, id: IDCoercible, task: TaskLike | None=None) -> Annotated[GetTransformationQueryTransformationBaseAffineTransformation | GetTransformationQueryTransformationBaseByDimensionTransformation | GetTransformationQueryTransformationBaseFieldTransformation | GetTransformationQueryTransformationBaseIdentityTransformation | GetTransformationQueryTransformationBaseMapAxisTransformation | GetTransformationQueryTransformationBaseRotationTransformation | GetTransformationQueryTransformationBaseScaleTransformation | GetTransformationQueryTransformationBaseSequenceTransformation | GetTransformationQueryTransformationBaseTranslationTransformation | GetTransformationQueryTransformationBaseUnmappableTransformation, Field(discriminator='typename')] | GetTransformationQueryTransformationBaseCatchAll:
         """GetTransformation 
 
 Get a single transformation by ID
 
 Args:
     id (ID): The unique identifier of an object
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     Transformation
 """
         variables: dict[str, Any] = {}
         variables['id'] = id
-        return self.execute(GetTransformationQuery, variables).transformation
+        return self.execute(GetTransformationQuery, variables, task=task).transformation
 
-    async def aget_transformations(self) -> list[Annotated[GetTransformationsQueryTransformationsBaseAffineTransformation | GetTransformationsQueryTransformationsBaseByDimensionTransformation | GetTransformationsQueryTransformationsBaseFieldTransformation | GetTransformationsQueryTransformationsBaseIdentityTransformation | GetTransformationsQueryTransformationsBaseMapAxisTransformation | GetTransformationsQueryTransformationsBaseRotationTransformation | GetTransformationsQueryTransformationsBaseScaleTransformation | GetTransformationsQueryTransformationsBaseSequenceTransformation | GetTransformationsQueryTransformationsBaseTranslationTransformation | GetTransformationsQueryTransformationsBaseUnmappableTransformation, Field(discriminator='typename')] | GetTransformationsQueryTransformationsBaseCatchAll]:
+    async def aget_transformations(self, task: TaskLike | None=None) -> list[Annotated[GetTransformationsQueryTransformationsBaseAffineTransformation | GetTransformationsQueryTransformationsBaseByDimensionTransformation | GetTransformationsQueryTransformationsBaseFieldTransformation | GetTransformationsQueryTransformationsBaseIdentityTransformation | GetTransformationsQueryTransformationsBaseMapAxisTransformation | GetTransformationsQueryTransformationsBaseRotationTransformation | GetTransformationsQueryTransformationsBaseScaleTransformation | GetTransformationsQueryTransformationsBaseSequenceTransformation | GetTransformationsQueryTransformationsBaseTranslationTransformation | GetTransformationsQueryTransformationsBaseUnmappableTransformation, Field(discriminator='typename')] | GetTransformationsQueryTransformationsBaseCatchAll]:
         """GetTransformations 
  Unfiltered on this service: `transformations` takes no arguments. Ask
  `GetCoordinateGraph` for the edges around one space instead.
 
 Args:
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[Transformation]
 """
         variables: dict[str, Any] = {}
-        return (await self.aexecute(GetTransformationsQuery, variables)).transformations
+        return (await self.aexecute(GetTransformationsQuery, variables, task=task)).transformations
 
-    def get_transformations(self) -> list[Annotated[GetTransformationsQueryTransformationsBaseAffineTransformation | GetTransformationsQueryTransformationsBaseByDimensionTransformation | GetTransformationsQueryTransformationsBaseFieldTransformation | GetTransformationsQueryTransformationsBaseIdentityTransformation | GetTransformationsQueryTransformationsBaseMapAxisTransformation | GetTransformationsQueryTransformationsBaseRotationTransformation | GetTransformationsQueryTransformationsBaseScaleTransformation | GetTransformationsQueryTransformationsBaseSequenceTransformation | GetTransformationsQueryTransformationsBaseTranslationTransformation | GetTransformationsQueryTransformationsBaseUnmappableTransformation, Field(discriminator='typename')] | GetTransformationsQueryTransformationsBaseCatchAll]:
+    def get_transformations(self, task: TaskLike | None=None) -> list[Annotated[GetTransformationsQueryTransformationsBaseAffineTransformation | GetTransformationsQueryTransformationsBaseByDimensionTransformation | GetTransformationsQueryTransformationsBaseFieldTransformation | GetTransformationsQueryTransformationsBaseIdentityTransformation | GetTransformationsQueryTransformationsBaseMapAxisTransformation | GetTransformationsQueryTransformationsBaseRotationTransformation | GetTransformationsQueryTransformationsBaseScaleTransformation | GetTransformationsQueryTransformationsBaseSequenceTransformation | GetTransformationsQueryTransformationsBaseTranslationTransformation | GetTransformationsQueryTransformationsBaseUnmappableTransformation, Field(discriminator='typename')] | GetTransformationsQueryTransformationsBaseCatchAll]:
         """GetTransformations 
  Unfiltered on this service: `transformations` takes no arguments. Ask
  `GetCoordinateGraph` for the edges around one space instead.
 
 Args:
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     list[Transformation]
 """
         variables: dict[str, Any] = {}
-        return self.execute(GetTransformationsQuery, variables).transformations
+        return self.execute(GetTransformationsQuery, variables, task=task).transformations
 
-    async def awatch_array_datasets(self, folder: IDCoercible | None | UnsetType=UNSET) -> AsyncIterator[WatchArrayDatasetsSubscriptionArrayDatasets]:
+    async def awatch_array_datasets(self, folder: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> AsyncIterator[WatchArrayDatasetsSubscriptionArrayDatasets]:
         """WatchArrayDatasets 
 
 Subscribe to the array datasets of this organization, or of one of its folders, as they are created, updated and deleted
 
 Args:
     folder (ID | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     WatchArrayDatasetsSubscriptionArrayDatasets
@@ -14120,16 +14338,17 @@ Returns:
         variables: dict[str, Any] = {}
         if folder is not UNSET:
             variables['folder'] = folder
-        async for event in self.asubscribe(WatchArrayDatasetsSubscription, variables):
+        async for event in self.asubscribe(WatchArrayDatasetsSubscription, variables, task=task):
             yield event.array_datasets
 
-    def watch_array_datasets(self, folder: IDCoercible | None | UnsetType=UNSET) -> Iterator[WatchArrayDatasetsSubscriptionArrayDatasets]:
+    def watch_array_datasets(self, folder: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> Iterator[WatchArrayDatasetsSubscriptionArrayDatasets]:
         """WatchArrayDatasets 
 
 Subscribe to the array datasets of this organization, or of one of its folders, as they are created, updated and deleted
 
 Args:
     folder (ID | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     WatchArrayDatasetsSubscriptionArrayDatasets
@@ -14137,16 +14356,17 @@ Returns:
         variables: dict[str, Any] = {}
         if folder is not UNSET:
             variables['folder'] = folder
-        for event in self.subscribe(WatchArrayDatasetsSubscription, variables):
+        for event in self.subscribe(WatchArrayDatasetsSubscription, variables, task=task):
             yield event.array_datasets
 
-    async def awatch_files(self, folder: IDCoercible | None | UnsetType=UNSET) -> AsyncIterator[WatchFilesSubscriptionFiles]:
+    async def awatch_files(self, folder: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> AsyncIterator[WatchFilesSubscriptionFiles]:
         """WatchFiles 
 
 Subscribe to real-time file updates
 
 Args:
     folder (ID | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     WatchFilesSubscriptionFiles
@@ -14154,16 +14374,17 @@ Returns:
         variables: dict[str, Any] = {}
         if folder is not UNSET:
             variables['folder'] = folder
-        async for event in self.asubscribe(WatchFilesSubscription, variables):
+        async for event in self.asubscribe(WatchFilesSubscription, variables, task=task):
             yield event.files
 
-    def watch_files(self, folder: IDCoercible | None | UnsetType=UNSET) -> Iterator[WatchFilesSubscriptionFiles]:
+    def watch_files(self, folder: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> Iterator[WatchFilesSubscriptionFiles]:
         """WatchFiles 
 
 Subscribe to real-time file updates
 
 Args:
     folder (ID | None, optional): No description. 
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     WatchFilesSubscriptionFiles
@@ -14171,7 +14392,7 @@ Returns:
         variables: dict[str, Any] = {}
         if folder is not UNSET:
             variables['folder'] = folder
-        for event in self.subscribe(WatchFilesSubscription, variables):
+        for event in self.subscribe(WatchFilesSubscription, variables, task=task):
             yield event.files
 AnnotationCollectionDerivedFromInput.model_rebuild()
 AnnotationCollectionFilter.model_rebuild()
