@@ -50,15 +50,13 @@ projects:
               - key: task
                 type: rath.task.TaskLike
                 description: "The task this call is made for; the ambient one by default."
-            # The client's own attributes, and those of its base: pydantic lets a
-            # field hide a same-named method with only a warning.
+            # Every attribute and pydantic field of the client this mixin lands in.
+            # Pydantic lets a field hide a same-named method, so a colliding operation
+            # has to fail generation instead of vanishing. Derived rather than listed:
+            # the list this replaces still reserved `for_task`/`task_token` after they
+            # were deleted.
             reserved_from:
-              - koil.composition.Composition
-            reserved_names:
-              - rath
-              - datalayer
-              - task_token
-              - for_task
+              - elektro.elektro.Elektro
             coercible_inputs:
               AxisInput: str
             expand_input_types:

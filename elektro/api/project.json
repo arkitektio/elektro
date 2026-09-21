@@ -252,13 +252,7 @@
                         }
                     ],
                     "reserved_from": [
-                        "koil.composition.Composition"
-                    ],
-                    "reserved_names": [
-                        "rath",
-                        "datalayer",
-                        "task_token",
-                        "for_task"
+                        "elektro.elektro.Elektro"
                     ],
                     "coercible_inputs": {
                         "AxisInput": "str"
