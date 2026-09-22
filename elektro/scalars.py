@@ -7,7 +7,7 @@ Custom scalars for elektro
 import io
 import os
 import mimetypes
-from typing import Any, IO, List, Optional
+from typing import TYPE_CHECKING, Any, IO, List, Optional, Protocol, TypeAlias
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
 import xarray as xr
@@ -16,6 +16,9 @@ import numpy as np
 import uuid
 from collections.abc import Iterable, Mapping
 from pathlib import Path
+
+if TYPE_CHECKING:
+    import pyarrow as pa
 
 
 def is_dask_array(v: Any) -> bool:
@@ -28,6 +31,26 @@ def is_dask_array(v: Any) -> bool:
         return False
     except Exception as e:
         raise ValueError(f"Error checking for dask array: {e}")
+
+
+# What each scalar's ``validate`` accepts, named so the generated resolvers can state it and a
+# caller need not build the wrapper themselves. Mirrors mikro/mikro/scalars.py.
+AssignationIDCoercible: TypeAlias = str
+"""What :class:`AssignationID` accepts: pydantic has already coerced the input to ``str``."""
+
+RGBAColorCoercible: TypeAlias = list[float] | list[int] | np.ndarray
+""" A colour as four channels, as a list or a 1-D array."""
+
+MicrometersCoercible: TypeAlias = int | float
+MicrolitersCoercible: TypeAlias = int | float
+MicrogramsCoercible: TypeAlias = int | float
+MillisecondsCoercible: TypeAlias = int | float
+
+VectorCoercible: TypeAlias = list[float] | list[int] | np.ndarray
+""" A vector as a list of numbers, or a 1-D numpy array which is converted here."""
+
+MatrixCoercible: TypeAlias = list[list[float]] | list[list[int]] | np.ndarray
+""" A square matrix as nested lists, or a 2-D numpy array which is converted here."""
 
 
 class AssignationID(str):
@@ -43,7 +66,7 @@ class AssignationID(str):
         return core_schema.no_info_before_validator_function(cls.validate, handler(str))
 
     @classmethod
-    def validate(cls, v: Any) -> "AssignationID":
+    def validate(cls, v: AssignationIDCoercible) -> "AssignationID":
         """Validate the input array and convert it to a xr.DataArray."""
         return cls(v)
 
@@ -61,7 +84,7 @@ class RGBAColor(list):
         return core_schema.no_info_plain_validator_function(cls.validate)
 
     @classmethod
-    def validate(cls, v: Any) -> "RGBAColor":
+    def validate(cls, v: RGBAColorCoercible) -> "RGBAColor":
         """Validate the input array and convert it to a xr.DataArray."""
         return cls(v)
 
@@ -72,10 +95,8 @@ class XArrayConversionException(Exception):
     pass
 
 
-MetricValue = Any
-FeatureValue = Any
-
 ArrayCoercible = xr.DataArray | np.ndarray | list | tuple
+
 
 
 def is_unlabeled(array: xr.DataArray) -> bool:
@@ -121,6 +142,7 @@ def coerce_to_labeled_array(v: Any) -> xr.DataArray:
 # the scalar wrapper themselves (see ``coercible_scalars`` in graphql.config.yaml).
 FileLikeCoercible = str | IO
 BigFileLikeCoercible = str | IO
+MeshLikeCoercible = str | IO
 
 
 class Upload:
@@ -131,7 +153,7 @@ class Upload:
 
     __file__ = True
 
-    def __init__(self, value: Any) -> None:
+    def __init__(self, value: object) -> None:
         """Initialize the upload with the underlying file value."""
         self.value = value
 
@@ -145,7 +167,7 @@ class Upload:
         return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v: Any) -> "Upload":
+    def validate(cls, v: object) -> "Upload":
         """Validate the input value and wrap it in an Upload."""
         # you could also return a string here which would mean model.post_code
         # would be a string, pydantic won't care but you could end up with some
@@ -171,7 +193,7 @@ class Micrometers(float):
         return core_schema.no_info_before_validator_function(cls.validate, handler(float))
 
     @classmethod
-    def validate(cls, v: Any) -> "Micrometers":
+    def validate(cls, v: MicrometersCoercible) -> "Micrometers":
         """Validate the input array and convert it to a xr.DataArray."""
         return cls(v)
 
@@ -189,7 +211,7 @@ class Microliters(float):
         return core_schema.no_info_before_validator_function(cls.validate, handler(float))
 
     @classmethod
-    def validate(cls, v: Any) -> "Microliters":
+    def validate(cls, v: MicrolitersCoercible) -> "Microliters":
         """Validate the input array and convert it to a xr.DataArray."""
         return cls(v)
 
@@ -207,7 +229,7 @@ class Micrograms(float):
         return core_schema.no_info_before_validator_function(cls.validate, handler(float))
 
     @classmethod
-    def validate(cls, v: Any) -> "Micrograms":
+    def validate(cls, v: MicrogramsCoercible) -> "Micrograms":
         """Validate the input array and convert it to a xr.DataArray."""
         return cls(v)
 
@@ -225,7 +247,7 @@ class Milliseconds(float):
         return core_schema.no_info_before_validator_function(cls.validate, handler(float))
 
     @classmethod
-    def validate(cls, v: Any) -> "Milliseconds":
+    def validate(cls, v: MillisecondsCoercible) -> "Milliseconds":
         """Validate the input array and convert it to a xr.DataArray."""
         return cls(v)
 
@@ -243,7 +265,7 @@ class TwoDVector(list):
         return core_schema.no_info_plain_validator_function(cls.validate)
 
     @classmethod
-    def validate(cls, v: Any) -> "TwoDVector":
+    def validate(cls, v: VectorCoercible) -> "TwoDVector":
         """Validate the input array and convert it to a xr.DataArray."""
         if isinstance(v, np.ndarray):
             assert v.ndim == 1
@@ -291,7 +313,7 @@ class ThreeDVector(list):
         return core_schema.no_info_plain_validator_function(cls.validate)
 
     @classmethod
-    def validate(cls, v: Any) -> "ThreeDVector":
+    def validate(cls, v: VectorCoercible) -> "ThreeDVector":
         """Validate the input array and convert it to a xr.DataArray."""
         if isinstance(v, np.ndarray):
             assert v.ndim == 1
@@ -319,7 +341,7 @@ class FourDVector(list):
         return core_schema.no_info_plain_validator_function(cls.validate)
 
     @classmethod
-    def validate(cls, v: Any) -> "FourDVector":
+    def validate(cls, v: VectorCoercible) -> "FourDVector":
         """Validate the input array and convert it to a xr.DataArray."""
         if isinstance(v, np.ndarray):
             assert v.ndim == 1
@@ -347,7 +369,7 @@ class FiveDVector(list):
         return core_schema.no_info_plain_validator_function(cls.validate)
 
     @classmethod
-    def validate(cls, v: Any) -> list:
+    def validate(cls, v: VectorCoercible) -> list:
         """Validate the input array and convert it to a xr.DataArray."""
 
         if isinstance(v, np.ndarray):
@@ -424,7 +446,7 @@ class Matrix(list):
         return core_schema.no_info_plain_validator_function(cls.validate)
 
     @classmethod
-    def validate(cls, v: Any) -> "Matrix":
+    def validate(cls, v: MatrixCoercible) -> "Matrix":
         """Validate the input array and convert it to a xr.DataArray."""
         if isinstance(v, np.ndarray):
             assert v.ndim == 2
@@ -453,7 +475,7 @@ class FourByFourMatrix(list):
         return core_schema.no_info_plain_validator_function(cls.validate)
 
     @classmethod
-    def validate(cls, v: Any) -> "FourByFourMatrix":
+    def validate(cls, v: MatrixCoercible) -> "FourByFourMatrix":
         """Validate the input array and convert it to a xr.DataArray."""
         if isinstance(v, np.ndarray):
             assert v.ndim == 2
@@ -535,7 +557,7 @@ class BigFile:
         return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v: Any) -> "BigFile":
+    def validate(cls, v: BigFileLikeCoercible) -> "BigFile":
         """Validate the input array and convert it to a xr.DataArray."""
 
         if isinstance(v, str):
@@ -580,7 +602,7 @@ class ParquetLike:
         return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v: Any) -> "ParquetLike":
+    def validate(cls, v: "ParquetCoercible") -> "ParquetLike":
         """Validate the input value and wrap it as a ParquetLike."""
         if isinstance(v, ParquetLike):
             return v
@@ -673,7 +695,7 @@ class SporadikLike:
         return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v: Any) -> "SporadikLike":  # noqa: ANN401
+    def validate(cls, v: "SporadikCoercible") -> "SporadikLike":
         """Accept CSR/CSC matrices (or layouts), and refuse what cannot be written as a store."""
         if isinstance(v, SporadikLike):
             return v
@@ -697,10 +719,48 @@ class SporadikLike:
         return f"SporadikLike({axes}, shape={shape})"
 
 
-ParquetCoercible = Any
+ParquetCoercible: TypeAlias = (
+    "Mapping[str, Any] | pd.DataFrame | str | Path | pa.Table | pa.RecordBatchReader | ParquetLike"
+)
 """What :class:`ParquetLike` accepts: a dict of columns, a DataFrame, a parquet path, or arrow."""
 
-SporadikCoercible = Any
+
+class SparseMatrixLike(Protocol):
+    """The structure a sparse matrix must have to be written as a sporadik store.
+
+    Spelled structurally rather than as `scipy.sparse.csr_matrix | csc_matrix` because scipy is
+    not an elektro dependency and `sporadik.layouts_of` only ever reads these five members -- so
+    anndata's own matrix wrappers, and a rank-three array's `sporadik.Layout`, satisfy it too.
+
+    Members are read-only properties because a mutable attribute is invariant, and a matrix's
+    `NDArray[float64]` would then not satisfy a declared `NDArray[generic]`. ``.shape`` is
+    deliberately absent: scipy's stubs do not expose it as a readable property, so declaring it
+    here would make every real matrix fail the check. ``sporadik.validate_layout`` checks it at
+    runtime regardless.
+    """
+
+    @property
+    def data(self) -> np.ndarray:
+        """The stored values, in the order the layout's encoding puts them."""
+        ...
+
+    @property
+    def indices(self) -> np.ndarray:
+        """The index within each compressed slice of every value in :attr:`data`."""
+        ...
+
+    @property
+    def indptr(self) -> np.ndarray:
+        """Where each compressed slice starts in :attr:`data`; one longer than the slice count."""
+        ...
+
+    @property
+    def format(self) -> str:
+        """The encoding, ``"csr"`` or ``"csc"`` -- which axis the matrix makes contiguous."""
+        ...
+
+
+SporadikCoercible: TypeAlias = "SparseMatrixLike | list[SparseMatrixLike] | SporadikLike"
 """What :class:`SporadikLike` accepts: a scipy.sparse CSR/CSC matrix, a list of them, or layouts."""
 
 
@@ -724,7 +784,7 @@ class FileLike:
         return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v: Any) -> "FileLike":
+    def validate(cls, v: FileLikeCoercible) -> "FileLike":
         """Validate the input array and convert it to a xr.DataArray."""
 
         if isinstance(v, str):
@@ -764,7 +824,7 @@ class MeshLike:
         return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v: Any) -> "MeshLike":
+    def validate(cls, v: MeshLikeCoercible) -> "MeshLike":
         """Validate the input array and convert it to a xr.DataArray."""
 
         if isinstance(v, str):
@@ -806,7 +866,7 @@ class BigFileLike:
         return core_schema.no_info_after_validator_function(cls.validate, handler(object))
 
     @classmethod
-    def validate(cls, v: Any) -> "BigFileLike":
+    def validate(cls, v: BigFileLikeCoercible) -> "BigFileLike":
         """Validate the input file and convert it to a compliant format."""
 
         if isinstance(v, str):

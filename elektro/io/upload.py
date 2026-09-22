@@ -17,7 +17,12 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 import obstore
+from elektro.io.obstore import awrite_dataarray_to_zarr
+from elektro.io.obstore import create_s3_store
+from elektro.io.obstore import create_zarr_store_path
+from elektro.io.obstore import write_dataarray_to_zarr
 from elektro.scalars import (
+    _sporadik,
     BigFileLike,
     FileLike,
     MeshLike,
@@ -52,8 +57,6 @@ async def astore_xarray_input(
     endpoint_url: str,
 ) -> str:
     """Stores an xarray in the DataLayer"""
-    from elektro.io.obstore import awrite_dataarray_to_zarr, create_zarr_store_path
-
     array = xarray.value
     store_path = create_zarr_store_path(endpoint_url, credentials)
 
@@ -115,8 +118,6 @@ def _store_parquet_input(
     endpoint_url: str,
 ) -> str:
     """Store a parquet table in the DataLayer via obstore."""
-    from elektro.io.obstore import create_s3_store
-
     store = create_s3_store(endpoint_url, credentials)
     payload, scratch = _parquet_payload(parquet_input.value)
 
@@ -168,9 +169,6 @@ def _store_sparse_into_grant(
     """
     import zarr
 
-    from elektro.io.obstore import create_zarr_store_path
-    from elektro.scalars import _sporadik
-
     layouts = sparse.layouts
     store_path = create_zarr_store_path(endpoint_url, credentials)
     s3_path = f"s3://{credentials.bucket}/{credentials.key}"
@@ -190,8 +188,6 @@ async def astore_mesh_file(
     datalayer: "DataLayer",
 ) -> str:
     """Store a mesh file in the DataLayer asynchronously via obstore."""
-    from elektro.io.obstore import create_s3_store
-
     endpoint_url = await datalayer.get_endpoint_url()
     store = create_s3_store(endpoint_url, credentials)
 
@@ -216,8 +212,6 @@ async def aupload_bigfile(
     datalayer: "DataLayer",
 ) -> str:
     """Upload a big file to the DataLayer asynchronously via obstore."""
-    from elektro.io.obstore import create_s3_store
-
     endpoint_url = await datalayer.get_endpoint_url()
     store = create_s3_store(endpoint_url, credentials)
 
@@ -269,8 +263,6 @@ def _store_xarray_via_obstore(
     endpoint_url: str,
 ) -> str:
     """Stores an xarray in the DataLayer synchronously via obstore/zarr."""
-    from elektro.io.obstore import create_zarr_store_path, write_dataarray_to_zarr
-
     store_path = create_zarr_store_path(endpoint_url, credentials)
 
     try:
@@ -294,8 +286,6 @@ def _store_bigfile_via_obstore(
     endpoint_url: str,
 ) -> str:
     """Store a big file in the DataLayer synchronously via obstore."""
-    from elektro.io.obstore import create_s3_store
-
     store = create_s3_store(endpoint_url, credentials)
 
     try:
@@ -319,8 +309,6 @@ def _store_mesh_via_obstore(
     endpoint_url: str,
 ) -> str:
     """Store a mesh file in the DataLayer synchronously via obstore."""
-    from elektro.io.obstore import create_s3_store
-
     store = create_s3_store(endpoint_url, credentials)
 
     try:

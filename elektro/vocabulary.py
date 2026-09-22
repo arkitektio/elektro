@@ -6,7 +6,8 @@ Kept free of the generated schema on purpose, so `import elektro` does not pull
 
 import re
 from collections.abc import Mapping
-from typing import Final, Literal, Union
+from enum import Enum
+from typing import TypeVar, cast, overload, Final, Literal, Union
 
 #: The axis types of the elektro schema, as the wire spells them.
 AxisTypeName = Literal[
@@ -269,3 +270,32 @@ def duckdb_type(arrow_type: object) -> str:
 #: The colormaps that assign a colour per distinct value rather than a ramp over a range.
 #: Values rather than ``ColorMap`` members, so this module need not import the schema.
 QUALITATIVE_COLORMAP_VALUES: Final[frozenset[str]] = frozenset({"HUES", "DISTINCT", "PASTEL", "VIVID"})
+
+
+#: Any of this module's vocabularies, or another ``str``-valued literal alias.
+_ValueT = TypeVar("_ValueT", bound=str)
+
+
+# The non-None overload is declared first on purpose: these fields are often typed `Any` by the
+# generated models, and an `Any` argument resolves to whichever overload matches first.
+@overload
+def enum_value(value: "Enum | _ValueT") -> _ValueT: ...
+@overload
+def enum_value(value: None) -> None: ...
+
+
+def enum_value(value: "Enum | _ValueT | None") -> "_ValueT | None":
+    """The plain value of a field the generated models declare as an enum.
+
+    ``None`` passes through: a field the query did not select is absent rather than empty, and
+    the callers that probe for one want to keep telling those two apart.
+
+    ``use_enum_values=True`` on every generated model means such a field holds *either* the enum
+    member or its bare value, depending on whether it was constructed locally or read back off
+    the wire -- and the two compare unequal against a literal. Reading it as
+    ``getattr(x, "value", x)`` worked but said nothing about the result's type, so each call site
+    needed its own ``# type: ignore``. This states the narrowing once instead.
+    """
+    if value is None:
+        return None
+    return cast("_ValueT", value.value if isinstance(value, Enum) else value)

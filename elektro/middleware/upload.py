@@ -21,6 +21,20 @@ from concurrent.futures import ThreadPoolExecutor
 from koil import unkoil
 from pydantic import ConfigDict, Field
 
+from elektro.api.schema import (
+    FinishSparseUploadInput,
+    FinishSparseUploadMutation,
+    FinishZarrUploadInput,
+    FinishZarrUploadMutation,
+    RequestBigFileUploadInput,
+    RequestBigfileUploadMutation,
+    RequestParquetUploadInput,
+    RequestParquetUploadMutation,
+    RequestSparseUploadInput,
+    RequestSparseUploadMutation,
+    RequestZarrUploadInput,
+    RequestZarrUploadMutation,
+)
 from elektro.middleware.base import OperationMiddleware
 from elektro.scalars import (
     BigFileLike,
@@ -151,11 +165,6 @@ class UploadMiddleware(OperationMiddleware):
         self, key: str, datalayer: str, rath: "ElektroRath"
     ) -> "ZarrUploadGrant":
         """Get zarr upload credentials synchronously."""
-        from elektro.api.schema import (
-            RequestZarrUploadInput,
-            RequestZarrUploadMutation,
-        )
-
         x = rath.query(
             RequestZarrUploadMutation.Meta.document,
             RequestZarrUploadMutation.Arguments(input=RequestZarrUploadInput()).model_dump(
@@ -166,11 +175,6 @@ class UploadMiddleware(OperationMiddleware):
 
     def _finish_zarr_upload(self, store_id: str, rath: "ElektroRath") -> None:
         """Finish zarr upload synchronously."""
-        from elektro.api.schema import (
-            FinishZarrUploadInput,
-            FinishZarrUploadMutation,
-        )
-
         rath.query(
             FinishZarrUploadMutation.Meta.document,
             FinishZarrUploadMutation.Arguments(
@@ -182,11 +186,6 @@ class UploadMiddleware(OperationMiddleware):
         self, key: str, datalayer: str, rath: "ElektroRath"
     ) -> "ParquetUploadGrant":
         """Get table upload credentials synchronously."""
-        from elektro.api.schema import (
-            RequestParquetUploadInput,
-            RequestParquetUploadMutation,
-        )
-
         x = rath.query(
             RequestParquetUploadMutation.Meta.document,
             RequestParquetUploadMutation.Arguments(input=RequestParquetUploadInput()).model_dump(
@@ -199,11 +198,6 @@ class UploadMiddleware(OperationMiddleware):
         self, file: Union[FileLike, BigFileLike, MeshLike], datalayer: str, rath: "ElektroRath"
     ) -> "BigFileUploadGrant":
         """Get big file upload credentials synchronously."""
-        from elektro.api.schema import (
-            RequestBigFileUploadInput,
-            RequestBigfileUploadMutation,
-        )
-
         original_file_name = getattr(file, "file_name", getattr(file, "key", "upload"))
 
         x = rath.query(
@@ -222,11 +216,6 @@ class UploadMiddleware(OperationMiddleware):
         self, key: str, datalayer: str, rath: "ElektroRath"
     ) -> "ZarrUploadGrant":
         """Get zarr upload credentials asynchronously."""
-        from elektro.api.schema import (
-            RequestZarrUploadInput,
-            RequestZarrUploadMutation,
-        )
-
         x = await rath.aquery(
             RequestZarrUploadMutation.Meta.document,
             RequestZarrUploadMutation.Arguments(input=RequestZarrUploadInput()).model_dump(
@@ -237,11 +226,6 @@ class UploadMiddleware(OperationMiddleware):
 
     async def _afinish_zarr_upload(self, store_id: str, rath: "ElektroRath") -> None:
         """Finish zarr upload asynchronously."""
-        from elektro.api.schema import (
-            FinishZarrUploadInput,
-            FinishZarrUploadMutation,
-        )
-
         await rath.aquery(
             FinishZarrUploadMutation.Meta.document,
             FinishZarrUploadMutation.Arguments(
@@ -253,11 +237,6 @@ class UploadMiddleware(OperationMiddleware):
         self, key: str, datalayer: str, rath: "ElektroRath"
     ) -> "ParquetUploadGrant":
         """Get table upload credentials asynchronously."""
-        from elektro.api.schema import (
-            RequestParquetUploadInput,
-            RequestParquetUploadMutation,
-        )
-
         x = await rath.aquery(
             RequestParquetUploadMutation.Meta.document,
             RequestParquetUploadMutation.Arguments(input=RequestParquetUploadInput()).model_dump(
@@ -270,11 +249,6 @@ class UploadMiddleware(OperationMiddleware):
         self, file: Union[FileLike, BigFileLike, MeshLike], datalayer: str, rath: "ElektroRath"
     ) -> "BigFileUploadGrant":
         """Get big file upload credentials asynchronously."""
-        from elektro.api.schema import (
-            RequestBigFileUploadInput,
-            RequestBigfileUploadMutation,
-        )
-
         original_file_name = getattr(file, "file_name", getattr(file, "key", "upload"))
 
         x = await rath.aquery(
@@ -381,11 +355,6 @@ class UploadMiddleware(OperationMiddleware):
 
     def _get_sparse_credentials(self, rath: "ElektroRath") -> "SparseUploadGrant":
         """Get sparse upload credentials synchronously: one grant for the whole prefix."""
-        from elektro.api.schema import (
-            RequestSparseUploadInput,
-            RequestSparseUploadMutation,
-        )
-
         x = rath.query(
             RequestSparseUploadMutation.Meta.document,
             RequestSparseUploadMutation.Arguments(input=RequestSparseUploadInput()).model_dump(
@@ -400,11 +369,6 @@ class UploadMiddleware(OperationMiddleware):
         Where the server reads the group back -- encoding, shape, nnz, chunking -- and refuses
         a prefix an interrupted write left without its block.
         """
-        from elektro.api.schema import (
-            FinishSparseUploadInput,
-            FinishSparseUploadMutation,
-        )
-
         rath.query(
             FinishSparseUploadMutation.Meta.document,
             FinishSparseUploadMutation.Arguments(
@@ -414,11 +378,6 @@ class UploadMiddleware(OperationMiddleware):
 
     async def _aget_sparse_credentials(self, rath: "ElektroRath") -> "SparseUploadGrant":
         """Get sparse upload credentials asynchronously."""
-        from elektro.api.schema import (
-            RequestSparseUploadInput,
-            RequestSparseUploadMutation,
-        )
-
         x = await rath.aquery(
             RequestSparseUploadMutation.Meta.document,
             RequestSparseUploadMutation.Arguments(input=RequestSparseUploadInput()).model_dump(
@@ -429,11 +388,6 @@ class UploadMiddleware(OperationMiddleware):
 
     async def _afinish_sparse_upload(self, store_id: str, rath: "ElektroRath") -> None:
         """Finish a sparse upload asynchronously."""
-        from elektro.api.schema import (
-            FinishSparseUploadInput,
-            FinishSparseUploadMutation,
-        )
-
         await rath.aquery(
             FinishSparseUploadMutation.Meta.document,
             FinishSparseUploadMutation.Arguments(

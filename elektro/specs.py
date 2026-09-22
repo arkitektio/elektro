@@ -7,7 +7,7 @@ server-side::
 
     from elektro.specs import SingleChannelTrace, VoltageTrace, Spectrogram
 
-    @register
+    @app.action
     def spectrogram(trace: SingleChannelTrace) -> Spectrogram: ...
 
 Each alias wraps :class:`~elektro.api.schema.Lens` in a mirrored
@@ -91,6 +91,7 @@ from elektro.vocabulary import (
     AxisSelection,
     AxisTypeName,
     default_axis_type,
+    enum_value,
     normalize_selection,
 )
 
@@ -410,7 +411,7 @@ def _axis_table(candidate: Candidate) -> tuple[tuple[str, AxisTypeName, int], ..
     if system is not None:
         axes = sorted(system.axes, key=lambda axis: axis.order)
         # `use_enum_values` means the field may hold either the enum or its value.
-        types = tuple(str(getattr(axis.type, "value", axis.type)) for axis in axes)  # type: ignore[assignment]
+        types = tuple(enum_value(axis.type) for axis in axes)
     else:
         types = tuple(default_axis_type(name) for name in names)
     return tuple(zip(names, types, shape))
@@ -487,7 +488,7 @@ def axes_of_type(lens: Lens, axis_type: AxisType | AxisTypeName) -> tuple[str, .
     rather than hard-coding ``"t"`` -- the spec guarantees the axis exists, not
     what it is called.
     """
-    wanted = str(getattr(axis_type, "value", axis_type))
+    wanted = enum_value(axis_type)
     return tuple(name for name, found in zip(lens.axis_names, axis_types(lens)) if found == wanted)
 
 
@@ -541,7 +542,7 @@ def _constrained_key(constraint: RequiresInput) -> DescriptorKey:
 def _constraint_operator(constraint: RequiresInput) -> ConstraintOperator:
     """A constraint's operator as a plain value, whichever spelling the model holds."""
     operator = constraint.operator
-    return str(getattr(operator, "value", operator))  # type: ignore[return-value]
+    return enum_value(operator)
 
 
 def _holds(

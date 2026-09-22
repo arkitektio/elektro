@@ -30,11 +30,17 @@ from rath.turms.utils import get_attributes_or_error
 
 from .client import client_of
 from .scalars import is_unlabeled
+from elektro.sparse import check_against_store
+from elektro.sparse import check_axes
+from elektro.tables import TableDeclarationError
+from elektro.tables import file_columns_of
+from elektro.tables import resolve_columns
 from .vocabulary import (
     MATRIX_KINDS,
     AxisSelection,
     ResolvedTransformKind,
     default_axis_type,
+    enum_value,
     normalize_selection,
 )
 
@@ -260,7 +266,7 @@ class ExperimentTrait(ContextBound):
     def layers_of_kind(self, kind: str) -> list[Any]:  # noqa: ANN401
         """The experiment's layers of one kind (``"TRACE"``, ``"SPIKES"``, ``"EVENTS"``, ``"ANNOTATION"``)."""
         layers = get_attributes_or_error(self, "layers")
-        return [layer for layer in layers if str(getattr(layer.kind, "value", layer.kind)) == kind]
+        return [layer for layer in layers if enum_value(layer.kind) == kind]
 
     @property
     def data(self) -> xr.Dataset:
@@ -347,8 +353,6 @@ class CreateTableDatasetTrait(BaseModel):
     @model_validator(mode="after")
     def _resolve_columns(self) -> Self:
         """Derive the declaration, merge the caller's onto it, and refuse what cannot describe this frame."""
-        from elektro.tables import TableDeclarationError, file_columns_of, resolve_columns
-
         data = getattr(self, "data", None)
         if data is None:
             return self
@@ -381,8 +385,6 @@ class CreateSparseDatasetTrait(BaseModel):
     @model_validator(mode="after")
     def _check_declaration(self) -> Self:
         """Check the axes, then check them against the matrix if one is in hand."""
-        from elektro.sparse import check_against_store, check_axes
-
         axes = getattr(self, "axes", None) or ()
         check_axes(axes)
         layouts = getattr(getattr(self, "store", None), "layouts", None)
@@ -666,7 +668,7 @@ class DeclaresAxesTrait(BaseModel):
 
 def _normalize_kind(kind: "ResolvedTransformKind | Enum") -> ResolvedTransformKind:
     """Normalize a transformation kind to its plain string value."""
-    return str(getattr(kind, "value", kind))  # type: ignore[return-value]
+    return enum_value(kind)
 
 
 def _axis_names_in_order(system: Any) -> list[str]:  # noqa: ANN401
