@@ -313,14 +313,14 @@ async def test_rekuest_expands_through_the_client_its_registry_was_bound_to(
     plays no part. The object then remembers that client, which is what keeps it on
     app A afterwards even though B is the only app current by then.
     """
-    pytest.importorskip("rekuest.app")
+    pytest.importorskip("arkitekt_spec.declare.app")
     from typing import Annotated
 
     from fakts import Alias, Require
     from rath.origin import get_origin
 
-    from rekuest.app import AppRegistry
-    from rekuest.definition.define import prepare_definition
+    from arkitekt_spec.declare.app import AppRegistry
+    from arkitekt_spec.declare.definition.define import prepare_definition
     from rekuest.structures.serialization.actor import expand_inputs
 
     a, b = apps
