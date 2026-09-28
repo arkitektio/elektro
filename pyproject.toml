@@ -20,7 +20,7 @@ dependencies = [
     "filelock>=3.12",
     "pydantic>=2",
     # The service and structures are declared with arkitekt-spec.
-    "arkitekt-spec>=0.1",
+    "arkitekt-spec>=1.1.1",
 ]
 
 [project.optional-dependencies]
