@@ -21,6 +21,8 @@ dependencies = [
     "pydantic>=2",
     # The service and structures are declared with arkitekt-spec.
     "arkitekt-spec>=1.1.1",
+    # The service wiring (Alias, Require, FaktsAuthLink); it came through rekuest before.
+    "fakts>=4",
 ]
 
 [project.optional-dependencies]
