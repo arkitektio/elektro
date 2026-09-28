@@ -4,7 +4,6 @@
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://pypi.org/project/elektro/)
 ![Maintainer](https://img.shields.io/badge/maintainer-jhnnsrs-blue)
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/elektro.svg)](https://pypi.python.org/pypi/elektro/)
-[![PyPI status](https://img.shields.io/pypi/status/elektro.svg)](https://pypi.python.org/pypi/elektro/)
 [![PyPI download month](https://img.shields.io/pypi/dm/elektro.svg)](https://pypi.python.org/pypi/elektro/)
 [![Checked with mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/jhnnsrs/elektro)
@@ -30,7 +29,7 @@ without downloading the whole thing"* — and does it as one line of typed, asyn
 > **Note:** Elektro is built for the [Arkitekt](https://arkitekt.live) ecosystem. Configuration
 > and authentication come from [Fakts](https://github.com/jhnnsrs/fakts), the transport from
 > [Rath](https://github.com/jhnnsrs/rath), and its domain types plug straight into
-> [Rekuest](https://github.com/jhnnsrs/rekuest-next) workflows.
+> [Rekuest](https://github.com/jhnnsrs/rekuest) workflows.
 
 ## Installation
 
@@ -38,13 +37,16 @@ without downloading the whole thing"* — and does it as one line of typed, asyn
 pip install elektro
 ```
 
-Elektro requires **Python ≥ 3.11**. Two optional extras pull in heavier, domain-specific
+Elektro requires **Python ≥ 3.11**. Optional extras pull in heavier, domain-specific
 dependencies only when you need them:
 
 ```bash
 pip install "elektro[table]"   # pyarrow + pandas + duckdb — query Parquet stores
 pip install "elektro[neuron]"  # the NEURON simulator — build & run biophysical models
+pip install "elektro[sparse]"  # sporadik — upload spike rasters as sparse datasets
 ```
+
+Inside an arkitekt app, `pip install "arkitekt[rekuest,elektro]"` installs it alongside arkitekt.
 
 ## Scope
 
@@ -134,40 +136,77 @@ pyramid level, not to the dataset: `level_data(2)` and `multi_scale_data()` reac
 
 ## Quickstart
 
-In the Arkitekt ecosystem the app is built and entered for you. Every GraphQL operation is a
-method of the `Elektro` client it holds, so you take that client from the app and call through
-it — nothing is looked up behind your back:
+Every GraphQL operation is a method of the `Elektro` client, in a blocking and an `a`-prefixed
+async flavour (`create_folder` / `acreate_folder`, `get_array_dataset` / `aget_array_dataset`, …).
+Nothing is looked up behind your back: you call through the client you were given.
+
+### In an arkitekt app
+
+Add `elektro_service` to your app and take the client by annotation — arkitekt injects it.
+`elektro.specs` holds lens types such as `SingleChannelTrace` that declare what an action needs:
 
 ```python
 import numpy as np
-from arkitekt import App, connect
-from elektro import Elektro
+import xarray as xr
 
-with connect(App("my-app", services=[Elektro])) as rt:
-        elektro = rt.require(Elektro)
+from arkitekt import App, Task, run
+from elektro import Elektro, elektro_service
+from elektro.specs import SingleChannelTrace, carried_axes, ensure
 
-        # Create a folder (metadata only)
-        folder = elektro.create_folder(name="my_experiment")
+app = App("rectify", "0.1.0", services=[elektro_service])
 
-        # Upload a 1-D signal — the array is stored in Zarr, the metadata in GraphQL.
-        # `axes` is required: an axis is what gives a dimension a type.
-        dataset = elektro.create_array_dataset(
+
+@app.action
+def rectify(trace: SingleChannelTrace, elektro: Elektro, task: Task) -> SingleChannelTrace:
+    """Rectify Trace"""
+    source = trace.data  # a lazy xarray.DataArray
+    task.progress(50, f"Rectifying {source.shape}")
+    result = elektro.create_array_dataset(
+        data=xr.DataArray(np.abs(np.asarray(source)), dims=source.dims),
+        scales=[],
+        name="rectified",
+        axes=carried_axes(trace, source.dims),
+    )
+    return ensure(result.lens(), SingleChannelTrace)
+
+
+if __name__ == "__main__":
+    run(app)
+```
+
+Datasets, lenses, folders, experiments, neuron models and the other domain types travel between
+actions by id (`@elektro/arraydataset`, `@elektro/lens`, …), so an action can take and return them
+directly.
+
+### From a script
+
+```python
+import numpy as np
+from arkitekt import easy
+from elektro import elektro_service
+
+with easy("my-script", elektro_service) as elektro:
+    # Create a folder (metadata only)
+    folder = elektro.create_folder(name="my_experiment")
+
+    # Upload a 1-D signal — the array is stored in Zarr, the metadata in GraphQL.
+    # `axes` is required: an axis is what gives a dimension a type.
+    dataset = elektro.create_array_dataset(
         data=np.random.random((1000,)),
         scales=[],
         name="signal_1",
         axes=["t"],
         folder=folder.id,
-        )
+    )
 
-        dataset.id           # the new dataset's id
-        dataset.data.shape   # (1000,) — a lazy xarray.DataArray, materialized on access
+    dataset.id           # the new dataset's id
+    dataset.data.shape   # (1000,) — a lazy xarray.DataArray, materialized on access
 
-        # Fetch one back
-        again = elektro.get_array_dataset(dataset.id)
+    # Fetch one back
+    again = elektro.get_array_dataset(dataset.id)
 ```
 
-Every method has an `a`-prefixed async twin (`acreate_folder`, `acreate_array_dataset`,
-`aget_array_dataset`, …) for use inside an async context:
+In async code use `async with aeasy("my-script", elektro_service) as elektro:` and the async twins:
 
 ```python
 folder = await elektro.acreate_folder(name="my_experiment")
@@ -327,15 +366,15 @@ them all onto one new clock with a sampling law. It returns a `PublishedRun` (`c
 
 ## In the Arkitekt ecosystem
 
-- **`ElektroService`** (`elektro/arkitekt.py`) — registers Elektro as an Arkitekt service. It
-  builds a fully wired `Elektro` app from a [Fakts](https://github.com/jhnnsrs/fakts) config
-  (`FaktsAuthLink` for auth, `FaktsAIOHttpLink`/`FaktsGraphQLWSLink` for transport, a
-  `FaktsDataLayer` for storage) so an Arkitekt app gets a ready-to-use client with no manual
-  setup.
-- **`structure_reg`** (`elektro/arkitekt.py`) — registers the domain types (`ArrayDataset`,
-  `Folder`, `Experiment`, `NeuronModel`, …) as [Rekuest](https://github.com/jhnnsrs/rekuest-next)
-  structures, each under an identifier like `@elektro/arraydataset`, so they can be passed in and out
-  of Rekuest workflow nodes (expand/shrink/search handled for you).
+- **`elektro_service`** (`elektro/arkitekt.py`) — registers Elektro as an Arkitekt service. It
+  builds a fully wired `Elektro` client from a [Fakts](https://github.com/jhnnsrs/fakts) config
+  (`FaktsAuthLink` for auth, `AIOHttpLink`/`GraphQLWSLink` for transport, a `DataLayer` for
+  storage), so `App(services=[elektro_service])` gets a ready-to-use client with no manual setup.
+- **Structures** (the same module's `registry`) — the domain types (`ArrayDataset`, `Lens`,
+  `Folder`, `Experiment`, `NeuronModel`, …) are registered as
+  [Rekuest](https://github.com/jhnnsrs/rekuest) structures, each under an identifier like
+  `@elektro/arraydataset`, so they can be passed in and out of actions and workflows
+  (expand/shrink/search handled for you).
 
 Under the hood the transport is [Rath](https://github.com/jhnnsrs/rath) (`ElektroRath`, a link
 chain of file extraction, dicting, pint coercion, auth and an HTTP/WebSocket split), the
@@ -345,27 +384,20 @@ composition is [koil](https://github.com/jhnnsrs/koil), and object storage goes 
 ## Public API
 
 ```python
-from elektro import Elektro, ElektroService, structure_reg
+from elektro import Elektro, elektro_service
 
-# the building blocks of the app
+# the building blocks of the client
 from elektro.rath import ElektroRath
 from elektro.datalayer import DataLayer
 
-# the domain operations (turms-generated; sync + async `a*` twins)
-from elektro.api.schema import (
-    create_folder,
-    create_array_dataset,
-    get_array_dataset,
-    create_experiment,
-    create_session,
-    ArrayDataset,
-    Folder,
-)
+# generated types and inputs (operations are methods of `Elektro`)
+from elektro.api.schema import ArrayDataset, Folder, CoordinateAnchorInput, SamplingInput
 ```
 
 `elektro.api.schema` is generated from the GraphQL schema by
 [turms](https://github.com/jhnnsrs/turms) and regenerated whenever the schema changes — it is
-the source of truth for the full set of available operations and types.
+the source of truth for the full set of available operations (as methods of `ElektroApi`, which
+`Elektro` mixes in) and types.
 
 ## Development
 
