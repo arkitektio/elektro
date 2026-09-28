@@ -710,6 +710,7 @@ source = { editable = "." }
 dependencies = [
     { name = "arkitekt-spec" },
     { name = "dask" },
+    { name = "fakts" },
     { name = "filelock" },
     { name = "kanne" },
     { name = "numcodecs" },
@@ -768,6 +769,7 @@ requires-dist = [
     { name = "arkitekt-spec", specifier = ">=1.1.1" },
     { name = "dask", specifier = ">=2024.12.1" },
     { name = "duckdb", marker = "extra == 'table'", specifier = ">=1.0" },
+    { name = "fakts", specifier = ">=4" },
     { name = "filelock", specifier = ">=3.12" },
     { name = "kanne", specifier = ">=2.5.0" },
     { name = "neuron", marker = "sys_platform != 'win32' and extra == 'neuron'", specifier = ">=8.0.0" },
