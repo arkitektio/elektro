@@ -70,7 +70,7 @@ from __future__ import annotations
 import functools
 import re
 from collections import Counter, abc
-from collections.abc import Mapping, Sequence
+from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import (
     Annotated,
@@ -90,6 +90,7 @@ from arkitekt_spec.actions import (
 )
 
 from elektro.api.schema import AxisInput, AxisType, Lens
+from elektro.scalars import axis_name
 from elektro.vocabulary import (
     AxisSelection,
     AxisTypeName,
@@ -495,7 +496,7 @@ def axes_of_type(lens: Lens, axis_type: AxisType | AxisTypeName) -> tuple[str, .
     return tuple(name for name, found in zip(lens.axis_names, axis_types(lens)) if found == wanted)
 
 
-def carried_axes(lens: Lens, dims: Sequence[str]) -> list[AxisInput]:
+def carried_axes(lens: Lens, dims: Sequence[Hashable]) -> list[AxisInput]:
     """AxisInput for a derived array's dims, types carried from the source lens.
 
     For ``create_array_dataset(axes=...)`` on a dataset computed from this lens:
@@ -506,9 +507,10 @@ def carried_axes(lens: Lens, dims: Sequence[str]) -> list[AxisInput]:
     convention.
     """
     types = dict(zip(lens.axis_names, axis_types(lens)))
+    names = [axis_name(dim) for dim in dims]
     return [
-        AxisInput(name=dim, type=AxisType(types[dim] if dim in types else default_axis_type(dim)))
-        for dim in dims
+        AxisInput(name=name, type=AxisType(types[name] if name in types else default_axis_type(name)))
+        for name in names
     ]
 
 

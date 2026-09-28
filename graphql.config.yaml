@@ -58,7 +58,7 @@ projects:
             reserved_from:
               - elektro.elektro.Elektro
             coercible_inputs:
-              AxisInput: str
+              AxisInput: elektro.scalars.AxisName
             expand_input_types:
               - input
         processors:

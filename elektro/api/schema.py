@@ -2,7 +2,7 @@
     
 import builtins
 from datetime import datetime
-from elektro.scalars import ArrayCoercible, ArrayLike, BigFileLike, BigFileLikeCoercible, FileLike, FileLikeCoercible, ParquetCoercible, ParquetLike, RGBAColor, SporadikCoercible, SporadikLike
+from elektro.scalars import ArrayCoercible, ArrayLike, AxisName, BigFileLike, BigFileLikeCoercible, FileLike, FileLikeCoercible, ParquetCoercible, ParquetLike, RGBAColor, SporadikCoercible, SporadikLike
 from elektro.traits import AxisInputTrait, BiophysicsInputTrait, BiophysicsTrait, CompartmentInputTrait, CompartmentTrait, CoordinateSystemTrait, CreateSparseDatasetTrait, CreateTableDatasetTrait, DataArrayTrait, DatasetTrait, DeclaresAxesTrait, ElektroFetchable, ExperimentTrait, HasDownloadAccessor, HasParquetStoreAccesor, HasPresignedDownloadAccessor, HasZarrStoreAccessor, Lensable, ModelConfigInputTrait, ModelConfigTrait, ResolvesSpacesTrait, SectionInputTrait, SparseAxisInputTrait, TableDatasetTrait, TopologyInputTrait, TopologyTrait, TransformationTrait
 from enum import Enum
 from kanne.scalars import Capacitance, Concentration, Dimension, Duration, ElectricCurrent, ElectricPotential, ElectricalConductance, ElectricalResistance, Frequency, GenericQuantity, Length, Resistivity, SpecificCapacitance, Temperature, Unit
@@ -9206,7 +9206,7 @@ Returns:
         variables['input'] = _input
         return self.execute(DeleteAnnotationMutation, variables, task=task).delete_annotation
 
-    async def acreate_annotation_collection(self, name: str, axes: Iterable[AxisInput | str], description: str | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> AnnotationCollection:
+    async def acreate_annotation_collection(self, name: str, axes: Iterable[AxisInput | AxisName], description: str | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> AnnotationCollection:
         """CreateAnnotationCollection 
 
 Create an annotation collection, in a coordinate system of its own, optionally related to what its shapes are drawn over: a dataset's sample grid, a segment's clock. The common path for a timeline -- drawing on an experiment -- goes through createAnnotation instead, which mints the experiment's collection on first use
@@ -9232,7 +9232,7 @@ Returns:
         variables['input'] = _input
         return (await self.aexecute(CreateAnnotationCollectionMutation, variables, task=task)).create_annotation_collection
 
-    def create_annotation_collection(self, name: str, axes: Iterable[AxisInput | str], description: str | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> AnnotationCollection:
+    def create_annotation_collection(self, name: str, axes: Iterable[AxisInput | AxisName], description: str | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> AnnotationCollection:
         """CreateAnnotationCollection 
 
 Create an annotation collection, in a coordinate system of its own, optionally related to what its shapes are drawn over: a dataset's sample grid, a segment's clock. The common path for a timeline -- drawing on an experiment -- goes through createAnnotation instead, which mints the experiment's collection on first use
@@ -9294,7 +9294,7 @@ Returns:
         variables['input'] = _input
         return self.execute(DeleteAnnotationCollectionMutation, variables, task=task).delete_annotation_collection
 
-    async def acreate_array_dataset(self, data: ArrayCoercible, scales: Iterable[ScaleInput], name: str, axes: Iterable[AxisInput | str], folder: IDCoercible | None | UnsetType=UNSET, anchors: Iterable[CoordinateAnchorInput] | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> ArrayDataset:
+    async def acreate_array_dataset(self, data: ArrayCoercible, scales: Iterable[ScaleInput], name: str, axes: Iterable[AxisInput | AxisName], folder: IDCoercible | None | UnsetType=UNSET, anchors: Iterable[CoordinateAnchorInput] | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> ArrayDataset:
         """CreateArrayDataset 
 
 Create a new dataset from array-like data, with its pyramid levels, optional coordinate anchors (a value unit, channel labels, the rig state) and derivation edges. One of the three ways data enters (with createTableDataset and createSparseDataset): when its samples were taken is said afterwards, by an edge onto a clock (`createSamplingLaw`), and what it is drawn as by an experiment layer
@@ -9330,7 +9330,7 @@ Returns:
         variables['input'] = _input
         return (await self.aexecute(CreateArrayDatasetMutation, variables, task=task)).create_array_dataset
 
-    def create_array_dataset(self, data: ArrayCoercible, scales: Iterable[ScaleInput], name: str, axes: Iterable[AxisInput | str], folder: IDCoercible | None | UnsetType=UNSET, anchors: Iterable[CoordinateAnchorInput] | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> ArrayDataset:
+    def create_array_dataset(self, data: ArrayCoercible, scales: Iterable[ScaleInput], name: str, axes: Iterable[AxisInput | AxisName], folder: IDCoercible | None | UnsetType=UNSET, anchors: Iterable[CoordinateAnchorInput] | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> ArrayDataset:
         """CreateArrayDataset 
 
 Create a new dataset from array-like data, with its pyramid levels, optional coordinate anchors (a value unit, channel labels, the rig state) and derivation edges. One of the three ways data enters (with createTableDataset and createSparseDataset): when its samples were taken is said afterwards, by an edge onto a clock (`createSamplingLaw`), and what it is drawn as by an experiment layer

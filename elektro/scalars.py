@@ -14,8 +14,20 @@ import xarray as xr
 import pandas as pd
 import numpy as np
 import uuid
-from collections.abc import Iterable, Mapping
+from collections.abc import Hashable, Iterable, Mapping
+from enum import Enum
 from pathlib import Path
+
+
+AxisName: TypeAlias = Hashable
+"""An axis given by its name alone: any hashable, as xarray types its dims (see :func:`axis_name`)."""
+
+
+def axis_name(name: AxisName) -> str:
+    """The string an axis given by ``name`` is called: an enum's value, else ``str(name)``."""
+    if isinstance(name, Enum):
+        name = name.value
+    return str(name)
 
 if TYPE_CHECKING:
     import pyarrow as pa

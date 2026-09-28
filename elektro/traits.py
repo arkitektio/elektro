@@ -12,7 +12,7 @@ If you want to add your own traits to the graphql type, you can do so by adding 
 """
 
 from collections import deque
-from collections.abc import Sequence
+from collections.abc import Hashable, Sequence
 from enum import Enum
 from typing import Awaitable, ClassVar, List, NamedTuple, Self, Union
 import numpy as np
@@ -30,6 +30,7 @@ from rath.turms.utils import get_attributes_or_error
 
 from .client import client_of
 from .scalars import is_unlabeled
+from elektro.scalars import axis_name
 from elektro.sparse import check_against_store
 from elektro.sparse import check_axes
 from elektro.tables import TableDeclarationError
@@ -596,9 +597,11 @@ class AxisInputTrait(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _coerce_bare_name(cls, value: Any) -> Any:  # noqa: ANN401
-        if isinstance(value, str):
-            return {"name": value, "type": default_axis_type(value)}
-        return value
+        if isinstance(value, (dict, BaseModel)) or not isinstance(value, Hashable):
+            return value
+        # A bare name: a str, or any hashable xarray dim.
+        name = axis_name(value)
+        return {"name": name, "type": default_axis_type(name)}
 
 
 class DeclaresAxesTrait(BaseModel):
