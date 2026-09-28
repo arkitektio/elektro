@@ -29,7 +29,7 @@ without downloading the whole thing"* — and does it as one line of typed, asyn
 > **Note:** Elektro is built for the [Arkitekt](https://arkitekt.live) ecosystem. Configuration
 > and authentication come from [Fakts](https://github.com/jhnnsrs/fakts), the transport from
 > [Rath](https://github.com/jhnnsrs/rath), and its domain types plug straight into
-> [Rekuest](https://github.com/jhnnsrs/rekuest) workflows.
+> Arkitekt actions and workflows.
 
 ## Installation
 
@@ -67,7 +67,7 @@ connection into typed objects and lazy arrays.
 
 ## Core concepts
 
-The domain types you work with (all registered as Rekuest structures in `elektro/arkitekt.py`, beside the service):
+The domain types you work with (all registered as structures in `elektro/arkitekt.py`, beside the service):
 
 | Type              | Meaning                                                                 |
 |-------------------|-------------------------------------------------------------------------|
@@ -371,8 +371,8 @@ them all onto one new clock with a sampling law. It returns a `PublishedRun` (`c
   (`FaktsAuthLink` for auth, `AIOHttpLink`/`GraphQLWSLink` for transport, a `DataLayer` for
   storage), so `App(services=[elektro_service])` gets a ready-to-use client with no manual setup.
 - **Structures** (the same module's `registry`) — the domain types (`ArrayDataset`, `Lens`,
-  `Folder`, `Experiment`, `NeuronModel`, …) are registered as
-  [Rekuest](https://github.com/jhnnsrs/rekuest) structures, each under an identifier like
+  `Folder`, `Experiment`, `NeuronModel`, …) are registered as structures on an
+  [arkitekt-spec](https://github.com/arkitektio/arkitekt-spec) `AppRegistry`, each under an identifier like
   `@elektro/arraydataset`, so they can be passed in and out of actions and workflows
   (expand/shrink/search handled for you).
 
