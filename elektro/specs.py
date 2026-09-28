@@ -84,7 +84,10 @@ from typing import (
 )
 
 from rekuest.annotations import Provides, Requires
-from rekuest.protocol.schema import DescriptorOperator, RequiresInput
+from arkitekt_spec.actions import (
+    DescriptorOperator,
+    RequiresInput,
+)
 
 from elektro.api.schema import AxisInput, AxisType, Lens
 from elektro.vocabulary import (
