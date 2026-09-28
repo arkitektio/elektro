@@ -321,7 +321,7 @@ async def test_rekuest_expands_through_the_client_its_registry_was_bound_to(
 
     from arkitekt_spec.declare.app import AppRegistry
     from arkitekt_spec.declare.definition.define import prepare_definition
-    from rekuest.structures.serialization.actor import expand_inputs
+    from arkitekt_runtime.structures.serialization.actor import expand_inputs
 
     a, b = apps
 
