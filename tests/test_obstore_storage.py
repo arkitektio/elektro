@@ -16,6 +16,7 @@ import zarr
 from obstore.store import MemoryStore
 from zarr.storage import ObjectStore as ZarrObjectStore, StorePath
 
+from elektro.datalayer import DataLayer
 from elektro.io.download import download_file
 from elektro.io.obstore import (
     ParquetDatasetViaObstore,
@@ -66,11 +67,11 @@ def test_download_file_reads_bytes_via_obstore(
         return credentials, "http://example.invalid"
 
     monkeypatch.setattr("elektro.io.download.unkoil", fake_unkoil)
-    monkeypatch.setattr("elektro.io.download.create_s3_store", lambda *_args: store)
+    monkeypatch.setattr("elektro.io.download.create_s3_store", lambda *_args, **_kwargs: store)
 
     # The clients are resolved before the hop into the event loop, so they are
     # handed over explicitly here; nothing ambient is involved.
-    rath, datalayer = object(), object()
+    rath, datalayer = object(), DataLayer(endpoint_url="http://example.invalid")
     result = download_file("store-id", str(target), datalayer, rath=rath)
 
     assert seen == {"rath": rath, "datalayer": datalayer}

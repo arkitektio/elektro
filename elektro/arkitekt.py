@@ -89,8 +89,8 @@ def elektro(
                 CoercePintLink(),
                 FaktsAuthLink(token_loader=tokens),
                 SplitLink(
-                    left=AIOHttpLink(endpoint_url=elektro.to_http_path("graphql")),
-                    right=GraphQLWSLink(ws_endpoint_url=elektro.to_ws_path("graphql")),
+                    left=AIOHttpLink(endpoint_url=elektro.to_http_path("graphql"), proxy=elektro.proxy),
+                    right=GraphQLWSLink(ws_endpoint_url=elektro.to_ws_path("graphql"), proxy=elektro.proxy),
                     split=lambda o: o.node.operation != OperationType.SUBSCRIPTION,
                 ),
             ),

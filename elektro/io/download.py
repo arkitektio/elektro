@@ -146,7 +146,7 @@ async def aopen_zarr_store(
     """Open a zarr store for the given store ID asynchronously."""
     rath, datalayer = _clients(rath, datalayer, obj)
     credentials, endpoint_url = await aget_zarr_credentials_and_endpoint(store_id, rath, datalayer)
-    return create_zarr_store_path(endpoint_url, credentials)
+    return create_zarr_store_path(endpoint_url, credentials, proxy=datalayer.proxy)
 
 
 def open_zarr_store(
@@ -162,7 +162,7 @@ def open_zarr_store(
     credentials, endpoint_url = unkoil(
         aget_zarr_credentials_and_endpoint, store_id, rath, datalayer
     )
-    return create_zarr_store_path(endpoint_url, credentials)
+    return create_zarr_store_path(endpoint_url, credentials, proxy=datalayer.proxy)
 
 
 async def aopen_parquet_filesytem(
@@ -181,7 +181,7 @@ async def aopen_parquet_filesytem(
     credentials, endpoint_url = await aget_table_credentials_and_endpoint(
         store_id, rath, datalayer
     )
-    return ParquetDatasetViaObstore(create_s3_store(endpoint_url, credentials), credentials.key)
+    return ParquetDatasetViaObstore(create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy), credentials.key)
 
 
 def open_parquet_filesystem(
@@ -200,7 +200,7 @@ def open_parquet_filesystem(
     credentials, endpoint_url = unkoil(
         aget_table_credentials_and_endpoint, store_id, rath, datalayer
     )
-    return ParquetDatasetViaObstore(create_s3_store(endpoint_url, credentials), credentials.key)
+    return ParquetDatasetViaObstore(create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy), credentials.key)
 
 
 async def aopen_parquet_duckdb(
@@ -278,7 +278,10 @@ async def adownload_presigned_file(
 
     # Stream the file in 1 MiB chunks to avoid per-read syscall overhead.
     async with aiohttp.ClientSession() as session:
-        async with session.get(endpoint_url + presigned_url) as response:
+        # ``proxy=None`` is aiohttp's own default, so an unproxied datalayer is unchanged.
+        async with session.get(
+            endpoint_url + presigned_url, proxy=datalayer.proxy
+        ) as response:
             response.raise_for_status()
             with open(file_name, "wb") as file:
                 while True:
@@ -344,7 +347,7 @@ async def adownload_file(
     )
 
     _ensure_parent_directory(file_name)
-    store = create_s3_store(endpoint_url, credentials)
+    store = create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy)
 
     # Stream the file asynchronously directly into the file object
     response = await obstore.get_async(store, credentials.key)
@@ -382,7 +385,7 @@ def download_file(
     )
 
     _ensure_parent_directory(file_name)
-    store = create_s3_store(endpoint_url, credentials)
+    store = create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy)
 
     # Stream the file synchronously directly into the file object
     response = obstore.get(store, credentials.key)

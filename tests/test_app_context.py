@@ -189,7 +189,7 @@ def opened(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
 
     monkeypatch.setattr("elektro.io.download.unkoil", fake_unkoil)
     monkeypatch.setattr(
-        "elektro.io.download.create_zarr_store_path", lambda *args: "a-store-path"
+        "elektro.io.download.create_zarr_store_path", lambda *args, **kwargs: "a-store-path"
     )
     return seen
 
