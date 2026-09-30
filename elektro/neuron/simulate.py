@@ -44,6 +44,8 @@ from kanne.scalars import (
     DurationCoercible,
     ElectricCurrent,
     Frequency,
+    GenericQuantity,
+    PintQuantity,
     Unit,
 )
 from collections import defaultdict
@@ -203,9 +205,24 @@ def load_compiled_mechanisms(
         # In those cases the mechanisms are already present, so the collision is benign.
         if "already exists" not in str(exc):
             raise
-        logger.debug(
-            f"Mechanisms from {str_dll_path} are already registered in this worker; "
-            f"treating as loaded ({exc})."
+        other = _LOADED_DLLS - {str_dll_path}
+        if other:
+            # A *different* environment's library already registered these mechanism
+            # names in this process. NEURON keeps the first definition, so carrying on
+            # would silently simulate the other environment's .mod code.
+            raise RuntimeError(
+                f"Cannot load {str_dll_path}: its mechanisms are already registered by "
+                f"{sorted(other)} in this process, and NEURON would keep those stale "
+                "definitions. Run each ModEnvironment in its own worker process "
+                "(e.g. a ProcessPoolExecutor with max_tasks_per_child=1)."
+            ) from exc
+        # Nothing else was loaded by us, so these were most likely auto-loaded at
+        # `import neuron` time from a compiled arch folder in the working directory --
+        # which may or may not match this environment.
+        logger.warning(
+            f"Mechanisms from {str_dll_path} were already registered before elektro "
+            f"loaded them ({exc}). If a compiled mechanism folder (e.g. x86_64/) sits in "
+            "the working directory, NEURON auto-loaded it and its definitions win."
         )
     _LOADED_DLLS.add(str_dll_path)
 
@@ -242,24 +259,61 @@ class StimulusBase(BaseModel):
 class CurrentClampStimulus(StimulusBase):
     """A constant current step injected via a current clamp."""
 
-    kind: Literal[StimulusKind.VOLTAGE] = StimulusKind.VOLTAGE  # type: ignore[assignment]
+    kind: Literal[StimulusKind.CURRENT] = StimulusKind.CURRENT  # type: ignore[assignment]
     delay: Duration = Duration("100 ms")
     amp: ElectricCurrent = ElectricCurrent("0.1 nanoampere")
 
 
 class WhiteNoiseStimulus(StimulusBase):
-    """A white-noise current stimulus."""
+    """A Gaussian white-noise current stimulus.
 
-    kind: Literal[StimulusKind.VOLTAGE] = StimulusKind.VOLTAGE  # type: ignore[assignment]
+    ``noise_level`` is the per-sample standard deviation when the run's ``dt`` equals
+    ``reference_dt``. At any other ``dt`` the per-sample SD is scaled by
+    ``sqrt(reference_dt / dt)``, which keeps the noise power spectral density
+    (``sigma**2 * dt``) -- and therefore its effect on the membrane -- independent of
+    the integration step.
+
+    ``seed`` makes the realization reproducible. When it is left unset, a fresh seed
+    is drawn at run time and reported back on ``SimulationResults.stims`` so the run
+    can still be reproduced.
+
+    The noise is injected from ``delay`` for ``duration`` (the rest of the run when
+    unset).
+    """
+
+    kind: Literal[StimulusKind.CURRENT] = StimulusKind.CURRENT  # type: ignore[assignment]
     noise_level: ElectricCurrent = ElectricCurrent("0.05 nanoampere")
+    reference_dt: Duration = Duration("0.05 ms")
+    seed: Optional[int] = None
+    delay: Duration = Duration("0 ms")
 
 
 class SineWaveStimulus(StimulusBase):
-    """A sinusoidal current stimulus."""
+    """A sinusoidal current stimulus, injected from ``delay`` for ``duration``.
 
-    kind: Literal[StimulusKind.VOLTAGE] = StimulusKind.VOLTAGE  # type: ignore[assignment]
+    The phase is zero at ``delay``, i.e. ``amplitude * sin(2*pi*f*(t - delay))``.
+    """
+
+    kind: Literal[StimulusKind.CURRENT] = StimulusKind.CURRENT  # type: ignore[assignment]
     frequency: Frequency = Frequency("10 Hz")
     amplitude: ElectricCurrent = ElectricCurrent("0.1 nanoampere")
+    delay: Duration = Duration("0 ms")
+
+
+def _resolve_noise_seeds(stims: List[Any]) -> List[Any]:
+    """Return ``stims`` with every unseeded ``WhiteNoiseStimulus`` given a fresh seed.
+
+    Seeds come from fresh OS entropy (``SeedSequence()``), so they never depend on
+    RNG state a forked worker inherited, and the returned stimuli record exactly
+    which realization was played.
+    """
+    resolved = []
+    for stim in stims:
+        if isinstance(stim, WhiteNoiseStimulus) and stim.seed is None:
+            seed = int(np.random.SeedSequence().generate_state(1, dtype=np.uint32)[0])
+            stim = stim.model_copy(update={"seed": seed})
+        resolved.append(stim)
+    return resolved
 
 
 # Whitelisted names available to distribution expressions. Only pure, total math
@@ -349,43 +403,103 @@ def _safe_eval_expression(expression: str, variables: Dict[str, float]) -> float
     return float(eval(compile(tree, "<distribution>", "eval"), {"__builtins__": {}}, names))
 
 
-def _apply_section_param(h: Any, sec: Any, param: str, dist: Any) -> None:
+def _neuron_unit(h: Any, name: str) -> Optional[str]:
+    """The unit NEURON declares for the variable ``name`` (e.g. ``"mmho/cm2"``).
+
+    Returns ``None`` when NEURON declares no unit (or does not know the name).
+    """
+    try:
+        unit = str(h.units(name)).strip()
+    except Exception:
+        return None
+    return unit or None
+
+
+def _to_neuron_magnitude(h: Any, name: str, value: Any) -> float:
+    """Convert a unit-bearing ``value`` to a bare float in ``name``'s NEURON unit.
+
+    NEURON range and global variables are bare numbers in the unit declared by their
+    mechanism (``gbar_hNa`` in ``mmho/cm2``, ``gnabar_hh`` in ``S/cm2``, ...). A
+    quantity's own magnitude is only right when it was supplied in exactly that unit,
+    so every value is converted to the declared unit first -- ``"50 mS/cm2"`` for an
+    ``S/cm2`` parameter must reach NEURON as ``0.05``, not ``50``.
+
+    Plain numbers are passed through unchanged. When NEURON declares no unit, a
+    dimensionless quantity is accepted as-is; anything else is used in the unit it
+    was given, with a warning, since there is nothing to convert to.
+    """
+    if not isinstance(value, PintQuantity):
+        return float(value)
+
+    unit = _neuron_unit(h, name)
+    if unit is None:
+        if not value.dimensionality:
+            return float(value.to("dimensionless").magnitude)
+        logger.warning(
+            "NEURON declares no unit for %s; using %s as given (magnitude %s).",
+            name,
+            value,
+            value.magnitude,
+        )
+        return value.magnitude
+
+    target = GenericQuantity._normalize_string("1" + unit if unit.startswith("/") else unit)
+    try:
+        return float(value.to(target).magnitude)
+    except Exception as e:
+        raise ValueError(
+            f"Cannot convert {value} to the unit NEURON declares for {name} ({unit})."
+        ) from e
+
+
+def _apply_section_param(
+    h: Any, sec: Any, param: str, dist: Any, origin: Any = None
+) -> None:
     """Set a range variable on ``sec`` according to its spatial ``distribution``.
 
+    Every value is converted to the unit the mechanism declares for ``param``
+    before it reaches NEURON (see :func:`_to_neuron_magnitude`).
+
     ``uniform`` sets a single value on every segment; ``linear`` interpolates
-    between ``proximal_value`` (path distance 0) and ``distal_value`` (the most
-    distal segment) by path distance; ``expression`` evaluates a Python
-    expression in ``x`` (normalized position) and ``d`` (path distance).
+    between ``proximal_value`` (the start of this section) and ``distal_value``
+    (its most distal segment) along the section; ``expression`` evaluates a
+    Python expression in ``x`` (normalized position along the section) and ``d``
+    (path distance in µm from ``origin``, the cell's root, e.g. ``soma(0.5)``;
+    from the start of this section when no origin is given).
     """
     kind = str(dist.kind)
 
     if kind == "UNIFORM" or kind.endswith("UNIFORM"):
         if dist.value is None:
             raise ValueError("A 'uniform' distribution requires a value.")
-        setattr(sec, param, dist.value)
+        setattr(sec, param, _to_neuron_magnitude(h, param, dist.value))
         return
 
-    # Non-uniform distributions are evaluated per segment, so establish a path
-    # distance origin at the start of this section.
-    h.distance(0, 0.0, sec=sec)
-    max_dist = max((h.distance(seg.x, sec=sec) for seg in sec), default=0.0) or 1.0
+    if kind.endswith("LINEAR"):
+        if dist.proximal_value is None or dist.distal_value is None:
+            raise ValueError("A 'linear' distribution requires proximal_value and distal_value.")
+        proximal = _to_neuron_magnitude(h, param, dist.proximal_value)
+        distal = _to_neuron_magnitude(h, param, dist.distal_value)
 
-    for seg in sec:
-        d = h.distance(seg.x, sec=sec)
-        if kind.endswith("LINEAR"):
-            if dist.proximal_value is None or dist.distal_value is None:
-                raise ValueError(
-                    "A 'linear' distribution requires proximal_value and distal_value."
-                )
-            frac = d / max_dist
-            value = dist.proximal_value + (dist.distal_value - dist.proximal_value) * frac
-        elif kind.endswith("EXPRESSION"):
-            if dist.expression is None:
-                raise ValueError("An 'expression' distribution requires an expression.")
-            value = _safe_eval_expression(dist.expression, {"x": seg.x, "d": d})
-        else:
-            raise ValueError(f"Unknown distribution kind: {dist.kind}")
-        setattr(seg, param, value)
+        # Interpolate along this section: path distance from its own start.
+        h.distance(0, sec(0))
+        max_dist = max((h.distance(seg) for seg in sec), default=0.0) or 1.0
+        for seg in sec:
+            frac = h.distance(seg) / max_dist
+            setattr(seg, param, proximal + (distal - proximal) * frac)
+        return
+
+    if kind.endswith("EXPRESSION"):
+        if dist.expression is None:
+            raise ValueError("An 'expression' distribution requires an expression.")
+        # An expression yields a bare number, taken to be in the parameter's NEURON unit.
+        h.distance(0, origin if origin is not None else sec(0))
+        for seg in sec:
+            value = _safe_eval_expression(dist.expression, {"x": seg.x, "d": h.distance(seg)})
+            setattr(seg, param, value)
+        return
+
+    raise ValueError(f"Unknown distribution kind: {dist.kind}")
 
 
 # NEURON ``ion_style(name_ion, c_style, e_style, einit, eadvance, cinit)`` argument
@@ -524,6 +638,11 @@ def instantiate_cell(h: Any, cell: Cell, config: NeuronModelConfig) -> Dict[str,
         child = h_sections[sec_def.id]
         child.connect(parent(conn.parent_location), conn.child_end)
 
+    # Path distances for expression distributions are measured from the middle of
+    # the cell's root section (the one without a parent, usually the soma).
+    root_def = next((s for s in cell.topology.sections if s.parent is None), None)
+    origin = h_sections[root_def.id](0.5) if root_def is not None else None
+
     for sec_def in cell.topology.sections:
         sec = h_sections[sec_def.id]
         comp = cell.biophysics.compartment_for_id(sec_def.category)
@@ -538,7 +657,7 @@ def instantiate_cell(h: Any, cell: Cell, config: NeuronModelConfig) -> Dict[str,
         for param in comp.section_params:
             assert param.mechanism in comp.mechanisms
             try:
-                _apply_section_param(h, sec, param.param, param.distribution)
+                _apply_section_param(h, sec, param.param, param.distribution, origin)
             except Exception as e:
                 raise ValueError(f"Failed to set parameter {param.param}") from e
 
@@ -592,6 +711,9 @@ class SimulationResults:
     name: str
     raw_results: dict[str, Any] | None = None
     raw_stimulations: dict[str, Any] | None = None
+    #: The stimuli exactly as played, with every white-noise seed resolved, so the
+    #: run can be reproduced.
+    stims: List[Any] | None = None
 
 
 def instantiate_model(h: Any, model: NeuronModelConfig) -> NeuronModelInstance:
@@ -609,7 +731,7 @@ def instantiate_model(h: Any, model: NeuronModelConfig) -> NeuronModelInstance:
     for mech_global in model.mechanism_globals or []:
         name = f"{mech_global.param}_{mech_global.mechanism}"
         try:
-            setattr(h, name, mech_global.value)
+            setattr(h, name, _to_neuron_magnitude(h, name, mech_global.value))
         except Exception as e:
             raise ValueError(f"Failed to set global mechanism parameter {name}") from e
 
@@ -659,6 +781,20 @@ def instantiate_model(h: Any, model: NeuronModelConfig) -> NeuronModelInstance:
     )
 
 
+def _fit_length(values: np.ndarray, length: int) -> np.ndarray:
+    """``values`` trimmed, or padded with its last value, to exactly ``length`` samples."""
+    if len(values) >= length:
+        return values[:length]
+    return np.concatenate([values, np.full(length - len(values), values[-1])])
+
+
+def _stimulus_window(stim: Any, times: np.ndarray, total_ms: float) -> tuple[float, np.ndarray]:
+    """``stim``'s onset (ms) and the boolean mask of ``times`` during which it is on."""
+    delay = stim.delay.to("millisecond").magnitude
+    duration = stim.duration.to("millisecond").magnitude if stim.duration is not None else total_ms
+    return delay, (times >= delay) & (times < delay + duration)
+
+
 def run_simulation_processed(
     model: NeuronModel,
     duration: DurationCoercible,
@@ -696,6 +832,7 @@ def run_simulation_processed(
     # memory spikes on long, fine-dt runs. Only genuinely time-varying stimuli (sine /
     # white-noise) get a single played Vector, built from the grouped output waveform.
     refs: list = []
+    stims = _resolve_noise_seeds(stims)
     grouped: dict[tuple[str, str, float], list] = defaultdict(list)
     for stim in stims:
         grouped[(stim.cell, stim.location, stim.position)].append(stim)
@@ -729,12 +866,20 @@ def run_simulation_processed(
             elif isinstance(stim_param, SineWaveStimulus):
                 A = stim_param.amplitude.to("nanoampere").magnitude
                 f = stim_param.frequency.to("hertz").magnitude
-                waveform += A * np.sin(2 * np.pi * f * (times / 1000.0))
+                delay, window = _stimulus_window(stim_param, times, total_ms)
+                waveform[window] += A * np.sin(2 * np.pi * f * ((times[window] - delay) / 1000.0))
                 needs_vector = True
 
             elif isinstance(stim_param, WhiteNoiseStimulus):
-                sigma = stim_param.noise_level.to("nanoampere").magnitude
-                waveform += np.random.normal(0.0, sigma, size=n_steps + 1)
+                # Scale the per-sample SD so sigma**2 * dt (the noise power spectral
+                # density) matches that of `noise_level` at `reference_dt`.
+                reference_dt_ms = stim_param.reference_dt.to("millisecond").magnitude
+                sigma = stim_param.noise_level.to("nanoampere").magnitude * math.sqrt(
+                    reference_dt_ms / dt_ms
+                )
+                _, window = _stimulus_window(stim_param, times, total_ms)
+                rng = np.random.default_rng(stim_param.seed)
+                waveform[window] += rng.normal(0.0, sigma, size=int(np.count_nonzero(window)))
                 needs_vector = True
 
         if needs_vector:
@@ -794,7 +939,13 @@ def run_simulation_processed(
 
     # Step waveforms are rebuilt on the recorded time axis so the reported stimulus
     # lines up exactly with `time_trace`; played waveforms are returned verbatim.
-    output_waveforms: dict[tuple[str, str, float], np.ndarray] = dict(played_groups)
+    # The run records one sample per fixed step, so sample i of a played waveform
+    # lines up with sample i of the recordings. `continuerun` can record one sample
+    # more or fewer than the played grid through float rounding, so trim or pad
+    # (holding the last value) to the recorded length.
+    output_waveforms: dict[tuple[str, str, float], np.ndarray] = {
+        key: _fit_length(waveform, len(time_trace)) for key, waveform in played_groups.items()
+    }
     for key, step_clamps in step_groups.items():
         waveform = np.zeros_like(time_trace)
         for delay, d, amp in step_clamps:
@@ -823,6 +974,7 @@ def run_simulation_processed(
         name=name or f"Simulation for {model.name}",
         raw_results={},
         raw_stimulations={},
+        stims=stims,
     )
 
 
@@ -840,7 +992,7 @@ async def asimulate(
     stims: List[Union[CurrentClampStimulus]],  # type: ignore[no-untyped-call]
     records: List[Union[VRecord]],  # type: ignore[no-untyped-call]
     name: str | None = None,
-    dt: DurationCoercible = "1 ms",
+    dt: DurationCoercible = "0.05 ms",
     process_pool: ProcessPoolExecutor | None = None,
 ) -> SimulationResults:
     """

@@ -39,7 +39,7 @@ def test_unique_ids() -> None:
 def test_current_clamp_defaults_and_units() -> None:
     """CurrentClampStimulus defaults carry explicit units convertible via ``.to``."""
     stim = CurrentClampStimulus(cell="cell_1", location="soma")
-    assert stim.kind == StimulusKind.VOLTAGE
+    assert stim.kind == StimulusKind.CURRENT
     # Defaults carry explicit units (not dimensionless), so .to(...) works.
     assert stim.amp.to("nanoampere").magnitude == pytest.approx(0.1)
     assert stim.delay.to("millisecond").magnitude == pytest.approx(100.0)
