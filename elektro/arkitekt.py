@@ -176,12 +176,12 @@ async def expand_neuron_model(id: str, elektro: Elektro) -> NeuronModel:
     return await elektro.aget_neuron_model(id)
 
 
-# `Dataset` was renamed `Folder` (it collided with the data it filed), but the
-# identifier is a wire contract workflow definitions name, so it stays -- exactly
-# as mikro's `Folder` keeps `@mikro/dataset`.
-@registry.structure("@elektro/dataset", widget=_search(SearchFoldersQuery))
+# `@elektro/folder`, the identifier the elektro service declares it hosts. (A
+# folder used to travel as `@elektro/dataset`; an app registered with that
+# identifier has to re-register.)
+@registry.structure("@elektro/folder", widget=_search(SearchFoldersQuery))
 async def expand_folder(id: str, elektro: Elektro) -> Folder:
-    """A folder, by id -- it travels as `@elektro/dataset`."""
+    """A folder, by id."""
     return await elektro.aget_folder(id)
 
 

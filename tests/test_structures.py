@@ -21,7 +21,7 @@ IDENTIFIERS = {
     "@elektro/annotationcollection",
     "@elektro/arraydataset",
     "@elektro/coordinatesystem",
-    "@elektro/dataset",
+    "@elektro/folder",
     "@elektro/experiment",
     "@elektro/file",
     "@elektro/lens",
