@@ -56,3 +56,14 @@ def test_merging_stamps_the_service_that_owns_them() -> None:
 
     services = {s.service for s in app.structure_registry.structures()}
     assert services == {"elektro"}
+
+
+def test_a_lens_and_a_dataset_say_how_they_are_described() -> None:
+    """What lets a run test a lens against a port's Requires and Provides."""
+    from elektro.specs import describe_lens
+
+    structures = declared.registry.structure_registry
+    assert structures.get_fullfilled_structure("@elektro/lens").describe is describe_lens
+    assert structures.get_fullfilled_structure("@elektro/arraydataset").describe is describe_lens
+    described = {i for i, s in structures.identifier_structure_map.items() if s.describe}
+    assert described == {"@elektro/lens", "@elektro/arraydataset"}

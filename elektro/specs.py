@@ -68,8 +68,7 @@ Three rules, each protecting against a silent failure (mikro's, unchanged):
 from __future__ import annotations
 
 import functools
-import re
-from collections import Counter, abc
+from collections import Counter
 from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import (
@@ -84,6 +83,8 @@ from typing import (
 )
 
 from arkitekt_spec.declare.annotations import Provides, Requires
+from arkitekt_spec.declare.descriptors import holds
+from arkitekt_spec.declare.descriptors import unfulfilled as descriptor_failures
 from arkitekt_spec.actions import (
     DescriptorOperator,
     RequiresInput,
@@ -550,55 +551,22 @@ def _constraint_operator(constraint: RequiresInput) -> ConstraintOperator:
     return enum_value(operator)
 
 
-def _holds(
-    operator: ConstraintOperator,
-    actual: DescriptorValue | None,
-    expected: DescriptorValue | None,
-    present: bool,
-) -> bool:
-    """Evaluate one constraint operator against a descriptor value.
-
-    ``expected`` is optional because rekuest types ``RequiresInput.value`` so;
-    only EXISTS may leave it out, and any other operator without one is refused.
-    """
-    if operator == "EXISTS":
-        return present
-    if expected is None:
-        raise ValueError(f"{operator} needs a value to compare against")
-    if not present:
-        return False
-    if operator == "EQUALS":
-        return bool(actual == expected)
-    if operator == "NOT_EQUALS":
-        return bool(actual != expected)
-    if operator in ("GTE", "LTE"):
-        if not isinstance(actual, int) or not isinstance(expected, int):
-            raise TypeError(
-                f"{operator} orders counts; {actual!r} and {expected!r} are not both counts"
-            )
-        return actual >= expected if operator == "GTE" else actual <= expected
-    if operator in ("IN", "NOT_IN"):
-        if isinstance(expected, str) or not isinstance(expected, abc.Sequence):
-            raise TypeError(f"{operator} needs a sequence of allowed values, got {expected!r}")
-        found = actual in expected
-        return found if operator == "IN" else not found
-    if operator == "CONTAINS":
-        if isinstance(actual, str):
-            if not isinstance(expected, str):
-                raise TypeError(
-                    f"CONTAINS against the string {actual!r} needs a substring, got {expected!r}"
-                )
-            return expected in actual
-        if not isinstance(actual, abc.Sequence):
-            raise TypeError(f"CONTAINS needs a sequence descriptor, got {actual!r}")
-        return any(item == expected for item in actual)
-    if operator == "MATCHES":
-        return re.fullmatch(str(expected), str(actual)) is not None
-    raise ValueError(f"Unknown constraint operator {operator!r}")
-
-
 #: Provenance keys a producer vouches for, which structure cannot show.
 Declarations = Mapping[DescriptorKey, DescriptorValue]
+
+
+def describe_lens(candidate: Candidate) -> dict[str, Any]:
+    """A lens' descriptors as a run tests them against a port.
+
+    `lens_descriptors`, with every key this vocabulary *can* compute present:
+    a dataset that states no value unit has ``VALUE_DIMENSION`` of ``None``, so
+    a ``VoltageTrace`` constraint fails on it instead of passing unseen. Only a
+    key that is absent is left untested, and here that is ``VALUE_KIND`` alone:
+    provenance, which only the producer can state.
+    """
+    descriptors: dict[str, Any] = dict(lens_descriptors(candidate))
+    descriptors.setdefault(VALUE_DIMENSION, None)
+    return descriptors
 
 
 def unfulfilled(
@@ -606,33 +574,15 @@ def unfulfilled(
 ) -> tuple[str, ...]:
     """Every constraint of `spec` this lens does not satisfy, human-readable.
 
-    Structural keys are computed via `lens_descriptors`; provenance keys
-    (``VALUE_KIND``) cannot be computed and must be stated via `declares` -- an
-    absent key fails its constraint rather than being skipped.
+    Structural keys are computed via `describe_lens`. A provenance key
+    (``VALUE_KIND``) cannot be computed, so a constraint on it is not tested
+    unless `declares` states it. This is the same test a run applies to a lens
+    crossing a port.
     """
-    descriptors = lens_descriptors(lens)
+    descriptors = describe_lens(lens)
     if declares:
         descriptors.update(declares)
-    failures: list[str] = []
-    for constraint in spec_constraints(spec):
-        key = _constrained_key(constraint)
-        operator = _constraint_operator(constraint)
-        present = key in descriptors
-        actual = descriptors.get(key)
-        if not _holds(operator, actual, constraint.value, present):
-            failures.append(_describe(constraint, operator, actual, present))
-    return tuple(failures)
-
-
-def _describe(
-    constraint: RequiresInput,
-    operator: ConstraintOperator,
-    actual: DescriptorValue | None,
-    present: bool,
-) -> str:
-    """One unsatisfied constraint, human-readable."""
-    detail = f"actual {actual!r}" if present else "key absent -- declare it if it is provenance"
-    return f"{constraint.key} {operator} {constraint.value!r} ({detail})"
+    return descriptor_failures(spec_constraints(spec), descriptors)
 
 
 def fulfills(lens: Candidate, spec: Spec, declares: Declarations | None = None) -> bool:
@@ -648,7 +598,10 @@ def ensure(lens: Lens, spec: Spec, declares: Declarations | None = None) -> Lens
     closes that gap::
 
         return ensure(result.lens(), Spectrogram)
-        return ensure(assignment.lens(), Categorical, declares={VALUE_KIND: "categorical"})
+
+    A run applies this same test to whatever an action returns, before it is
+    shrunk, so an action has no need to call it; it is for code that wants the
+    refusal earlier, and it is what `fit_lens` returns through.
     """
     failures = unfulfilled(lens, spec, declares)
     if failures:
@@ -712,7 +665,7 @@ def compose(
     that fails is a hard failure -- extents never grow, axes never vanish.
     """
     table = _axis_table(candidate)
-    descriptors = lens_descriptors(candidate)
+    descriptors = describe_lens(candidate)
     if declares:
         descriptors.update(declares)
 
@@ -721,9 +674,11 @@ def compose(
     for constraint in spec_constraints(spec):
         key = _constrained_key(constraint)
         operator = _constraint_operator(constraint)
-        present = key in descriptors
-        actual = descriptors.get(key)
-        if _holds(operator, actual, constraint.value, present):
+        if key not in descriptors:
+            # Provenance nobody stated: not testable, so not a failure.
+            continue
+        actual = descriptors[key]
+        if holds(operator, actual, constraint.value):
             continue
         axis_type = ADJUSTABLE_KEYS.get(key)
         axes = tuple((name, extent) for name, found, extent in table if found == axis_type)
@@ -739,7 +694,7 @@ def compose(
                 Pin(key=key, axis_type=axis_type, axes=axes, operator=operator, target=target)
             )
         else:
-            failures.append(_describe(constraint, operator, actual, present))
+            failures.append(f"{key} {operator} {constraint.value!r} (actual {actual!r})")
     return CompositionPlan(failures=tuple(failures), pins=tuple(pins))
 
 
@@ -828,6 +783,7 @@ __all__ = [
     "N_SPACE_AXES",
     "N_TIME_AXES",
     "VALUE_DIMENSION",
+    "describe_lens",
     "VALUE_KIND",
     "Candidate",
     "Categorical",

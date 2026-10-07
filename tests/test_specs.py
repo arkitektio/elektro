@@ -165,7 +165,7 @@ class TestValueDimension:
         """So `VoltageTrace` fails on it, rather than a guess passing it."""
         assert VALUE_DIMENSION not in lens_descriptors(UNITLESS)
         (failure,) = unfulfilled(UNITLESS, VoltageTrace)
-        assert "key absent" in failure
+        assert "(actual None)" in failure
 
 
 class TestFulfilment:
@@ -203,11 +203,12 @@ class TestFulfilment:
         assert len(failures) == 2, "a FREQUENCY axis, and decibels are not a voltage"
         assert "@elektro/value_dimension EQUALS 'voltage'" in failures[-1]
 
-    def test_provenance_must_be_declared(self) -> None:
-        """Provenance must be declared."""
-        (failure,) = unfulfilled(VM, Categorical)
-        assert "key absent" in failure
+    def test_provenance_is_tested_only_when_stated(self) -> None:
+        """Provenance is tested only when stated."""
+        assert fulfills(VM, Categorical)
         assert fulfills(VM, Categorical, {VALUE_KIND: "categorical"})
+        (failure,) = unfulfilled(VM, Categorical, {VALUE_KIND: "continuous"})
+        assert "@elektro/value_kind EQUALS 'categorical' (actual 'continuous')" in failure
 
     def test_refine_stacks_constraints_onto_a_base(self) -> None:
         """Refine stacks constraints onto a base."""

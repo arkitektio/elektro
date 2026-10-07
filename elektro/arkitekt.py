@@ -49,6 +49,7 @@ from elektro.api.schema import (
 )
 
 from elektro.datalayer import DataLayer
+from elektro.specs import describe_lens
 from elektro.elektro import Elektro
 from elektro.middleware.upload import UploadMiddleware
 from elektro.rath import ElektroRath
@@ -105,7 +106,10 @@ def _search(query: object) -> SearchWidget:
     return SearchWidget(query=query.Meta.document, ward="elektro")  # type: ignore[attr-defined]
 
 
-@registry.structure("@elektro/arraydataset", widget=_search(SearchArrayDatasetsQuery)
+@registry.structure(
+    "@elektro/arraydataset",
+    widget=_search(SearchArrayDatasetsQuery),
+    describe=describe_lens,
 )
 async def expand_array_dataset(id: str, elektro: Elektro) -> ArrayDataset:
     """An array dataset, by id."""
@@ -155,7 +159,7 @@ async def expand_annotation(id: str, elektro: Elektro) -> Annotation:
     return await elektro.aget_annotation(id)
 
 
-@registry.structure("@elektro/lens")
+@registry.structure("@elektro/lens", describe=describe_lens)
 async def expand_lens(id: str, elektro: Elektro) -> Lens:
     """A lens, by id."""
     return await elektro.aget_lens(id)

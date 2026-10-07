@@ -146,7 +146,12 @@ async def astore_sparse_matrix(
     Rooted at ``grant.key`` with the group at the store's root: zarr walks a node's parents to
     create intermediate groups, and a prefix-scoped grant denies the bucket root with a 403.
     """
-    return _store_sparse_into_grant(sparse, credentials, await datalayer.get_endpoint_url(), proxy=datalayer.proxy)
+    # In a thread: the writer is synchronous, and a matrix takes long enough that the event
+    # loop (the agent's socket, every other upload) must not wait for it.
+    endpoint_url = await datalayer.get_endpoint_url()
+    return await asyncio.to_thread(
+        _store_sparse_into_grant, sparse, credentials, endpoint_url, proxy=datalayer.proxy
+    )
 
 
 def store_sparse_matrix(
