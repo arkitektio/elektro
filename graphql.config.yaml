@@ -21,6 +21,7 @@ projects:
             - input
         coercible_scalars:
           ArrayLike: elektro.scalars.ArrayCoercible
+          ByteCount: elektro.scalars.ByteCountCoercible
           ID: rath.scalars.IDCoercible
           FileLike: elektro.scalars.FileLikeCoercible
           BigFileLike: elektro.scalars.BigFileLikeCoercible
@@ -73,6 +74,7 @@ projects:
           ValidatorFunction: str
           StructureString: str
           ArrayLike: elektro.scalars.ArrayLike
+          ByteCount: elektro.scalars.ByteCount
           FileLike: elektro.scalars.FileLike
           BigFileLike: elektro.scalars.BigFileLike
           ParquetLike: elektro.scalars.ParquetLike
@@ -108,6 +110,12 @@ projects:
           Dimension: kanne.scalars.Dimension
 
 
+        # The structure each type is known by across the hub (arkitekt-service's
+        # `@identified`), on every class generated for it, a nested selection included.
+        directive_class_vars:
+          - directive: identified
+            argument: by
+            attribute: __identifier__
         additional_bases:
           ArrayDataset:
             - elektro.traits.DatasetTrait

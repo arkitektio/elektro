@@ -6,7 +6,7 @@ import pytest
 import xarray as xr
 from pydantic import BaseModel, ValidationError
 
-from elektro.scalars import Matrix, ArrayLike, TwoDVector, is_unlabeled
+from elektro.scalars import ByteCount, Matrix, ArrayLike, TwoDVector, is_unlabeled
 
 
 class ArrayModel(BaseModel):
@@ -87,3 +87,21 @@ def test_matrix_roundtrip() -> None:
     arr = np.arange(9).reshape(3, 3)
     m = MatrixModel(x=arr)
     np.testing.assert_array_equal(m.x.as_matrix(), arr)
+
+
+class _ByteCountHolder(BaseModel):
+    size: ByteCount
+
+
+def test_a_byte_count_past_int32_round_trips_as_a_plain_number() -> None:
+    holder = _ByteCountHolder(size=3_000_000_000)
+
+    assert isinstance(holder.size, ByteCount)
+    assert holder.model_dump_json() == '{"size":3000000000}'
+    assert _ByteCountHolder(size="42").size == 42
+
+
+@pytest.mark.parametrize("bad", [-1, True, 1.5, None, "many"])
+def test_a_byte_count_refuses_what_the_server_refuses(bad: object) -> None:
+    with pytest.raises(ValidationError):
+        _ByteCountHolder(size=bad)

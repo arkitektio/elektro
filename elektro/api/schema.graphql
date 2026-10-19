@@ -1,3 +1,7 @@
+directive @auth(required_scopes: [String!], required_roles: [String!], required_org_roles: [String!], any_scope_of: [String!], any_role_of: [String!], any_org_role_of: [String!], allow_scoped: Boolean) on FIELD_DEFINITION
+
+directive @identified(by: String!) on OBJECT
+
 directive @oneOf on INPUT_OBJECT
 
 directive @unionElementOf(union: String!, discriminator: String!, key: String!) repeatable on INPUT_OBJECT
@@ -178,7 +182,11 @@ type Annotation @key(fields: "id", resolvable: true) {
 """
 A named set of annotations, owning the coordinate system they are drawn in. All its shapes share one drawing space and so one placement story: the collection is related to other spaces by edges, the shapes just have vectors. Drawn over a dataset's sample grid it marks that dataset; drawn on a segment's clock it marks every signal of the segment at once -- which is what Neo's events and epochs are; drawn on an experiment's world it marks the timeline
 """
-type AnnotationCollection @key(fields: "id", resolvable: true) {
+type AnnotationCollection @key(fields: "id", resolvable: true) @identified(by: "@elektro/annotationcollection") {
+  """
+  This object's descriptors, a flat mapping of key to value: the facts about it that an action's port can `require` and a trigger can test (e.g. `@elektro/n_samples`). The keys are the ones elektro declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none
+  """
+  descriptors: JSON!
   id: ID!
   name: String!
   description: String
@@ -442,7 +450,12 @@ type App @key(fields: "id", resolvable: true) {
 """
 A multi-dimensional array dataset: a recording, a stimulus, a vector of sample times, a unit's waveform templates. Its dimensions and their types live on the axes of its INTRINSIC (sample grid) coordinate system; physical units live on the clocks it has edges into; its pyramid levels are DataArrays, each mapping into its grid. What it *means* -- a trace in an experiment -- is said by whatever names it, never here; where it was recorded is a `recordingSite` on its anchors
 """
-type ArrayDataset @key(fields: "id", resolvable: true) {
+type ArrayDataset @key(fields: "id", resolvable: true) @identified(by: "@elektro/arraydataset") {
+  """
+  This object's descriptors, a flat mapping of key to value: the facts about it that an action's port can `require` and a trigger can test (e.g. `@elektro/n_samples`). The keys are the ones elektro declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none
+  """
+  descriptors: JSON!
+
   """
   The folder this dataset is filed in. Organisational only: it says where a user keeps this dataset, never where the data sits in space -- that is `intrinsicSystem` and the edges out of it
   """
@@ -525,7 +538,7 @@ type ArrayDataset @key(fields: "id", resolvable: true) {
   pyramidIsLabelCompliant: Boolean
 
   """
-  What this dataset structurally is, materialized from the axes of its intrinsic coordinate system at creation: the one spatial spec its SPACE axis count denotes, then a modifier per acquisition axis present. A (t, c) recording is [SCALAR, TIMESERIES, MULTICHANNEL]. Presence, not size: a one-channel CHANNEL axis still counts. Empty while the intrinsic system does not exist yet
+  What this dataset structurally is, materialized at creation from the axes of its intrinsic coordinate system and its level-0 shape: the one spatial spec its SPACE axes denote, then a modifier per acquisition axis. An axis counts only when it has more than one position. A (t, c) recording is [SCALAR, TIMESERIES, MULTICHANNEL]. A one-channel CHANNEL axis does not make it MULTICHANNEL; `hasAxisTypes` is the filter for whether an axis is declared at all. Empty while the intrinsic system does not exist yet
   """
   spec: [ArrayDatasetSpec!]!
 
@@ -604,6 +617,11 @@ input ArrayDatasetFilter {
   NOT: ArrayDatasetFilter
   DISTINCT: Boolean
 
+  """
+  Filter to the datasets satisfying every one of these descriptor constraints: the `requires` of a port, handed on unchanged, so a picker offers what the port accepts. Answered in SQL from the descriptors stored on every row. A key datasets do not declare is refused rather than ignored
+  """
+  requires: [DescriptorConstraintInput!]
+
   """Filter by the folder this dataset is filed in"""
   folder: ID
 
@@ -611,7 +629,7 @@ input ArrayDatasetFilter {
   folders: [ID!]
 
   """
-  Filter to datasets satisfying every one of these specs, e.g. [TIMESERIES, MULTICHANNEL] for multi-channel recordings. Materialized from the axes of the intrinsic coordinate system at creation. A dataset carries one spatial spec (by how many SPACE axes it has) plus a modifier per acquisition axis present, so two spatial specs together match nothing
+  Filter to datasets satisfying every one of these specs, e.g. [TIMESERIES, MULTICHANNEL] for multi-channel recordings. Materialized at creation from the axes of the intrinsic coordinate system and the level-0 shape; an axis counts only when it has more than one position, so a stack of one plane is an IMAGE and a single frame is not a TIMESERIES (use `hasAxisTypes` to ask whether an axis is declared at all). A dataset carries one spatial spec (by how many such SPACE axes it has) plus a modifier per such acquisition axis, so two spatial specs together match nothing
   """
   spec: [ArrayDatasetSpec!]
 
@@ -677,36 +695,40 @@ What a dataset structurally is, materialized from the axes of its intrinsic coor
 """
 enum ArrayDatasetSpec {
   """
-  No spatial extent: the array carries no SPACE axis at all. What nearly every electrophysiology array is -- a (t, c) recording is SCALAR, TIMESERIES and MULTICHANNEL.
+  No spatial extent: no SPACE axis with more than one position. What nearly every electrophysiology array is -- a (t, c) recording is SCALAR, TIMESERIES and MULTICHANNEL.
   """
   SCALAR
 
-  """One spatial axis -- a line profile, a depth trace."""
+  """
+  One spatial axis with more than one position -- a line profile, a depth trace.
+  """
   PROFILE
 
-  """Two spatial axes: a plane. The ordinary micrograph."""
+  """
+  Two spatial axes with more than one position each: a plane. The ordinary micrograph.
+  """
   IMAGE
 
   """
-  Three spatial axes: a stack. Holds whenever a z axis is present, even if it carries a single plane.
+  Three spatial axes with more than one position each: a stack. A z axis of a single plane does not make one -- that dataset is an IMAGE.
   """
   VOLUME
 
-  """Four or more spatial axes."""
+  """Four or more spatial axes with more than one position each."""
   HYPERVOLUME
 
   """
-  Carries a TIME axis -- a signal. Presence only: a single-sample time axis still counts.
+  Carries a TIME axis of more than one sample -- a signal. A single-sample time axis does not count.
   """
   TIMESERIES
 
   """
-  Carries a CHANNEL axis. Presence only: a one-channel axis still counts.
+  Carries a CHANNEL axis of more than one channel. A one-channel axis does not count.
   """
   MULTICHANNEL
 
   """
-  Carries a FREQUENCY axis: a spectrum or a spectrogram, not a signal over time.
+  Carries a FREQUENCY axis of more than one bin: a spectrum or a spectrogram, not a signal over time.
   """
   SPECTRAL
 }
@@ -864,6 +886,11 @@ type BigFileStore @key(fields: "id", resolvable: true) {
   path: String!
   bucket: String!
   key: String!
+
+  """
+  How many bytes this store actually holds, measured when its upload was finished. Null while unfinished, or for stores written before this was recorded
+  """
+  sizeBytes: ByteCount
   originalFileName: String
   contentType: String
 
@@ -884,7 +911,7 @@ type BigFileUploadGrant {
   path: String!
   expiresIn: Int!
   store: String!
-  maxBytes: Int!
+  maxBytes: ByteCount!
   originalFileName: String
   uploadFileName: String!
   uploadContentType: String
@@ -1011,6 +1038,11 @@ type ByDimensionTransformation implements Transformation @key(fields: "id", reso
   """
   transformations: [Transformation!]!
 }
+
+"""
+A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
+"""
+scalar ByteCount
 
 """A capacitance (``"5 pF"``, ``"100 nF"``)."""
 scalar Capacitance
@@ -1140,6 +1172,49 @@ type Client @key(fields: "id", resolvable: true) {
   id: ID!
   release: Release
   clientId: String!
+}
+
+"""
+What a guest granted it sees of the organization: the objects put in it, and what is part of them.
+"""
+type Collaboration {
+  id: ID!
+  name: String!
+  description: String
+  createdAt: DateTime!
+
+  """What is in the collaboration; what is part of these is in it too"""
+  items: [CollaborationItem!]!
+}
+
+"""
+One object in a collaboration: put there, or brought along with one that needs it to be seen.
+"""
+type CollaborationItem {
+  id: ID!
+
+  """The object's id, in its structure"""
+  objectId: String!
+  addedAt: DateTime!
+
+  """The structure the object is known by across the hub: @mikro/scene"""
+  identifier: String
+
+  """
+  Whether it is in the collaboration only as what another object in it needs to be seen
+  """
+  brought: Boolean!
+}
+
+"""An object to put in, or take out of, a collaboration"""
+input CollaborationObjectInput {
+  collaboration: ID!
+
+  """The structure the object is known by: @mikro/scene"""
+  identifier: String!
+
+  """The object's id"""
+  object: ID!
 }
 
 """
@@ -1477,11 +1552,19 @@ type Coordinate {
 }
 
 """
-The axis-agnostic hub that pins metadata spokes (a value unit, a channel label, the rig state, a value histogram, acquisition metadata) to specific coordinates of a dataset
+The axis-agnostic hub that pins metadata spokes (a value unit, a channel label, the rig state, a value histogram, acquisition metadata) to specific coordinates of an array, table or sparse dataset. Exactly one of `dataset`, `table` and `sparse` is set
 """
 type CoordinateAnchor @key(fields: "id", resolvable: true) {
   id: ID!
-  dataset: ArrayDataset!
+
+  """The array dataset this anchor pins into, or null otherwise"""
+  dataset: ArrayDataset
+
+  """The table dataset this anchor pins into, or null otherwise"""
+  table: TableDataset
+
+  """The sparse dataset this anchor pins into, or null otherwise"""
+  sparse: SparseDataset
 
   """The rig state recorded at this coordinate"""
   rig: RigState
@@ -1506,7 +1589,7 @@ type CoordinateAnchor @key(fields: "id", resolvable: true) {
   simulation: SimulationState
 
   """
-  The coordinates this anchor is pinned to, e.g. {'c': 0, 'sweep': 5}. Level-0 sample indices, i.e. coordinates of the dataset's INTRINSIC system. An anchor that omits an axis is global along it; an empty object is the whole dataset
+  The coordinates this anchor is pinned to, e.g. {'c': 0, 'sweep': 5}. For an array dataset these are level-0 sample indices, i.e. coordinates of its INTRINSIC system; for a table dataset they are values of its coordinate columns, keyed by column name; for a sparse dataset they are positions along its enumerated axes. An anchor that omits an axis is global along it; an empty object is the whole container
   """
   coordinates: Any!
 }
@@ -1516,6 +1599,8 @@ input CoordinateAnchorFilter {
   ids: [ID!]
   id: ID
   dataset: IDFilterLookup
+  table: IDFilterLookup
+  sparse: IDFilterLookup
   AND: CoordinateAnchorFilter
   OR: CoordinateAnchorFilter
   NOT: CoordinateAnchorFilter
@@ -1793,6 +1878,22 @@ input CreateClockOffsetInput {
   name: String = null
 }
 
+"""A new collaboration"""
+input CreateCollaborationInput {
+  name: String!
+  description: String = null
+}
+
+"""
+Attach metadata spokes to an array, table or sparse dataset after ingest. Exactly one of `dataset`, `table` and `sparse` names the container; `anchor` carries the coordinates and the spokes. Get-or-create on (container, coordinates): a second call at the same coordinates adds its spokes to the one anchor, and a spoke stated twice is replaced
+"""
+input CreateCoordinateAnchorInput {
+  dataset: ID = null
+  table: ID = null
+  sparse: ID = null
+  anchor: CoordinateAnchorInput!
+}
+
 """
 Create a SHARED coordinate system -- a reference space nothing lives in, e.g. a clock or a world -- and, in the same call, author the edges registering any number of sources (datasets, lenses, coordinate systems) into it. A dataset's sample grid is created with the dataset, so a shared space is the only system created directly. createExperiment can later adopt it as its world
 """
@@ -1949,6 +2050,7 @@ input CreateNeuronModelInput {
   parent: ID = null
   description: String = null
   config: ModelConfigInput!
+  derivedFrom: [DerivedFromInput!] = null
 }
 
 """
@@ -2087,6 +2189,7 @@ input CreateSparseDatasetInput {
   folder: ID = null
   derivedFrom: [DerivedFromInput!] = null
   sourceFiles: [SourceFileInput!] = null
+  anchors: [CoordinateAnchorInput!] = null
 }
 
 """
@@ -2151,6 +2254,7 @@ input CreateTableDatasetInput {
   folder: ID = null
   derivedFrom: [DerivedFromInput!] = null
   sourceFiles: [SourceFileInput!] = null
+  anchors: [CoordinateAnchorInput!] = null
 }
 
 """
@@ -2432,6 +2536,11 @@ enum DerivationSourceKind {
   A coordinate system directly, when the source is a space rather than a dataset -- a clock, or a world.
   """
   COORDINATE_SYSTEM
+
+  """
+  A neuron model, through the space it owns: the direction a retuned model is derived from the one it was edited out of, and the direction a simulated trace is derived from the model that was integrated to compute it. A model's space carries one INDEX axis and nothing placeable, so this edge is always UNMAPPABLE -- it records where the data came from and claims no geometry. It names the *whole* model; which cell and section were recorded stays on the dataset's recording or stimulus site.
+  """
+  NEURON_MODEL
 }
 
 """
@@ -2462,6 +2571,11 @@ input DerivedFromInput {
   coordinateSystem: ID = null
 
   """
+  (NEURON_MODEL) The neuron model this data was computed from -- the model a trace was simulated from, or the model another model was edited out of
+  """
+  neuronModel: ID = null
+
+  """
   How this data's own space maps back into the source's -- any creatable kind; the rank check holds you to it. **Omit it and the edge is UNMAPPABLE**: naming a source records the lineage and claims no correspondence, which is the truth for a per-unit summary whose values are not at any sample. State IDENTITY for an in-place operation (a zero-phase filter), TRANSLATION for a window or for a causal filter's group delay, SCALE for a decimation, BY_DIMENSION for a reduction that drops an axis (a mean over channels). Only a mappable edge carries placement: derived data sits where its source sits exactly when it says how
   """
   transform: TransformInput = null
@@ -2470,6 +2584,39 @@ input DerivedFromInput {
   What the derivation did to the *values* -- orthogonal to the transform's `kind`, which only says where the data sits: IDENTICAL for a window or a stride decimation (statistics transfer), TRANSFORMED for a filter, a baseline subtraction or an anti-aliased decimation, CATEGORIZED for a threshold crossing or a spike sorting (values became labels). Omit when unstated; the algorithm itself belongs to task provenance
   """
   valueRelation: ValueRelation = null
+}
+
+"""
+One constraint on an object's descriptors, in the shape a rekuest port states its `requires` in -- so a picker hands a port's constraints on unchanged. `key` is one of the keys the structure declares (e.g. `@elektro/n_space_axes`); a key it does not declare is refused.
+"""
+input DescriptorConstraintInput {
+  """The descriptor key, e.g. `@elektro/n_space_axes`"""
+  key: String!
+
+  """
+  How the object's value is compared with `value`. MATCHES is equality, as EQUALS is
+  """
+  operator: DescriptorOperator!
+
+  """
+  The value compared against: a number for GTE and LTE, a list for IN and NOT_IN, true or false for EXISTS, the member looked for with CONTAINS
+  """
+  value: JSON = null
+}
+
+"""
+How a descriptor constraint compares the object's value with the stated one. The operators a rekuest port's `requires` and `provides` are written in, with the same meaning.
+"""
+enum DescriptorOperator {
+  EQUALS
+  MATCHES
+  NOT_EQUALS
+  GTE
+  LTE
+  EXISTS
+  CONTAINS
+  IN
+  NOT_IN
 }
 
 input DesociateInput {
@@ -2704,7 +2851,11 @@ type Exp2Synapse implements NetSynapse {
   delay: Duration
 }
 
-type Experiment {
+type Experiment @identified(by: "@elektro/experiment") {
+  """
+  This object's descriptors, a flat mapping of key to value: the facts about it that an action's port can `require` and a trigger can test (e.g. `@elektro/n_samples`). The keys are the ones elektro declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none
+  """
+  descriptors: JSON!
   id: ID!
   name: String!
   description: String
@@ -3019,10 +3170,17 @@ type FieldTransformation implements Transformation @key(fields: "id", resolvable
 """
 A file in its original format (e.g. an ABF, an NWB file, a vendor recording), stored in a BigFileStore. Files are the raw bytes that array datasets are converted from.
 """
-type File @key(fields: "id", resolvable: true) {
+type File @key(fields: "id", resolvable: true) @identified(by: "@elektro/file") {
+  """
+  This object's descriptors, a flat mapping of key to value: the facts about it that an action's port can `require` and a trigger can test (e.g. `@elektro/n_samples`). The keys are the ones elektro declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none
+  """
+  descriptors: JSON!
   id: ID!
   name: String!
   store: BigFileStore!
+
+  """The folder this file is filed in"""
+  folder: Folder
 
   """Provenance entries for this file"""
   provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
@@ -3044,9 +3202,6 @@ type File @key(fields: "id", resolvable: true) {
 
   """The content type of the file"""
   contentType: String
-
-  """The folder this file is filed in"""
-  folder: Folder
 
   """
   The containers converted out of this file: the datasets a converter wrote from it, one per series. **Not a derivation** -- a file has no coordinate system, so these links claim no geometry and place nothing; they say only that this file's bytes and that data are the same thing
@@ -3411,7 +3566,11 @@ input FinishZarrUploadInput {
 """
 A folder is a collection of the things elektro stores. It mimics a folder in a file system and is the top-level container for organising data.
 """
-type Folder @key(fields: "id", resolvable: true) {
+type Folder @key(fields: "id", resolvable: true) @identified(by: "@elektro/folder") {
+  """
+  This object's descriptors, a flat mapping of key to value: the facts about it that an action's port can `require` and a trigger can test (e.g. `@elektro/n_samples`). The keys are the ones elektro declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none
+  """
+  descriptors: JSON!
   id: ID!
   files(filters: FileFilter, ordering: [FileOrder!]! = [], pagination: OffsetPaginationInput): [File!]!
 
@@ -3454,6 +3613,11 @@ union FolderChild = Folder | File | ArrayDataset | TableDataset | SparseDataset 
 input FolderChildrenFilter {
   showChildren: Boolean = null
   search: String = null
+
+  """
+  Also list the containers that were converted from a file (those with a SOURCE file link). Hidden unless this is true, because the file they were made from is listed already. Any SOURCE link hides a container, wherever its file is kept; a RENDITION link (an export) never does
+  """
+  showConverted: Boolean = null
 }
 
 input FolderFilter {
@@ -3920,7 +4084,11 @@ scalar Length
 """
 A lens is a way of looking at a dataset: a selection (slices) along its axes -- a sweep, an epoch window, a run of channels. Immutable: there is no updateLens
 """
-type Lens @key(fields: "id", resolvable: true) {
+type Lens @key(fields: "id", resolvable: true) @identified(by: "@elektro/lens") {
+  """
+  This object's descriptors, a flat mapping of key to value: the facts about it that an action's port can `require` and a trigger can test (e.g. `@elektro/n_samples`). The keys are the ones elektro declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none
+  """
+  descriptors: JSON!
   id: ID!
   dataset: ArrayDataset!
 
@@ -3976,6 +4144,11 @@ input LensFilter {
   OR: LensFilter
   NOT: LensFilter
   DISTINCT: Boolean
+
+  """
+  Filter to the lenses satisfying every one of these descriptor constraints: the `requires` of a port, handed on unchanged, so a picker offers what the port accepts. Answered in SQL from the descriptors stored on every row. A key lenses do not declare is refused rather than ignored
+  """
+  requires: [DescriptorConstraintInput!]
 
   """Filter by the dataset this lens selects over"""
   dataset: ID
@@ -4197,6 +4370,11 @@ type MediaStore @key(fields: "id", resolvable: true) {
   path: String!
   bucket: String!
   key: String!
+
+  """
+  How many bytes this store actually holds, measured when its upload was finished. Null while unfinished, or for stores written before this was recorded
+  """
+  sizeBytes: ByteCount
   originalFileName: String
   contentType: String
 
@@ -4219,7 +4397,7 @@ type MediaUploadGrant {
   path: String!
   expiresIn: Int!
   store: String!
-  maxBytes: Int!
+  maxBytes: ByteCount!
   originalFileName: String
   uploadFileName: String!
   uploadContentType: String
@@ -4263,7 +4441,11 @@ type ModelChange {
   newValue: String
 }
 
-type ModelCollection {
+type ModelCollection @identified(by: "@elektro/modelcollection") {
+  """
+  This object's descriptors, a flat mapping of key to value: the facts about it that an action's port can `require` and a trigger can test (e.g. `@elektro/n_samples`). The keys are the ones elektro declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none
+  """
+  descriptors: JSON!
   id: ID!
   name: String!
   models(filters: NeuronModelFilter, ordering: [NeuronModelOrder!]! = [], pagination: OffsetPaginationInput): [NeuronModel!]!
@@ -4411,11 +4593,29 @@ input ModelWorkspaceOrder @oneOf {
 }
 
 type Mutation {
+  """Create an empty collaboration, to put objects in and grant a guest"""
+  createCollaboration(input: CreateCollaborationInput!): Collaboration! @auth(any_role_of: ["admin", "editor"])
+
+  """
+  Put an object in a collaboration, with what it needs to be seen: an experiment brings the data its layers draw, a dataset its stores, its spaces and their edges, and its anchors
+  """
+  addToCollaboration(input: CollaborationObjectInput!): Collaboration! @auth(any_role_of: ["admin", "editor"])
+
+  """
+  Take an object out of a collaboration, with what it brought that nothing else there needs
+  """
+  removeFromCollaboration(input: CollaborationObjectInput!): Collaboration! @auth(any_role_of: ["admin", "editor"])
+
+  """
+  Delete a collaboration: whoever was granted it sees nothing of it any more
+  """
+  deleteCollaboration(id: ID!): ID! @auth(any_role_of: ["admin", "editor"])
+
   """Upload media and return a URL for access"""
-  requestMediaUpload(input: RequestMediaUploadInput!): MediaUploadGrant!
+  requestMediaUpload(input: RequestMediaUploadInput!): MediaUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """Finalize a media upload after the client has written the object"""
-  finishMediaUpload(input: FinishMediaUploadInput!): MediaStore!
+  finishMediaUpload(input: FinishMediaUploadInput!): MediaStore! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """Request temporary S3 read credentials for a media file"""
   requestMediaAccess(input: RequestMediaAccessInput!): MediaAccessGrant!
@@ -4426,19 +4626,19 @@ type Mutation {
   requestGeneralMediaAccess(input: RequestGeneralMediaAccessInput!): GeneralMediaAccessGrant!
 
   """Request an upload grant for a big file store"""
-  requestBigfileUpload(input: RequestBigFileUploadInput!): BigFileUploadGrant!
+  requestBigfileUpload(input: RequestBigFileUploadInput!): BigFileUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """Finalize a big file upload after the client has written the object"""
-  finishBigfileUpload(input: FinishBigFileUploadInput!): BigFileStore!
+  finishBigfileUpload(input: FinishBigFileUploadInput!): BigFileStore! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """Request temporary S3 read credentials for a big file"""
   requestBigfileAccess(input: RequestBigFileAccessInput!): BigFileAccessGrant!
 
   """Request an upload grant for a Zarr store"""
-  requestZarrUpload(input: RequestZarrUploadInput!): ZarrUploadGrant!
+  requestZarrUpload(input: RequestZarrUploadInput!): ZarrUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """Finalize a Zarr upload after the client has written the object"""
-  finishZarrUpload(input: FinishZarrUploadInput!): ZarrStore!
+  finishZarrUpload(input: FinishZarrUploadInput!): ZarrStore! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """Request temporary S3 read credentials for a Zarr store"""
   requestZarrAccess(input: RequestZarrAccessInput!): ZarrAccessGrant!
@@ -4449,10 +4649,10 @@ type Mutation {
   requestGeneralZarrAccess(input: RequestGeneralZarrAccessInput!): GeneralZarrAccessGrant!
 
   """Request an upload grant for a Parquet store"""
-  requestParquetUpload(input: RequestParquetUploadInput!): ParquetUploadGrant!
+  requestParquetUpload(input: RequestParquetUploadInput!): ParquetUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """Finalize a Parquet upload after the client has written the object"""
-  finishParquetUpload(input: FinishParquetUploadInput!): ParquetStore!
+  finishParquetUpload(input: FinishParquetUploadInput!): ParquetStore! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """Request temporary S3 read credentials for a Parquet file"""
   requestParquetAccess(input: RequestParquetAccessInput!): ParquetAccessGrant!
@@ -4465,17 +4665,17 @@ type Mutation {
   """
   Request an upload grant for a sparse store. The grant covers the whole prefix, so one request authorizes the group's metadata and all three of its arrays. It declares nothing about the matrix: the group states its encoding, shape and chunking, and the server reads them when the upload is finished
   """
-  requestSparseUpload(input: RequestSparseUploadInput!): SparseUploadGrant!
+  requestSparseUpload(input: RequestSparseUploadInput!): SparseUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """
   Finalize a sparse upload, which is when the group's own metadata is read. A missing encoding, a missing array, or an `indptr` whose length contradicts the declared shape are all refused here -- that is what an interrupted upload looks like, and catching it now beats a reader discovering it later
   """
-  finishSparseUpload(input: FinishSparseUploadInput!): SparseStore!
+  finishSparseUpload(input: FinishSparseUploadInput!): SparseStore! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """
   Reissue upload credentials for a sparse store whose upload is still in flight, for the reason `refreshZarrUpload` exists: three chunked arrays of a large matrix take long enough that a write can outlive its session token. Refuses a store that is already populated -- that is an overwrite, not a resumption
   """
-  refreshSparseUpload(input: RefreshSparseUploadInput!): SparseUploadGrant!
+  refreshSparseUpload(input: RefreshSparseUploadInput!): SparseUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """
   Request temporary S3 read credentials for a sparse store. Covers the whole prefix, because a lookup needs `indptr` before it knows which range of `data` to fetch
@@ -4506,6 +4706,11 @@ type Mutation {
   Delete one downsampled level of a dataset. Level 0 cannot be deleted: it is the dataset
   """
   deleteDataArray(input: DeleteDataArrayInput!): ID!
+
+  """
+  Attach metadata spokes to an array, table or sparse dataset after ingest: the rig state, acquisition metadata, a value histogram, a channel label, a recording or stimulus site, or the simulation state, pinned to some of its coordinates. Get-or-create on (container, coordinates): a second call at the same coordinates adds its spokes to the one anchor, and a spoke stated twice is replaced. A value unit is array-only: a table's units are its columns'
+  """
+  createCoordinateAnchor(input: CreateCoordinateAnchorInput!): CoordinateAnchor!
 
   """
   Create a table dataset from an uploaded parquet store: every column declared in file order, checked against the file. Columns with an `axisType` become the axes of the table's own coordinate system -- a TIME column makes it an event table, placeable on a clock. `identifiedBy` on a column says what its values are: a DATASET whose contents are the ids (a FIELD edge), or a TABLE whose rows they are (a foreign key -- a spike's unit id referencing the unit table)
@@ -4776,12 +4981,12 @@ type Mutation {
   """
   Draw an annotation into a collection, or onto an experiment (exactly one of the two). Drawing on an experiment finds its annotation collection or mints it on first use: a coordinate system copying the world's axes, an identity registration into the world, and one annotation layer
   """
-  createAnnotation(input: CreateAnnotationInput!): Annotation!
+  createAnnotation(input: CreateAnnotationInput!): Annotation! @auth(allow_scoped: true)
 
   """
   Draw many annotations in one call -- a detector's whole output. One collection resolve, one chain resolve, one insert
   """
-  createAnnotations(input: CreateAnnotationsInput!): [Annotation!]!
+  createAnnotations(input: CreateAnnotationsInput!): [Annotation!]! @auth(allow_scoped: true)
 
   """
   Edit an annotation. Only the supplied fields change; new vectors re-derive the bounding box
@@ -4978,12 +5183,21 @@ input NetSynapseInput {
   position: Float! = 0.5
 }
 
-type NeuronModel {
+type NeuronModel @identified(by: "@elektro/neuronmodel") {
+  """
+  This object's descriptors, a flat mapping of key to value: the facts about it that an action's port can `require` and a trigger can test (e.g. `@elektro/n_samples`). The keys are the ones elektro declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none
+  """
+  descriptors: JSON!
   id: ID!
   name: String!
   description: String
   creator: User
   environment: ModEnvironment!
+
+  """
+  The coordinate system this model owns. It carries one INDEX axis and nothing placeable; its derivation edges are the model's lineage
+  """
+  coordinateSystem: CoordinateSystem
   modelCollections(filters: ModelCollectionFilter, ordering: [ModelCollectionOrder!]! = [], pagination: OffsetPaginationInput): [ModelCollection!]
   mappings(filters: WorkspaceMappingFilter, ordering: [WorkspaceMappingOrder!]! = [], pagination: OffsetPaginationInput): [WorkspaceMapping!]!
   provenanceEntries(pagination: OffsetPaginationInput): [ProvenanceEntry!]!
@@ -4997,6 +5211,16 @@ type NeuronModel {
   The model's simulated datasets grouped by the clock they are timed onto: one session per run, since a run is its clock. Read off the graph, never stored. A dataset timed onto two clocks is in both; the datasets timed onto none come last, under a null clock
   """
   sessions: [NeuronModelSession!]!
+
+  """
+  Every edge from this model's space back into what it was computed from, in declared order -- the first is the primary parent, the model it was edited out of. Always UNMAPPABLE: a model's space carries one INDEX axis and nothing placeable, so the edge records the lineage and claims no geometry. Empty for a model written from scratch. This replaces the old `parent` field, which recorded no validity, no value relation and no provenance, and which `lineageGraph` could not see
+  """
+  derivedFrom: [Transformation!]!
+
+  """
+  Everything computed from this model, whatever kind of container it is: the models edited out of it, and the datasets whose `derivedFrom` names it -- a simulated trace that stated where it came from. Derived from the same edges as `derivedFrom`, never a stored back-reference that could disagree with them. **Not the same question as `simulatedDatasets`**, which reads the `simulation` spoke and answers for every run of this model whether or not anyone authored a derivation
+  """
+  derivedInto: [Resident!]!
 
   """
   The recording sites that are part of this model: every place on it some dataset's values were recorded from, in the viewer's organization
@@ -5029,6 +5253,16 @@ type NeuronModel {
     """
     weightAxial: Float = null
   ): [SectionDominance!]!
+}
+
+"""
+The fields a NEURON_MODEL derivation reads. Published for codegen; the wire type is the flat DerivedFromInput
+"""
+input NeuronModelDerivedFromInput @unionElementOf(union: "DerivedFromInput", discriminator: "kind", key: "NEURON_MODEL") {
+  kind: DerivationSourceKind! = NEURON_MODEL
+  transform: TransformInput = null
+  valueRelation: ValueRelation = null
+  neuronModel: ID!
 }
 
 input NeuronModelFilter {
@@ -5145,6 +5379,11 @@ type ParquetStore @key(fields: "id", resolvable: true) {
   path: String!
   bucket: String!
   key: String!
+
+  """
+  How many bytes this store actually holds, measured when its upload was finished. Null while unfinished, or for stores written before this was recorded
+  """
+  sizeBytes: ByteCount
   originalFileName: String
   contentType: String
 
@@ -5167,7 +5406,7 @@ type ParquetUploadGrant {
   path: String!
   expiresIn: Int!
   store: String!
-  maxBytes: Int!
+  maxBytes: ByteCount!
   originalFileName: String
   uploadFileName: String!
   uploadContentType: String
@@ -5434,7 +5673,7 @@ type Query {
   dataArrays(filters: DataArrayFilter, ordering: [DataArrayOrder!]! = [], pagination: OffsetPaginationInput): [DataArray!]!
 
   """
-  List coordinate anchors: the hubs pinning a value unit, a channel label or the rig state to coordinates of a dataset
+  List coordinate anchors: the hubs pinning a value unit, a channel label or the rig state to coordinates of an array, table or sparse dataset
   """
   coordinateAnchors(filters: CoordinateAnchorFilter, pagination: OffsetPaginationInput): [CoordinateAnchor!]!
 
@@ -5465,6 +5704,14 @@ type Query {
   workspaceMappings(filters: WorkspaceMappingFilter, ordering: [WorkspaceMappingOrder!]! = [], pagination: OffsetPaginationInput): [WorkspaceMapping!]!
   files(filters: FileFilter, ordering: [FileOrder!]! = [], pagination: OffsetPaginationInput): [File!]!
   myfiles(filters: FileFilter, ordering: [FileOrder!]! = [], pagination: OffsetPaginationInput): [File!]!
+
+  """
+  List the organization's collaborations: what a guest granted one sees of it (a guest: the collaborations granted to them)
+  """
+  collaborations: [Collaboration!]!
+
+  """Get a single collaboration by ID"""
+  collaboration(id: ID!): Collaboration!
   modEnvironments(filters: ModEnvironmentFilter, ordering: [ModEnvironmentOrder!]! = [], pagination: OffsetPaginationInput): [ModEnvironment!]!
   mechanisms(filters: MechanismFilter, ordering: [MechanismOrder!]! = [], pagination: OffsetPaginationInput): [Mechanism!]!
   mechanism(id: ID!): Mechanism!
@@ -5703,7 +5950,7 @@ input RequestBigFileAccessInput {
 
 input RequestBigFileUploadInput {
   originalFileName: String!
-  fileSize: Int = null
+  fileSize: ByteCount = null
   contentType: String = null
   host: String = null
   port: Int = null
@@ -5731,7 +5978,7 @@ input RequestMediaAccessInput {
 
 input RequestMediaUploadInput {
   originalFileName: String!
-  fileSize: Int = null
+  fileSize: ByteCount = null
   contentType: String = null
 }
 
@@ -5769,7 +6016,7 @@ input RequestZarrUploadInput {
 """
 A piece of data living in a coordinate system. Data belongs to a space; the space belongs to nobody
 """
-union Resident = ArrayDataset | DataArray | Lens | TableDataset | AnnotationCollection | SparseDataset
+union Resident = ArrayDataset | DataArray | Lens | TableDataset | AnnotationCollection | SparseDataset | NeuronModel
 
 """
 An axial resistivity (NEURON ``Ra``; ``"35.4 ohm*cm"``, ``"100 ohm*cm"``).
@@ -6566,7 +6813,11 @@ type SparseAxisReference @key(fields: "id", resolvable: true) {
 """
 A sparse matrix over two enumerated axes -- objects on one, features on the other -- stored as anndata-spelled zarr groups. It exists because a colouring names one *column*, so a colourable measurement is a column of a table: right for a few hundred features and impossible for a transcriptome, where a feature stops being a schema fact and becomes a data one. **Each axis is identified exactly once**, by its own `identifiedBy` -- a source whose contents are the ids, or the table whose rows the positions are. Its stores, axes and coordinate system are fixed at creation; a recomputation is a new dataset
 """
-type SparseDataset @key(fields: "id", resolvable: true) {
+type SparseDataset @key(fields: "id", resolvable: true) @identified(by: "@elektro/sparsedataset") {
+  """
+  This object's descriptors, a flat mapping of key to value: the facts about it that an action's port can `require` and a trigger can test (e.g. `@elektro/n_samples`). The keys are the ones elektro declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none
+  """
+  descriptors: JSON!
   id: ID!
   name: String!
   description: String
@@ -6594,6 +6845,11 @@ type SparseDataset @key(fields: "id", resolvable: true) {
 
   """The task this dataset was created through, if any"""
   createdThrough: Task
+
+  """
+  The coordinate anchors of this matrix, each pinning metadata spokes to positions along its enumerated axes, keyed by axis name, or to the whole matrix when its coordinates are empty. The same hub an array dataset uses, so a per-object matrix carries the acquisition facts of the recording it was computed from
+  """
+  anchors(filters: CoordinateAnchorFilter, pagination: OffsetPaginationInput): [CoordinateAnchor!]!
 
   """Who assigned that task"""
   createdThroughBy: User
@@ -6755,6 +7011,11 @@ type SparseStore @key(fields: "id", resolvable: true) {
   key: String!
 
   """
+  How many bytes this store actually holds, measured when its upload was finished. Null while unfinished, or for stores written before this was recorded
+  """
+  sizeBytes: ByteCount
+
+  """
   The version of the `sporadik` block this store was accepted under. A spec selects how every byte in the prefix is read, so an unknown one is refused rather than guessed at
   """
   spec: String
@@ -6787,7 +7048,7 @@ type SparseUploadGrant {
   path: String!
   expiresIn: Int!
   store: String!
-  maxBytes: Int!
+  maxBytes: ByteCount!
   originalFileName: String
   uploadFileName: String!
   uploadContentType: String
@@ -7020,7 +7281,12 @@ type SynapticConnection implements NetConnection {
 """
 A parquet-backed table whose rows are scientific records (segmented objects, localizations, cells). It owns a coordinate system whose axes are its coordinate columns, which is what makes a localization table placeable; a table with no coordinate columns enumerates its rows and its lineage edge is UNMAPPABLE. Its store, its columns and that coordinate system are fixed at creation -- only `name` and `description` can be updated, and a recomputation is a new table rather than an edit of this one. Read the rows directly from the Parquet store with a datalayer access grant rather than paginating through GraphQL
 """
-type TableDataset @key(fields: "id", resolvable: true) {
+type TableDataset @key(fields: "id", resolvable: true) @identified(by: "@elektro/tabledataset") {
+  """
+  This object's descriptors, a flat mapping of key to value: the facts about it that an action's port can `require` and a trigger can test (e.g. `@elektro/n_samples`). The keys are the ones elektro declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none
+  """
+  descriptors: JSON!
+
   """
   The folder this table dataset is filed in. Organisational only: it says where a user keeps this table, never where its rows sit in space -- that is `coordinateSystem` and the edges out of it
   """
@@ -7051,6 +7317,11 @@ type TableDataset @key(fields: "id", resolvable: true) {
 
   """The task this table was created through, if any"""
   createdThrough: Task
+
+  """
+  The coordinate anchors of this table, each pinning metadata spokes -- the rig state, acquisition metadata, a channel label, a recording site -- to values of its coordinate columns keyed by column name, or to the whole table when its coordinates are empty. The same hub an array dataset uses, so a per-unit table carries the acquisition facts of the recording it was computed from
+  """
+  anchors(filters: CoordinateAnchorFilter, pagination: OffsetPaginationInput): [CoordinateAnchor!]!
 
   """The assigner of the creating task, if any"""
   createdThroughBy: User
@@ -7910,6 +8181,27 @@ type User @key(fields: "id", resolvable: true) {
   id: ID!
   sub: String!
   preferredUsername: String!
+
+  """The full name, if the issuer sends one."""
+  name: String
+
+  """The given name, if the issuer sends one."""
+  givenName: String
+
+  """The family name, if the issuer sends one."""
+  familyName: String
+
+  """A casual name, if the issuer sends one."""
+  nickname: String
+
+  """URL of the profile picture, if the issuer sends one."""
+  picture: String
+
+  """The user's locale (BCP47), if the issuer sends one."""
+  locale: String
+
+  """The user's IANA time zone, if the issuer sends one."""
+  zoneinfo: String
   activeOrganization: Organization
 }
 
@@ -8118,6 +8410,11 @@ type ZarrStore @key(fields: "id", resolvable: true) {
   path: String!
   bucket: String!
   key: String!
+
+  """
+  How many bytes this store actually holds, measured when its upload was finished. Null while unfinished, or for stores written before this was recorded
+  """
+  sizeBytes: ByteCount
   shape: [Int!]!
 
   """
@@ -8154,7 +8451,7 @@ type ZarrUploadGrant {
   path: String!
   expiresIn: Int!
   store: String!
-  maxBytes: Int!
+  maxBytes: ByteCount!
   originalFileName: String
   uploadFileName: String!
   uploadContentType: String

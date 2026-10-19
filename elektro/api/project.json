@@ -30,6 +30,7 @@
                 "ValidatorFunction": "str",
                 "StructureString": "str",
                 "ArrayLike": "elektro.scalars.ArrayLike",
+                "ByteCount": "elektro.scalars.ByteCount",
                 "FileLike": "elektro.scalars.FileLike",
                 "BigFileLike": "elektro.scalars.BigFileLike",
                 "ParquetLike": "elektro.scalars.ParquetLike",
@@ -63,6 +64,7 @@
             },
             "coercible_scalars": {
                 "ArrayLike": "elektro.scalars.ArrayCoercible",
+                "ByteCount": "elektro.scalars.ByteCountCoercible",
                 "ID": "rath.scalars.IDCoercible",
                 "FileLike": "elektro.scalars.FileLikeCoercible",
                 "BigFileLike": "elektro.scalars.BigFileLikeCoercible",
@@ -219,6 +221,13 @@
                 ]
             },
             "additional_config": {},
+            "directive_class_vars": [
+                {
+                    "directive": "identified",
+                    "argument": "by",
+                    "attribute": "__identifier__"
+                }
+            ],
             "force_plugin_order": true,
             "omitted_document_rules": [],
             "parsers": [],

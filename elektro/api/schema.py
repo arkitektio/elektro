@@ -2,14 +2,14 @@
     
 import builtins
 from datetime import datetime
-from elektro.scalars import ArrayCoercible, ArrayLike, AxisName, BigFileLike, BigFileLikeCoercible, FileLike, FileLikeCoercible, ParquetCoercible, ParquetLike, RGBAColor, SporadikCoercible, SporadikLike
+from elektro.scalars import ArrayCoercible, ArrayLike, AxisName, BigFileLike, BigFileLikeCoercible, ByteCount, ByteCountCoercible, FileLike, FileLikeCoercible, ParquetCoercible, ParquetLike, RGBAColor, SporadikCoercible, SporadikLike
 from elektro.traits import AxisInputTrait, BiophysicsInputTrait, BiophysicsTrait, CompartmentInputTrait, CompartmentTrait, CoordinateSystemTrait, CreateSparseDatasetTrait, CreateTableDatasetTrait, DataArrayTrait, DatasetTrait, DeclaresAxesTrait, ElektroFetchable, ExperimentTrait, HasDownloadAccessor, HasParquetStoreAccesor, HasPresignedDownloadAccessor, HasZarrStoreAccessor, Lensable, ModelConfigInputTrait, ModelConfigTrait, ResolvesSpacesTrait, SectionInputTrait, SparseAxisInputTrait, TableDatasetTrait, TopologyInputTrait, TopologyTrait, TransformationTrait
 from enum import Enum
 from kanne.scalars import Capacitance, Concentration, Dimension, Duration, ElectricCurrent, ElectricPotential, ElectricalConductance, ElectricalResistance, Frequency, GenericQuantity, Length, Resistivity, SpecificCapacitance, Temperature, Unit
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, TypeAdapter
 from rath.scalars import ID, IDCoercible
 from rath.task import TaskLike
-from typing import Annotated, Any, AsyncIterator, Iterable, Iterator, Literal
+from typing import Annotated, Any, AsyncIterator, ClassVar, Iterable, Iterator, Literal
 
 class GraphQLDefault:
     """Records a GraphQL field schema default value. The client omits the field so the server applies its own default; this preserves the value for introspection."""
@@ -65,21 +65,21 @@ class AnnotationKindChoices(str, Enum):
 class ArrayDatasetSpec(str, Enum):
     """What a dataset structurally is, materialized from the axes of its intrinsic coordinate system at creation. Specs stack: a 3D timelapse is VOLUME, TIMESERIES and MULTICHANNEL at once. Exactly one spatial member (SCALAR/PROFILE/IMAGE/VOLUME/HYPERVOLUME) ever holds."""
     SCALAR = 'SCALAR'
-    'No spatial extent: the array carries no SPACE axis at all. What nearly every electrophysiology array is -- a (t, c) recording is SCALAR, TIMESERIES and MULTICHANNEL.'
+    'No spatial extent: no SPACE axis with more than one position. What nearly every electrophysiology array is -- a (t, c) recording is SCALAR, TIMESERIES and MULTICHANNEL.'
     PROFILE = 'PROFILE'
-    'One spatial axis -- a line profile, a depth trace.'
+    'One spatial axis with more than one position -- a line profile, a depth trace.'
     IMAGE = 'IMAGE'
-    'Two spatial axes: a plane. The ordinary micrograph.'
+    'Two spatial axes with more than one position each: a plane. The ordinary micrograph.'
     VOLUME = 'VOLUME'
-    'Three spatial axes: a stack. Holds whenever a z axis is present, even if it carries a single plane.'
+    'Three spatial axes with more than one position each: a stack. A z axis of a single plane does not make one -- that dataset is an IMAGE.'
     HYPERVOLUME = 'HYPERVOLUME'
-    'Four or more spatial axes.'
+    'Four or more spatial axes with more than one position each.'
     TIMESERIES = 'TIMESERIES'
-    'Carries a TIME axis -- a signal. Presence only: a single-sample time axis still counts.'
+    'Carries a TIME axis of more than one sample -- a signal. A single-sample time axis does not count.'
     MULTICHANNEL = 'MULTICHANNEL'
-    'Carries a CHANNEL axis. Presence only: a one-channel axis still counts.'
+    'Carries a CHANNEL axis of more than one channel. A one-channel axis does not count.'
     SPECTRAL = 'SPECTRAL'
-    'Carries a FREQUENCY axis: a spectrum or a spectrogram, not a signal over time.'
+    'Carries a FREQUENCY axis of more than one bin: a spectrum or a spectrogram, not a signal over time.'
     __str__ = str.__str__
 
 class AxisType(str, Enum):
@@ -232,6 +232,21 @@ class DerivationSourceKind(str, Enum):
     'An annotation collection, through the space its shapes are drawn in.'
     COORDINATE_SYSTEM = 'COORDINATE_SYSTEM'
     'A coordinate system directly, when the source is a space rather than a dataset -- a clock, or a world.'
+    NEURON_MODEL = 'NEURON_MODEL'
+    "A neuron model, through the space it owns: the direction a retuned model is derived from the one it was edited out of, and the direction a simulated trace is derived from the model that was integrated to compute it. A model's space carries one INDEX axis and nothing placeable, so this edge is always UNMAPPABLE -- it records where the data came from and claims no geometry. It names the *whole* model; which cell and section were recorded stays on the dataset's recording or stimulus site."
+    __str__ = str.__str__
+
+class DescriptorOperator(str, Enum):
+    """How a descriptor constraint compares the object's value with the stated one. The operators a rekuest port's `requires` and `provides` are written in, with the same meaning."""
+    EQUALS = 'EQUALS'
+    MATCHES = 'MATCHES'
+    NOT_EQUALS = 'NOT_EQUALS'
+    GTE = 'GTE'
+    LTE = 'LTE'
+    EXISTS = 'EXISTS'
+    CONTAINS = 'CONTAINS'
+    IN = 'IN'
+    NOT_IN = 'NOT_IN'
     __str__ = str.__str__
 
 class DistributionKind(str, Enum):
@@ -537,6 +552,17 @@ class MapAxisTransformInput(BaseModel):
         self.__pydantic_fields_set__.update({'kind'})
     model_config = ConfigDict(extra='forbid', validate_assignment=True)
 
+class NeuronModelDerivedFromInput(BaseModel):
+    """The fields a NEURON_MODEL derivation reads. Published for codegen; the wire type is the flat DerivedFromInput"""
+    kind: Literal['NEURON_MODEL'] = Field(default='NEURON_MODEL')
+    transform: 'TransformInput | None' = None
+    value_relation: ValueRelation | None = Field(validation_alias=AliasChoices('value_relation', 'valueRelation'), serialization_alias='valueRelation', default=None)
+    neuron_model: ID = Field(validation_alias=AliasChoices('neuron_model', 'neuronModel'), serialization_alias='neuronModel')
+
+    def model_post_init(self, context):
+        self.__pydantic_fields_set__.update({'kind'})
+    model_config = ConfigDict(extra='forbid', validate_assignment=True)
+
 class RotationTransformInput(BaseModel):
     """The fields a ROTATION member of TransformInput reads. Published for codegen; the wire type is the flat TransformInput"""
     kind: Literal['ROTATION'] = Field(default='ROTATION')
@@ -679,9 +705,10 @@ class ArrayDatasetFilter(BaseModel):
     or_: 'ArrayDatasetFilter | None' = Field(validation_alias=AliasChoices('or_', 'OR'), serialization_alias='OR', default=None)
     not_: 'ArrayDatasetFilter | None' = Field(validation_alias=AliasChoices('not_', 'NOT'), serialization_alias='NOT', default=None)
     distinct: bool | None = Field(validation_alias=AliasChoices('distinct', 'DISTINCT'), serialization_alias='DISTINCT', default=None)
+    requires: list['DescriptorConstraintInput'] | None = Field(default=None, description='Filter to the datasets satisfying every one of these descriptor constraints: the `requires` of a port, handed on unchanged, so a picker offers what the port accepts. Answered in SQL from the descriptors stored on every row. A key datasets do not declare is refused rather than ignored')
     folder: ID | None = Field(default=None, description='Filter by the folder this dataset is filed in')
     folders: list[ID] | None = Field(default=None, description='Filter by a list of folder IDs')
-    spec: list[ArrayDatasetSpec] | None = Field(default=None, description='Filter to datasets satisfying every one of these specs, e.g. [TIMESERIES, MULTICHANNEL] for multi-channel recordings. Materialized from the axes of the intrinsic coordinate system at creation. A dataset carries one spatial spec (by how many SPACE axes it has) plus a modifier per acquisition axis present, so two spatial specs together match nothing')
+    spec: list[ArrayDatasetSpec] | None = Field(default=None, description='Filter to datasets satisfying every one of these specs, e.g. [TIMESERIES, MULTICHANNEL] for multi-channel recordings. Materialized at creation from the axes of the intrinsic coordinate system and the level-0 shape; an axis counts only when it has more than one position, so a stack of one plane is an IMAGE and a single frame is not a TIMESERIES (use `hasAxisTypes` to ask whether an axis is declared at all). A dataset carries one spatial spec (by how many such SPACE axes it has) plus a modifier per such acquisition axis, so two spatial specs together match nothing')
     has_axis_types: list[AxisType] | None = Field(validation_alias=AliasChoices('has_axis_types', 'hasAxisTypes'), serialization_alias='hasAxisTypes', default=None, description='Filter to datasets whose intrinsic coordinate system carries every one of these axis types, e.g. [TIME, CHANNEL]. The raw form of `spec`, for the types no spec names: COORDINATE, DISPLACEMENT, INDEX')
     multiscale: bool | None = Field(default=None, description='Filter by whether the dataset carries a resolution pyramid: true for the multiscale ones, false for those with a single level')
     has_physical_space: bool | None = Field(validation_alias=AliasChoices('has_physical_space', 'hasPhysicalSpace'), serialization_alias='hasPhysicalSpace', default=None, description='Filter by whether the dataset has an edge into a space with real units. False finds the data that is still only samples, with no sampling law or time lookup recorded -- the datasets nothing has timed yet')
@@ -797,6 +824,8 @@ class CoordinateAnchorFilter(BaseModel):
     ids: list[ID] | None = Field(default=None, description='Filter by list of IDs')
     id: ID | None = None
     dataset: 'IDFilterLookup | None' = None
+    table: 'IDFilterLookup | None' = None
+    sparse: 'IDFilterLookup | None' = None
     and_: 'CoordinateAnchorFilter | None' = Field(validation_alias=AliasChoices('and_', 'AND'), serialization_alias='AND', default=None)
     or_: 'CoordinateAnchorFilter | None' = Field(validation_alias=AliasChoices('or_', 'OR'), serialization_alias='OR', default=None)
     not_: 'CoordinateAnchorFilter | None' = Field(validation_alias=AliasChoices('not_', 'NOT'), serialization_alias='NOT', default=None)
@@ -999,6 +1028,7 @@ class CreateNeuronModelInput(BaseModel):
     parent: ID | None = None
     description: str | None = None
     config: 'ModelConfigInput'
+    derived_from: list['DerivedFromInput'] | None = Field(validation_alias=AliasChoices('derived_from', 'derivedFrom'), serialization_alias='derivedFrom', default=None)
     model_config = ConfigDict(extra='forbid', validate_assignment=True)
 
 class CreateSamplingLawInput(ResolvesSpacesTrait, BaseModel):
@@ -1033,6 +1063,7 @@ class CreateSparseDatasetInput(CreateSparseDatasetTrait, BaseModel):
     folder: ID | None = None
     derived_from: list['DerivedFromInput'] | None = Field(validation_alias=AliasChoices('derived_from', 'derivedFrom'), serialization_alias='derivedFrom', default=None)
     source_files: list['SourceFileInput'] | None = Field(validation_alias=AliasChoices('source_files', 'sourceFiles'), serialization_alias='sourceFiles', default=None)
+    anchors: list[CoordinateAnchorInput] | None = None
     model_config = ConfigDict(extra='forbid', validate_assignment=True)
 
 class CreateSpikesLayerInput(BaseModel):
@@ -1068,6 +1099,7 @@ class CreateTableDatasetInput(CreateTableDatasetTrait, BaseModel):
     folder: ID | None = None
     derived_from: list['DerivedFromInput'] | None = Field(validation_alias=AliasChoices('derived_from', 'derivedFrom'), serialization_alias='derivedFrom', default=None)
     source_files: list['SourceFileInput'] | None = Field(validation_alias=AliasChoices('source_files', 'sourceFiles'), serialization_alias='sourceFiles', default=None)
+    anchors: list[CoordinateAnchorInput] | None = None
     model_config = ConfigDict(extra='forbid', validate_assignment=True)
 
 class CreateTraceLayerInput(BaseModel):
@@ -1158,7 +1190,14 @@ class DeleteTransformationInput(BaseModel):
     """Input for deleting a transformation by ID"""
     id: ID = Field(description='The ID of the transformation to delete')
     model_config = ConfigDict(extra='forbid', validate_assignment=True)
-DerivedFromInput = Annotated[AnnotationCollectionDerivedFromInput | CoordinateSystemDerivedFromInput | DatasetDerivedFromInput | LensDerivedFromInput, Field(discriminator='kind')]
+DerivedFromInput = Annotated[AnnotationCollectionDerivedFromInput | CoordinateSystemDerivedFromInput | DatasetDerivedFromInput | LensDerivedFromInput | NeuronModelDerivedFromInput, Field(discriminator='kind')]
+
+class DescriptorConstraintInput(BaseModel):
+    """One constraint on an object's descriptors, in the shape a rekuest port states its `requires` in -- so a picker hands a port's constraints on unchanged. `key` is one of the keys the structure declares (e.g. `@elektro/n_space_axes`); a key it does not declare is refused."""
+    key: str = Field(description='The descriptor key, e.g. `@elektro/n_space_axes`')
+    operator: DescriptorOperator = Field(description="How the object's value is compared with `value`. MATCHES is equality, as EQUALS is")
+    value: Any | None = Field(default=None, description='The value compared against: a number for GTE and LTE, a list for IN and NOT_IN, true or false for EXISTS, the member looked for with CONTAINS')
+    model_config = ConfigDict(extra='forbid', validate_assignment=True)
 
 class DeviceStateInput(BaseModel):
     """One hardware device's recorded state: its identity in the setup plus its settings at this coordinate"""
@@ -1346,6 +1385,7 @@ class LensFilter(BaseModel):
     or_: 'LensFilter | None' = Field(validation_alias=AliasChoices('or_', 'OR'), serialization_alias='OR', default=None)
     not_: 'LensFilter | None' = Field(validation_alias=AliasChoices('not_', 'NOT'), serialization_alias='NOT', default=None)
     distinct: bool | None = Field(validation_alias=AliasChoices('distinct', 'DISTINCT'), serialization_alias='DISTINCT', default=None)
+    requires: list[DescriptorConstraintInput] | None = Field(default=None, description='Filter to the lenses satisfying every one of these descriptor constraints: the `requires` of a port, handed on unchanged, so a picker offers what the port accepts. Answered in SQL from the descriptors stored on every row. A key lenses do not declare is refused rather than ignored')
     dataset: ID | None = Field(default=None, description='Filter by the dataset this lens selects over')
     placeable_in: 'PlaceableFilter | None' = Field(validation_alias=AliasChoices('placeable_in', 'placeableIn'), serialization_alias='placeableIn', default=None, description='Filter to lenses placeable into a coordinate system: those whose space reaches it across steps that compose into one affine map, walking the transformation edges')
     model_config = ConfigDict(extra='forbid', validate_assignment=True)
@@ -1539,7 +1579,7 @@ class RequestBigFileAccessInput(BaseModel):
 class RequestBigFileUploadInput(BaseModel):
     """No documentation"""
     original_file_name: str = Field(validation_alias=AliasChoices('original_file_name', 'originalFileName'), serialization_alias='originalFileName')
-    file_size: int | None = Field(validation_alias=AliasChoices('file_size', 'fileSize'), serialization_alias='fileSize', default=None)
+    file_size: ByteCount | None = Field(validation_alias=AliasChoices('file_size', 'fileSize'), serialization_alias='fileSize', default=None)
     content_type: str | None = Field(validation_alias=AliasChoices('content_type', 'contentType'), serialization_alias='contentType', default=None)
     host: str | None = None
     port: int | None = None
@@ -1553,7 +1593,7 @@ class RequestMediaAccessInput(BaseModel):
 class RequestMediaUploadInput(BaseModel):
     """No documentation"""
     original_file_name: str = Field(validation_alias=AliasChoices('original_file_name', 'originalFileName'), serialization_alias='originalFileName')
-    file_size: int | None = Field(validation_alias=AliasChoices('file_size', 'fileSize'), serialization_alias='fileSize', default=None)
+    file_size: ByteCount | None = Field(validation_alias=AliasChoices('file_size', 'fileSize'), serialization_alias='fileSize', default=None)
     content_type: str | None = Field(validation_alias=AliasChoices('content_type', 'contentType'), serialization_alias='contentType', default=None)
     model_config = ConfigDict(extra='forbid', validate_assignment=True)
 
@@ -1979,7 +2019,7 @@ class MediaUploadGrant(ElektroFetchable, BaseModel):
     key: str
     bucket: str
     expires_in: int = Field(alias='expiresIn')
-    max_bytes: int = Field(alias='maxBytes')
+    max_bytes: ByteCount = Field(alias='maxBytes')
     store: str
 
     class Meta:
@@ -1998,7 +2038,7 @@ class ZarrUploadGrant(ElektroFetchable, BaseModel):
     key: str
     bucket: str
     expires_in: int = Field(alias='expiresIn')
-    max_bytes: int = Field(alias='maxBytes')
+    max_bytes: ByteCount = Field(alias='maxBytes')
     store: str
 
     class Meta:
@@ -2017,7 +2057,7 @@ class ParquetUploadGrant(ElektroFetchable, BaseModel):
     key: str
     bucket: str
     expires_in: int = Field(alias='expiresIn')
-    max_bytes: int = Field(alias='maxBytes')
+    max_bytes: ByteCount = Field(alias='maxBytes')
     store: str
 
     class Meta:
@@ -2104,7 +2144,7 @@ class SparseUploadGrant(ElektroFetchable, BaseModel):
     key: str
     bucket: str
     expires_in: int = Field(alias='expiresIn')
-    max_bytes: int = Field(alias='maxBytes')
+    max_bytes: ByteCount = Field(alias='maxBytes')
     store: str
 
     class Meta:
@@ -2115,6 +2155,7 @@ class SparseUploadGrant(ElektroFetchable, BaseModel):
 
 class ExperimentLayerExperiment(ExperimentTrait, BaseModel):
     """No documentation"""
+    __identifier__: ClassVar[Literal['@elektro/experiment']] = '@elektro/experiment'
     typename: Literal['Experiment'] = Field(alias='__typename', default='Experiment', exclude=True)
     id: ID
 
@@ -2132,6 +2173,7 @@ class ExperimentLayerLensSlices(BaseModel):
 
 class ExperimentLayerLensDataset(DatasetTrait, BaseModel):
     """A multi-dimensional array dataset: a recording, a stimulus, a vector of sample times, a unit's waveform templates. Its dimensions and their types live on the axes of its INTRINSIC (sample grid) coordinate system; physical units live on the clocks it has edges into; its pyramid levels are DataArrays, each mapping into its grid. What it *means* -- a trace in an experiment -- is said by whatever names it, never here; where it was recorded is a `recordingSite` on its anchors"""
+    __identifier__: ClassVar[Literal['@elektro/arraydataset']] = '@elektro/arraydataset'
     typename: Literal['ArrayDataset'] = Field(alias='__typename', default='ArrayDataset', exclude=True)
     id: ID
     name: str
@@ -2142,6 +2184,7 @@ class ExperimentLayerLensDataset(DatasetTrait, BaseModel):
 
 class ExperimentLayerLens(Lensable, BaseModel):
     """A lens is a way of looking at a dataset: a selection (slices) along its axes -- a sweep, an epoch window, a run of channels. Immutable: there is no updateLens"""
+    __identifier__: ClassVar[Literal['@elektro/lens']] = '@elektro/lens'
     typename: Literal['Lens'] = Field(alias='__typename', default='Lens', exclude=True)
     id: ID
     slices: list[ExperimentLayerLensSlices]
@@ -2150,6 +2193,7 @@ class ExperimentLayerLens(Lensable, BaseModel):
 
 class ExperimentLayerSparseDataset(BaseModel):
     """A sparse matrix over two enumerated axes -- objects on one, features on the other -- stored as anndata-spelled zarr groups. It exists because a colouring names one *column*, so a colourable measurement is a column of a table: right for a few hundred features and impossible for a transcriptome, where a feature stops being a schema fact and becomes a data one. **Each axis is identified exactly once**, by its own `identifiedBy` -- a source whose contents are the ids, or the table whose rows the positions are. Its stores, axes and coordinate system are fixed at creation; a recomputation is a new dataset"""
+    __identifier__: ClassVar[Literal['@elektro/sparsedataset']] = '@elektro/sparsedataset'
     typename: Literal['SparseDataset'] = Field(alias='__typename', default='SparseDataset', exclude=True)
     id: ID
     name: str
@@ -2160,6 +2204,7 @@ class ExperimentLayerSparseDataset(BaseModel):
 
 class ExperimentLayerUnitTable(TableDatasetTrait, BaseModel):
     """A parquet-backed table whose rows are scientific records (segmented objects, localizations, cells). It owns a coordinate system whose axes are its coordinate columns, which is what makes a localization table placeable; a table with no coordinate columns enumerates its rows and its lineage edge is UNMAPPABLE. Its store, its columns and that coordinate system are fixed at creation -- only `name` and `description` can be updated, and a recomputation is a new table rather than an edit of this one. Read the rows directly from the Parquet store with a datalayer access grant rather than paginating through GraphQL"""
+    __identifier__: ClassVar[Literal['@elektro/tabledataset']] = '@elektro/tabledataset'
     typename: Literal['TableDataset'] = Field(alias='__typename', default='TableDataset', exclude=True)
     id: ID
     name: str
@@ -2203,6 +2248,7 @@ class ExperimentLayerFilterBys(BaseModel):
 
 class ExperimentLayerTableDataset(TableDatasetTrait, BaseModel):
     """A parquet-backed table whose rows are scientific records (segmented objects, localizations, cells). It owns a coordinate system whose axes are its coordinate columns, which is what makes a localization table placeable; a table with no coordinate columns enumerates its rows and its lineage edge is UNMAPPABLE. Its store, its columns and that coordinate system are fixed at creation -- only `name` and `description` can be updated, and a recomputation is a new table rather than an edit of this one. Read the rows directly from the Parquet store with a datalayer access grant rather than paginating through GraphQL"""
+    __identifier__: ClassVar[Literal['@elektro/tabledataset']] = '@elektro/tabledataset'
     typename: Literal['TableDataset'] = Field(alias='__typename', default='TableDataset', exclude=True)
     id: ID
     name: str
@@ -2211,6 +2257,7 @@ class ExperimentLayerTableDataset(TableDatasetTrait, BaseModel):
 
 class ExperimentLayerAnnotationCollection(BaseModel):
     """A named set of annotations, owning the coordinate system they are drawn in. All its shapes share one drawing space and so one placement story: the collection is related to other spaces by edges, the shapes just have vectors. Drawn over a dataset's sample grid it marks that dataset; drawn on a segment's clock it marks every signal of the segment at once -- which is what Neo's events and epochs are; drawn on an experiment's world it marks the timeline"""
+    __identifier__: ClassVar[Literal['@elektro/annotationcollection']] = '@elektro/annotationcollection'
     typename: Literal['AnnotationCollection'] = Field(alias='__typename', default='AnnotationCollection', exclude=True)
     id: ID
     name: str
@@ -2339,16 +2386,19 @@ class ExperimentLayerWaveformLayer(ExperimentLayerBase, BaseModel):
 
 class FileLinkFile(BaseModel):
     """A file in its original format (e.g. an ABF, an NWB file, a vendor recording), stored in a BigFileStore. Files are the raw bytes that array datasets are converted from."""
+    __identifier__: ClassVar[Literal['@elektro/file']] = '@elektro/file'
     typename: Literal['File'] = Field(alias='__typename', default='File', exclude=True)
     id: ID
     name: str
 
 class FileLinkArrayDatasetInlineFragment(DatasetTrait, BaseModel):
+    __identifier__: ClassVar[Literal['@elektro/arraydataset']] = '@elektro/arraydataset'
     typename: Literal['ArrayDataset'] = Field(alias='__typename', default='ArrayDataset', exclude=True)
     id: ID
     name: str
 
 class FileLinkAnnotationCollectionInlineFragment(BaseModel):
+    __identifier__: ClassVar[Literal['@elektro/annotationcollection']] = '@elektro/annotationcollection'
     typename: Literal['AnnotationCollection'] = Field(alias='__typename', default='AnnotationCollection', exclude=True)
     id: ID
     name: str
@@ -2376,12 +2426,14 @@ class FileLink(ElektroFetchable, BaseModel):
 
 class FolderParent(BaseModel):
     """A folder is a collection of the things elektro stores. It mimics a folder in a file system and is the top-level container for organising data."""
+    __identifier__: ClassVar[Literal['@elektro/folder']] = '@elektro/folder'
     typename: Literal['Folder'] = Field(alias='__typename', default='Folder', exclude=True)
     id: ID
     name: str
 
 class Folder(ElektroFetchable, BaseModel):
     """A folder is a collection of the things elektro stores. It mimics a folder in a file system and is the top-level container for organising data."""
+    __identifier__: ClassVar[Literal['@elektro/folder']] = '@elektro/folder'
     typename: Literal['Folder'] = Field(alias='__typename', default='Folder', exclude=True)
     id: ID
     name: str
@@ -2434,12 +2486,14 @@ class Mechanism(ElektroFetchable, BaseModel):
 
 class ModelCollectionModels(BaseModel):
     """No documentation"""
+    __identifier__: ClassVar[Literal['@elektro/neuronmodel']] = '@elektro/neuronmodel'
     typename: Literal['NeuronModel'] = Field(alias='__typename', default='NeuronModel', exclude=True)
     id: ID
     name: str
 
 class ModelCollection(ElektroFetchable, BaseModel):
     """No documentation"""
+    __identifier__: ClassVar[Literal['@elektro/modelcollection']] = '@elektro/modelcollection'
     typename: Literal['ModelCollection'] = Field(alias='__typename', default='ModelCollection', exclude=True)
     name: str
     id: ID
@@ -2635,6 +2689,7 @@ class NetStimulator(ElektroFetchable, BaseModel):
 
 class SimulationStateModel(BaseModel):
     """No documentation"""
+    __identifier__: ClassVar[Literal['@elektro/neuronmodel']] = '@elektro/neuronmodel'
     typename: Literal['NeuronModel'] = Field(alias='__typename', default='NeuronModel', exclude=True)
     id: ID
     name: str
@@ -2658,6 +2713,7 @@ class SimulationState(ElektroFetchable, BaseModel):
 
 class SparseAxisReferenceReferences(TableDatasetTrait, BaseModel):
     """A parquet-backed table whose rows are scientific records (segmented objects, localizations, cells). It owns a coordinate system whose axes are its coordinate columns, which is what makes a localization table placeable; a table with no coordinate columns enumerates its rows and its lineage edge is UNMAPPABLE. Its store, its columns and that coordinate system are fixed at creation -- only `name` and `description` can be updated, and a recomputation is a new table rather than an edit of this one. Read the rows directly from the Parquet store with a datalayer access grant rather than paginating through GraphQL"""
+    __identifier__: ClassVar[Literal['@elektro/tabledataset']] = '@elektro/tabledataset'
     typename: Literal['TableDataset'] = Field(alias='__typename', default='TableDataset', exclude=True)
     id: ID
     name: str
@@ -2783,6 +2839,7 @@ class SparseStore(ElektroFetchable, BaseModel):
 
 class ColumnReferences(TableDatasetTrait, BaseModel):
     """A parquet-backed table whose rows are scientific records (segmented objects, localizations, cells). It owns a coordinate system whose axes are its coordinate columns, which is what makes a localization table placeable; a table with no coordinate columns enumerates its rows and its lineage edge is UNMAPPABLE. Its store, its columns and that coordinate system are fixed at creation -- only `name` and `description` can be updated, and a recomputation is a new table rather than an edit of this one. Read the rows directly from the Parquet store with a datalayer access grant rather than paginating through GraphQL"""
+    __identifier__: ClassVar[Literal['@elektro/tabledataset']] = '@elektro/tabledataset'
     typename: Literal['TableDataset'] = Field(alias='__typename', default='TableDataset', exclude=True)
     id: ID
 
@@ -2924,6 +2981,7 @@ class CoordinateAnchorChannelLabel(BaseModel):
 
 class CoordinateAnchorRecordingSiteModel(BaseModel):
     """No documentation"""
+    __identifier__: ClassVar[Literal['@elektro/neuronmodel']] = '@elektro/neuronmodel'
     typename: Literal['NeuronModel'] = Field(alias='__typename', default='NeuronModel', exclude=True)
     id: ID
 
@@ -2945,6 +3003,7 @@ class CoordinateAnchorRecordingSite(BaseModel):
 
 class CoordinateAnchorStimulusSiteModel(BaseModel):
     """No documentation"""
+    __identifier__: ClassVar[Literal['@elektro/neuronmodel']] = '@elektro/neuronmodel'
     typename: Literal['NeuronModel'] = Field(alias='__typename', default='NeuronModel', exclude=True)
     id: ID
 
@@ -3015,11 +3074,11 @@ class CoordinateAnchorValueHistogram(BaseModel):
     p99: float | None = Field(default=None)
 
 class CoordinateAnchor(ElektroFetchable, BaseModel):
-    """The axis-agnostic hub that pins metadata spokes (a value unit, a channel label, the rig state, a value histogram, acquisition metadata) to specific coordinates of a dataset"""
+    """The axis-agnostic hub that pins metadata spokes (a value unit, a channel label, the rig state, a value histogram, acquisition metadata) to specific coordinates of an array, table or sparse dataset. Exactly one of `dataset`, `table` and `sparse` is set"""
     typename: Literal['CoordinateAnchor'] = Field(alias='__typename', default='CoordinateAnchor', exclude=True)
     id: ID
     coordinates: Any
-    "The coordinates this anchor is pinned to, e.g. {'c': 0, 'sweep': 5}. Level-0 sample indices, i.e. coordinates of the dataset's INTRINSIC system. An anchor that omits an axis is global along it; an empty object is the whole dataset"
+    "The coordinates this anchor is pinned to, e.g. {'c': 0, 'sweep': 5}. For an array dataset these are level-0 sample indices, i.e. coordinates of its INTRINSIC system; for a table dataset they are values of its coordinate columns, keyed by column name; for a sparse dataset they are positions along its enumerated axes. An anchor that omits an axis is global along it; an empty object is the whole container"
     value_unit: CoordinateAnchorValueUnit | None = Field(default=None, alias='valueUnit')
     channel_label: CoordinateAnchorChannelLabel | None = Field(default=None, alias='channelLabel')
     recording_site: CoordinateAnchorRecordingSite | None = Field(default=None, alias='recordingSite')
@@ -3072,6 +3131,7 @@ class ModEnvironment(ElektroFetchable, BaseModel):
 
 class File(ElektroFetchable, BaseModel):
     """A file in its original format (e.g. an ABF, an NWB file, a vendor recording), stored in a BigFileStore. Files are the raw bytes that array datasets are converted from."""
+    __identifier__: ClassVar[Literal['@elektro/file']] = '@elektro/file'
     typename: Literal['File'] = Field(alias='__typename', default='File', exclude=True)
     id: ID
     name: str
@@ -3188,11 +3248,13 @@ class ExperimentLayersBaseCatchAll(ExperimentLayersBase, BaseModel):
 
 class ExperimentAnnotationCollection(BaseModel):
     """A named set of annotations, owning the coordinate system they are drawn in. All its shapes share one drawing space and so one placement story: the collection is related to other spaces by edges, the shapes just have vectors. Drawn over a dataset's sample grid it marks that dataset; drawn on a segment's clock it marks every signal of the segment at once -- which is what Neo's events and epochs are; drawn on an experiment's world it marks the timeline"""
+    __identifier__: ClassVar[Literal['@elektro/annotationcollection']] = '@elektro/annotationcollection'
     typename: Literal['AnnotationCollection'] = Field(alias='__typename', default='AnnotationCollection', exclude=True)
     id: ID
 
 class Experiment(ExperimentTrait, ElektroFetchable, BaseModel):
     """No documentation"""
+    __identifier__: ClassVar[Literal['@elektro/experiment']] = '@elektro/experiment'
     typename: Literal['Experiment'] = Field(alias='__typename', default='Experiment', exclude=True)
     id: ID
     name: str
@@ -3417,6 +3479,7 @@ class Cell(ElektroFetchable, BaseModel):
 
 class ArrayDataset(DatasetTrait, ElektroFetchable, BaseModel):
     """A multi-dimensional array dataset: a recording, a stimulus, a vector of sample times, a unit's waveform templates. Its dimensions and their types live on the axes of its INTRINSIC (sample grid) coordinate system; physical units live on the clocks it has edges into; its pyramid levels are DataArrays, each mapping into its grid. What it *means* -- a trace in an experiment -- is said by whatever names it, never here; where it was recorded is a `recordingSite` on its anchors"""
+    __identifier__: ClassVar[Literal['@elektro/arraydataset']] = '@elektro/arraydataset'
     typename: Literal['ArrayDataset'] = Field(alias='__typename', default='ArrayDataset', exclude=True)
     id: ID
     name: str
@@ -3441,6 +3504,7 @@ class ArrayDataset(DatasetTrait, ElektroFetchable, BaseModel):
 
 class SparseDataset(ElektroFetchable, BaseModel):
     """A sparse matrix over two enumerated axes -- objects on one, features on the other -- stored as anndata-spelled zarr groups. It exists because a colouring names one *column*, so a colourable measurement is a column of a table: right for a few hundred features and impossible for a transcriptome, where a feature stops being a schema fact and becomes a data one. **Each axis is identified exactly once**, by its own `identifiedBy` -- a source whose contents are the ids, or the table whose rows the positions are. Its stores, axes and coordinate system are fixed at creation; a recomputation is a new dataset"""
+    __identifier__: ClassVar[Literal['@elektro/sparsedataset']] = '@elektro/sparsedataset'
     typename: Literal['SparseDataset'] = Field(alias='__typename', default='SparseDataset', exclude=True)
     id: ID
     name: str
@@ -3466,6 +3530,7 @@ class SparseDataset(ElektroFetchable, BaseModel):
 
 class AnnotationCollection(ElektroFetchable, BaseModel):
     """A named set of annotations, owning the coordinate system they are drawn in. All its shapes share one drawing space and so one placement story: the collection is related to other spaces by edges, the shapes just have vectors. Drawn over a dataset's sample grid it marks that dataset; drawn on a segment's clock it marks every signal of the segment at once -- which is what Neo's events and epochs are; drawn on an experiment's world it marks the timeline"""
+    __identifier__: ClassVar[Literal['@elektro/annotationcollection']] = '@elektro/annotationcollection'
     typename: Literal['AnnotationCollection'] = Field(alias='__typename', default='AnnotationCollection', exclude=True)
     id: ID
     name: str
@@ -3530,6 +3595,7 @@ class TableDatasetDerivedFromBaseCatchAll(TableDatasetDerivedFromBase, BaseModel
 
 class TableDataset(TableDatasetTrait, ElektroFetchable, BaseModel):
     """A parquet-backed table whose rows are scientific records (segmented objects, localizations, cells). It owns a coordinate system whose axes are its coordinate columns, which is what makes a localization table placeable; a table with no coordinate columns enumerates its rows and its lineage edge is UNMAPPABLE. Its store, its columns and that coordinate system are fixed at creation -- only `name` and `description` can be updated, and a recomputation is a new table rather than an edit of this one. Read the rows directly from the Parquet store with a datalayer access grant rather than paginating through GraphQL"""
+    __identifier__: ClassVar[Literal['@elektro/tabledataset']] = '@elektro/tabledataset'
     typename: Literal['TableDataset'] = Field(alias='__typename', default='TableDataset', exclude=True)
     id: ID
     name: str
@@ -3601,6 +3667,7 @@ class NeuronModelConfig(ModelConfigTrait, BaseModel):
 
 class NeuronModel(ElektroFetchable, BaseModel):
     """No documentation"""
+    __identifier__: ClassVar[Literal['@elektro/neuronmodel']] = '@elektro/neuronmodel'
     typename: Literal['NeuronModel'] = Field(alias='__typename', default='NeuronModel', exclude=True)
     id: ID
     name: str
@@ -3615,6 +3682,7 @@ class NeuronModel(ElektroFetchable, BaseModel):
 
 class Lens(Lensable, ElektroFetchable, BaseModel):
     """A lens is a way of looking at a dataset: a selection (slices) along its axes -- a sweep, an epoch window, a run of channels. Immutable: there is no updateLens"""
+    __identifier__: ClassVar[Literal['@elektro/lens']] = '@elektro/lens'
     typename: Literal['Lens'] = Field(alias='__typename', default='Lens', exclude=True)
     id: ID
     dataset: ArrayDataset
@@ -4838,6 +4906,7 @@ class GetAnnotationCollectionsQuery(BaseModel):
 
 class SearchAnnotationCollectionsQueryOptions(BaseModel):
     """A named set of annotations, owning the coordinate system they are drawn in. All its shapes share one drawing space and so one placement story: the collection is related to other spaces by edges, the shapes just have vectors. Drawn over a dataset's sample grid it marks that dataset; drawn on a segment's clock it marks every signal of the segment at once -- which is what Neo's events and epochs are; drawn on an experiment's world it marks the timeline"""
+    __identifier__: ClassVar[Literal['@elektro/annotationcollection']] = '@elektro/annotationcollection'
     typename: Literal['AnnotationCollection'] = Field(alias='__typename', default='AnnotationCollection', exclude=True)
     value: ID
     label: str
@@ -4903,6 +4972,7 @@ class GetArrayDatasetsQuery(BaseModel):
 
 class SearchArrayDatasetsQueryOptions(DatasetTrait, BaseModel):
     """A multi-dimensional array dataset: a recording, a stimulus, a vector of sample times, a unit's waveform templates. Its dimensions and their types live on the axes of its INTRINSIC (sample grid) coordinate system; physical units live on the clocks it has edges into; its pyramid levels are DataArrays, each mapping into its grid. What it *means* -- a trace in an experiment -- is said by whatever names it, never here; where it was recorded is a `recordingSite` on its anchors"""
+    __identifier__: ClassVar[Literal['@elektro/arraydataset']] = '@elektro/arraydataset'
     typename: Literal['ArrayDataset'] = Field(alias='__typename', default='ArrayDataset', exclude=True)
     value: ID
     label: str
@@ -4926,7 +4996,7 @@ class SearchArrayDatasetsQuery(BaseModel):
 class GetCoordinateAnchorsQuery(BaseModel):
     """No documentation found for this operation."""
     coordinate_anchors: list[CoordinateAnchor] = Field(alias='coordinateAnchors')
-    'List coordinate anchors: the hubs pinning a value unit, a channel label or the rig state to coordinates of a dataset'
+    'List coordinate anchors: the hubs pinning a value unit, a channel label or the rig state to coordinates of an array, table or sparse dataset'
 
     class Arguments(BaseModel):
         """Arguments for GetCoordinateAnchors """
@@ -4939,6 +5009,7 @@ class GetCoordinateAnchorsQuery(BaseModel):
 
 class GetArrayDatasetAnchorsQueryArrayDataset(DatasetTrait, BaseModel):
     """A multi-dimensional array dataset: a recording, a stimulus, a vector of sample times, a unit's waveform templates. Its dimensions and their types live on the axes of its INTRINSIC (sample grid) coordinate system; physical units live on the clocks it has edges into; its pyramid levels are DataArrays, each mapping into its grid. What it *means* -- a trace in an experiment -- is said by whatever names it, never here; where it was recorded is a `recordingSite` on its anchors"""
+    __identifier__: ClassVar[Literal['@elektro/arraydataset']] = '@elektro/arraydataset'
     typename: Literal['ArrayDataset'] = Field(alias='__typename', default='ArrayDataset', exclude=True)
     id: ID
     anchors: list[CoordinateAnchor]
@@ -5093,6 +5164,7 @@ class GetExperimentQuery(BaseModel):
 
 class SearchExperimentsQueryOptions(ExperimentTrait, BaseModel):
     """No documentation"""
+    __identifier__: ClassVar[Literal['@elektro/experiment']] = '@elektro/experiment'
     typename: Literal['Experiment'] = Field(alias='__typename', default='Experiment', exclude=True)
     value: ID
     label: str
@@ -5137,6 +5209,7 @@ class GetFileQuery(BaseModel):
 
 class SearchFilesQueryOptions(BaseModel):
     """A file in its original format (e.g. an ABF, an NWB file, a vendor recording), stored in a BigFileStore. Files are the raw bytes that array datasets are converted from."""
+    __identifier__: ClassVar[Literal['@elektro/file']] = '@elektro/file'
     typename: Literal['File'] = Field(alias='__typename', default='File', exclude=True)
     value: ID
     label: str
@@ -5171,6 +5244,7 @@ class GetFolderQuery(BaseModel):
 
 class SearchFoldersQueryOptions(BaseModel):
     """A folder is a collection of the things elektro stores. It mimics a folder in a file system and is the top-level container for organising data."""
+    __identifier__: ClassVar[Literal['@elektro/folder']] = '@elektro/folder'
     typename: Literal['Folder'] = Field(alias='__typename', default='Folder', exclude=True)
     value: ID
     label: str
@@ -5337,6 +5411,7 @@ class GetModelCollectionQuery(BaseModel):
 
 class SearchModelCollectionQueryOptions(BaseModel):
     """No documentation"""
+    __identifier__: ClassVar[Literal['@elektro/modelcollection']] = '@elektro/modelcollection'
     typename: Literal['ModelCollection'] = Field(alias='__typename', default='ModelCollection', exclude=True)
     value: ID
     label: str
@@ -5382,6 +5457,7 @@ class GetNeuronModelQuery(BaseModel):
 
 class SearchNeuronModelsQueryOptions(BaseModel):
     """No documentation"""
+    __identifier__: ClassVar[Literal['@elektro/neuronmodel']] = '@elektro/neuronmodel'
     typename: Literal['NeuronModel'] = Field(alias='__typename', default='NeuronModel', exclude=True)
     value: ID
     label: str
@@ -5422,6 +5498,7 @@ class GetNeuronModelSessionsQueryNeuronModelSessions(BaseModel):
 
 class GetNeuronModelSessionsQueryNeuronModel(BaseModel):
     """No documentation"""
+    __identifier__: ClassVar[Literal['@elektro/neuronmodel']] = '@elektro/neuronmodel'
     typename: Literal['NeuronModel'] = Field(alias='__typename', default='NeuronModel', exclude=True)
     id: ID
     sessions: list[GetNeuronModelSessionsQueryNeuronModelSessions]
@@ -5471,6 +5548,7 @@ class ListSparseDatasetsQuery(BaseModel):
 
 class SearchSparseDatasetsQueryOptions(BaseModel):
     """A sparse matrix over two enumerated axes -- objects on one, features on the other -- stored as anndata-spelled zarr groups. It exists because a colouring names one *column*, so a colourable measurement is a column of a table: right for a few hundred features and impossible for a transcriptome, where a feature stops being a schema fact and becomes a data one. **Each axis is identified exactly once**, by its own `identifiedBy` -- a source whose contents are the ids, or the table whose rows the positions are. Its stores, axes and coordinate system are fixed at creation; a recomputation is a new dataset"""
+    __identifier__: ClassVar[Literal['@elektro/sparsedataset']] = '@elektro/sparsedataset'
     typename: Literal['SparseDataset'] = Field(alias='__typename', default='SparseDataset', exclude=True)
     value: ID
     label: str
@@ -5518,6 +5596,7 @@ class ListTableDatasetsQuery(BaseModel):
 
 class SearchTableDatasetsQueryOptions(TableDatasetTrait, BaseModel):
     """A parquet-backed table whose rows are scientific records (segmented objects, localizations, cells). It owns a coordinate system whose axes are its coordinate columns, which is what makes a localization table placeable; a table with no coordinate columns enumerates its rows and its lineage edge is UNMAPPABLE. Its store, its columns and that coordinate system are fixed at creation -- only `name` and `description` can be updated, and a recomputation is a new table rather than an edit of this one. Read the rows directly from the Parquet store with a datalayer access grant rather than paginating through GraphQL"""
+    __identifier__: ClassVar[Literal['@elektro/tabledataset']] = '@elektro/tabledataset'
     typename: Literal['TableDataset'] = Field(alias='__typename', default='TableDataset', exclude=True)
     value: ID
     label: str
@@ -5849,7 +5928,7 @@ Arguments:
         _data['filled'] = filled
     return AnnotationSpecInput.model_validate(_data)
 
-def array_dataset_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, owner: IDCoercible | None | UnsetType=UNSET, created_through_task: str | None | UnsetType=UNSET, created_through: IDCoercible | None | UnsetType=UNSET, assigned_by: IDCoercible | None | UnsetType=UNSET, created_through_by: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, description: StrFilterLookup | None | UnsetType=UNSET, and_: ArrayDatasetFilter | None | UnsetType=UNSET, or_: ArrayDatasetFilter | None | UnsetType=UNSET, not_: ArrayDatasetFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, folders: Iterable[IDCoercible] | None | UnsetType=UNSET, spec: Iterable[ArrayDatasetSpec] | None | UnsetType=UNSET, has_axis_types: Iterable[AxisType] | None | UnsetType=UNSET, multiscale: bool | None | UnsetType=UNSET, has_physical_space: bool | None | UnsetType=UNSET, placeable_in: PlaceableFilter | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, value_unit: str | None | UnsetType=UNSET, derived_from: IDCoercible | None | UnsetType=UNSET, not_derived: bool | None | UnsetType=UNSET, source_file: IDCoercible | None | UnsetType=UNSET, source_series_identifier: str | None | UnsetType=UNSET) -> ArrayDatasetFilter:
+def array_dataset_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, owner: IDCoercible | None | UnsetType=UNSET, created_through_task: str | None | UnsetType=UNSET, created_through: IDCoercible | None | UnsetType=UNSET, assigned_by: IDCoercible | None | UnsetType=UNSET, created_through_by: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, description: StrFilterLookup | None | UnsetType=UNSET, and_: ArrayDatasetFilter | None | UnsetType=UNSET, or_: ArrayDatasetFilter | None | UnsetType=UNSET, not_: ArrayDatasetFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, requires: Iterable[DescriptorConstraintInput] | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, folders: Iterable[IDCoercible] | None | UnsetType=UNSET, spec: Iterable[ArrayDatasetSpec] | None | UnsetType=UNSET, has_axis_types: Iterable[AxisType] | None | UnsetType=UNSET, multiscale: bool | None | UnsetType=UNSET, has_physical_space: bool | None | UnsetType=UNSET, placeable_in: PlaceableFilter | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, value_unit: str | None | UnsetType=UNSET, derived_from: IDCoercible | None | UnsetType=UNSET, not_derived: bool | None | UnsetType=UNSET, source_file: IDCoercible | None | UnsetType=UNSET, source_series_identifier: str | None | UnsetType=UNSET) -> ArrayDatasetFilter:
     """Creates a ArrayDatasetFilter
 
 Arguments:
@@ -5869,9 +5948,10 @@ Arguments:
     or_: 
     not_: 
     distinct: The `Boolean` scalar type represents `true` or `false`.
+    requires: Filter to the datasets satisfying every one of these descriptor constraints: the `requires` of a port, handed on unchanged, so a picker offers what the port accepts. Answered in SQL from the descriptors stored on every row. A key datasets do not declare is refused rather than ignored
     folder: Filter by the folder this dataset is filed in
     folders: Filter by a list of folder IDs
-    spec: Filter to datasets satisfying every one of these specs, e.g. [TIMESERIES, MULTICHANNEL] for multi-channel recordings. Materialized from the axes of the intrinsic coordinate system at creation. A dataset carries one spatial spec (by how many SPACE axes it has) plus a modifier per acquisition axis present, so two spatial specs together match nothing
+    spec: Filter to datasets satisfying every one of these specs, e.g. [TIMESERIES, MULTICHANNEL] for multi-channel recordings. Materialized at creation from the axes of the intrinsic coordinate system and the level-0 shape; an axis counts only when it has more than one position, so a stack of one plane is an IMAGE and a single frame is not a TIMESERIES (use `hasAxisTypes` to ask whether an axis is declared at all). A dataset carries one spatial spec (by how many such SPACE axes it has) plus a modifier per such acquisition axis, so two spatial specs together match nothing
     has_axis_types: Filter to datasets whose intrinsic coordinate system carries every one of these axis types, e.g. [TIME, CHANNEL]. The raw form of `spec`, for the types no spec names: COORDINATE, DISPLACEMENT, INDEX
     multiscale: Filter by whether the dataset carries a resolution pyramid: true for the multiscale ones, false for those with a single level
     has_physical_space: Filter by whether the dataset has an edge into a space with real units. False finds the data that is still only samples, with no sampling law or time lookup recorded -- the datasets nothing has timed yet
@@ -5916,6 +5996,8 @@ Arguments:
         _data['NOT'] = not_
     if distinct is not UNSET:
         _data['DISTINCT'] = distinct
+    if requires is not UNSET:
+        _data['requires'] = requires
     if folder is not UNSET:
         _data['folder'] = folder
     if folders is not UNSET:
@@ -6148,13 +6230,15 @@ Arguments:
         _data['diam'] = diam
     return CoordInput.model_validate(_data)
 
-def coordinate_anchor_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, dataset: IDFilterLookup | None | UnsetType=UNSET, and_: CoordinateAnchorFilter | None | UnsetType=UNSET, or_: CoordinateAnchorFilter | None | UnsetType=UNSET, not_: CoordinateAnchorFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET) -> CoordinateAnchorFilter:
+def coordinate_anchor_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, dataset: IDFilterLookup | None | UnsetType=UNSET, table: IDFilterLookup | None | UnsetType=UNSET, sparse: IDFilterLookup | None | UnsetType=UNSET, and_: CoordinateAnchorFilter | None | UnsetType=UNSET, or_: CoordinateAnchorFilter | None | UnsetType=UNSET, not_: CoordinateAnchorFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET) -> CoordinateAnchorFilter:
     """Creates a CoordinateAnchorFilter
 
 Arguments:
     ids: Filter by list of IDs
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     dataset: 
+    table: 
+    sparse: 
     and_: 
     or_: 
     not_: 
@@ -6167,6 +6251,10 @@ Arguments:
         _data['id'] = id
     if dataset is not UNSET:
         _data['dataset'] = dataset
+    if table is not UNSET:
+        _data['table'] = table
+    if sparse is not UNSET:
+        _data['sparse'] = sparse
     if and_ is not UNSET:
         _data['AND'] = and_
     if or_ is not UNSET:
@@ -6630,7 +6718,7 @@ Arguments:
         _data['description'] = description
     return CreateModelCollectionInput.model_validate(_data)
 
-def create_neuron_model_input(name: str, config: ModelConfigInput, environment: IDCoercible | None | UnsetType=UNSET, parent: IDCoercible | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET) -> CreateNeuronModelInput:
+def create_neuron_model_input(name: str, config: ModelConfigInput, environment: IDCoercible | None | UnsetType=UNSET, parent: IDCoercible | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET) -> CreateNeuronModelInput:
     """Creates a CreateNeuronModelInput
 
 Arguments:
@@ -6639,6 +6727,7 @@ Arguments:
     parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     config: Input for the configuration of a model. (required)
+    derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
 """
     _data: dict[str, builtins.object] = {}
     _data['name'] = name
@@ -6649,6 +6738,8 @@ Arguments:
     if description is not UNSET:
         _data['description'] = description
     _data['config'] = config
+    if derived_from is not UNSET:
+        _data['derivedFrom'] = derived_from
     return CreateNeuronModelInput.model_validate(_data)
 
 def create_sampling_law_input(source: IDCoercible, clock: IDCoercible, sampling_rate: Frequency, t_start: Duration, validity: PlacementValidity | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET) -> CreateSamplingLawInput:
@@ -6701,7 +6792,7 @@ spelling (``"cm2"``) is accepted and the given spelling is preserved. (required)
     _data['timeUnit'] = time_unit
     return CreateSessionInput.model_validate(_data)
 
-def create_sparse_dataset_input(name: str, store: SporadikCoercible, axes: Iterable[SparseAxisInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET) -> CreateSparseDatasetInput:
+def create_sparse_dataset_input(name: str, store: SporadikCoercible, axes: Iterable[SparseAxisInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, anchors: Iterable[CoordinateAnchorInput] | None | UnsetType=UNSET) -> CreateSparseDatasetInput:
     """Creates a CreateSparseDatasetInput
 
 Arguments:
@@ -6712,6 +6803,7 @@ Arguments:
     folder: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
     source_files: One file this container was produced from -- the ABF or NWB file a converter read to write these arrays. Recorded as a link between bytes and data, deliberately not as a coordinate-graph edge: a file has no space, so there is no map to state and `derivedFrom` is the wrong mechanism (required) (list)
+    anchors: Input type for a coordinate anchor, which specifies a list of dimension anchors to anchor to (required) (list)
 """
     _data: dict[str, builtins.object] = {}
     _data['name'] = name
@@ -6725,6 +6817,8 @@ Arguments:
         _data['derivedFrom'] = derived_from
     if source_files is not UNSET:
         _data['sourceFiles'] = source_files
+    if anchors is not UNSET:
+        _data['anchors'] = anchors
     return CreateSparseDatasetInput.model_validate(_data)
 
 def create_spikes_layer_input(experiment: IDCoercible, sparse_dataset: IDCoercible, tick_height: float | None | UnsetType=UNSET, row_order_column: str | None | UnsetType=UNSET, value_mode: SpikeValueMode | None | UnsetType=UNSET, rate_bin: Duration | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, colormap: ColorMap | None | UnsetType=UNSET, color_bys: Iterable[ColorByInput] | None | UnsetType=UNSET, filter_bys: Iterable[FilterByInput] | None | UnsetType=UNSET, active_color_by: int | None | UnsetType=UNSET, active_filter_bys: Iterable[int] | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET) -> CreateSpikesLayerInput:
@@ -6790,7 +6884,7 @@ Arguments:
         _data['order'] = order
     return CreateSpikesLayerInput.model_validate(_data)
 
-def create_table_dataset_input(name: str, data: ParquetCoercible, columns: Iterable[ColumnInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET) -> CreateTableDatasetInput:
+def create_table_dataset_input(name: str, data: ParquetCoercible, columns: Iterable[ColumnInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, anchors: Iterable[CoordinateAnchorInput] | None | UnsetType=UNSET) -> CreateTableDatasetInput:
     """Creates a CreateTableDatasetInput
 
 Arguments:
@@ -6801,6 +6895,7 @@ Arguments:
     folder: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
     source_files: One file this container was produced from -- the ABF or NWB file a converter read to write these arrays. Recorded as a link between bytes and data, deliberately not as a coordinate-graph edge: a file has no space, so there is no map to state and `derivedFrom` is the wrong mechanism (required) (list)
+    anchors: Input type for a coordinate anchor, which specifies a list of dimension anchors to anchor to (required) (list)
 """
     _data: dict[str, builtins.object] = {}
     _data['name'] = name
@@ -6814,6 +6909,8 @@ Arguments:
         _data['derivedFrom'] = derived_from
     if source_files is not UNSET:
         _data['sourceFiles'] = source_files
+    if anchors is not UNSET:
+        _data['anchors'] = anchors
     return CreateTableDatasetInput.model_validate(_data)
 
 def create_trace_layer_input(experiment: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, window: WindowInput | None | UnsetType=UNSET, clock: IDCoercible | None | UnsetType=UNSET) -> CreateTraceLayerInput:
@@ -7016,7 +7113,7 @@ Arguments:
     _data['id'] = id
     return DeleteTransformationInput.model_validate(_data)
 
-def derived_from_input(kind: DerivationSourceKind, lens: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, annotation_collection: IDCoercible | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, transform: TransformInput | None | UnsetType=UNSET, value_relation: ValueRelation | None | UnsetType=UNSET) -> DerivedFromInput:
+def derived_from_input(kind: DerivationSourceKind, lens: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, annotation_collection: IDCoercible | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, neuron_model: IDCoercible | None | UnsetType=UNSET, transform: TransformInput | None | UnsetType=UNSET, value_relation: ValueRelation | None | UnsetType=UNSET) -> DerivedFromInput:
     """Creates a DerivedFromInput
 
 Arguments:
@@ -7025,6 +7122,7 @@ Arguments:
     dataset: (DATASET) The dataset this data was computed from, through its whole sample grid
     annotation_collection: (ANNOTATION_COLLECTION) The annotation collection this data was computed from
     coordinate_system: (COORDINATE_SYSTEM) The space this data was computed from, when the source is a space rather than a container
+    neuron_model: (NEURON_MODEL) The neuron model this data was computed from -- the model a trace was simulated from, or the model another model was edited out of
     transform: How this data's own space maps back into the source's -- any creatable kind; the rank check holds you to it. **Omit it and the edge is UNMAPPABLE**: naming a source records the lineage and claims no correspondence, which is the truth for a per-unit summary whose values are not at any sample. State IDENTITY for an in-place operation (a zero-phase filter), TRANSLATION for a window or for a causal filter's group delay, SCALE for a decimation, BY_DIMENSION for a reduction that drops an axis (a mean over channels). Only a mappable edge carries placement: derived data sits where its source sits exactly when it says how
     value_relation: What the derivation did to the *values* -- orthogonal to the transform's `kind`, which only says where the data sits: IDENTICAL for a window or a stride decimation (statistics transfer), TRANSFORMED for a filter, a baseline subtraction or an anti-aliased decimation, CATEGORIZED for a threshold crossing or a spike sorting (values became labels). Omit when unstated; the algorithm itself belongs to task provenance
 """
@@ -7038,11 +7136,28 @@ Arguments:
         _data['annotationCollection'] = annotation_collection
     if coordinate_system is not UNSET:
         _data['coordinateSystem'] = coordinate_system
+    if neuron_model is not UNSET:
+        _data['neuronModel'] = neuron_model
     if transform is not UNSET:
         _data['transform'] = transform
     if value_relation is not UNSET:
         _data['valueRelation'] = value_relation
     return TypeAdapter(DerivedFromInput).validate_python(_data)
+
+def descriptor_constraint_input(key: str, operator: DescriptorOperator, value: Any | None | UnsetType=UNSET) -> DescriptorConstraintInput:
+    """Creates a DescriptorConstraintInput
+
+Arguments:
+    key: The descriptor key, e.g. `@elektro/n_space_axes`
+    operator: How the object's value is compared with `value`. MATCHES is equality, as EQUALS is
+    value: The value compared against: a number for GTE and LTE, a list for IN and NOT_IN, true or false for EXISTS, the member looked for with CONTAINS
+"""
+    _data: dict[str, builtins.object] = {}
+    _data['key'] = key
+    _data['operator'] = operator
+    if value is not UNSET:
+        _data['value'] = value
+    return DescriptorConstraintInput.model_validate(_data)
 
 def device_state_input(label: str, settings: Iterable[SettingInput], kind: str | None | UnsetType=UNSET) -> DeviceStateInput:
     """Creates a DeviceStateInput
@@ -7468,7 +7583,7 @@ Arguments:
     _data['label'] = label
     return LabelInput.model_validate(_data)
 
-def lens_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, and_: LensFilter | None | UnsetType=UNSET, or_: LensFilter | None | UnsetType=UNSET, not_: LensFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, placeable_in: PlaceableFilter | None | UnsetType=UNSET) -> LensFilter:
+def lens_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, and_: LensFilter | None | UnsetType=UNSET, or_: LensFilter | None | UnsetType=UNSET, not_: LensFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, requires: Iterable[DescriptorConstraintInput] | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, placeable_in: PlaceableFilter | None | UnsetType=UNSET) -> LensFilter:
     """Creates a LensFilter
 
 Arguments:
@@ -7478,6 +7593,7 @@ Arguments:
     or_: 
     not_: 
     distinct: The `Boolean` scalar type represents `true` or `false`.
+    requires: Filter to the lenses satisfying every one of these descriptor constraints: the `requires` of a port, handed on unchanged, so a picker offers what the port accepts. Answered in SQL from the descriptors stored on every row. A key lenses do not declare is refused rather than ignored
     dataset: Filter by the dataset this lens selects over
     placeable_in: Filter to lenses placeable into a coordinate system: those whose space reaches it across steps that compose into one affine map, walking the transformation edges
 """
@@ -7494,6 +7610,8 @@ Arguments:
         _data['NOT'] = not_
     if distinct is not UNSET:
         _data['DISTINCT'] = distinct
+    if requires is not UNSET:
+        _data['requires'] = requires
     if dataset is not UNSET:
         _data['dataset'] = dataset
     if placeable_in is not UNSET:
@@ -7925,12 +8043,12 @@ Arguments:
     _data['storeId'] = store_id
     return RequestBigFileAccessInput.model_validate(_data)
 
-def request_big_file_upload_input(original_file_name: str, file_size: int | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET) -> RequestBigFileUploadInput:
+def request_big_file_upload_input(original_file_name: str, file_size: ByteCountCoercible | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET) -> RequestBigFileUploadInput:
     """Creates a RequestBigFileUploadInput
 
 Arguments:
     original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-    file_size: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
@@ -7957,12 +8075,12 @@ Arguments:
     _data['storeId'] = store_id
     return RequestMediaAccessInput.model_validate(_data)
 
-def request_media_upload_input(original_file_name: str, file_size: int | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET) -> RequestMediaUploadInput:
+def request_media_upload_input(original_file_name: str, file_size: ByteCountCoercible | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET) -> RequestMediaUploadInput:
     """Creates a RequestMediaUploadInput
 
 Arguments:
     original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-    file_size: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
 """
     _data: dict[str, builtins.object] = {}
@@ -9838,14 +9956,14 @@ Returns:
         variables['input'] = _input
         return self.execute(DeleteRegistrationMutation, variables, task=task).delete_registration
 
-    async def arequest_bigfile_upload(self, original_file_name: str, file_size: int | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> BigFileUploadGrant:
+    async def arequest_bigfile_upload(self, original_file_name: str, file_size: ByteCountCoercible | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> BigFileUploadGrant:
         """RequestBigfileUpload 
 
 Request an upload grant for a big file store
 
 Args:
     original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-    file_size: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
@@ -9868,14 +9986,14 @@ Returns:
         variables['input'] = _input
         return (await self.aexecute(RequestBigfileUploadMutation, variables, task=task)).request_bigfile_upload
 
-    def request_bigfile_upload(self, original_file_name: str, file_size: int | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> BigFileUploadGrant:
+    def request_bigfile_upload(self, original_file_name: str, file_size: ByteCountCoercible | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> BigFileUploadGrant:
         """RequestBigfileUpload 
 
 Request an upload grant for a big file store
 
 Args:
     original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-    file_size: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
@@ -9974,14 +10092,14 @@ Returns:
         variables['input'] = _input
         return self.execute(RequestBigfileAccessMutation, variables, task=task).request_bigfile_access
 
-    async def arequest_media_upload(self, original_file_name: str, file_size: int | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> MediaUploadGrant:
+    async def arequest_media_upload(self, original_file_name: str, file_size: ByteCountCoercible | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> MediaUploadGrant:
         """RequestMediaUpload 
 
 Upload media and return a URL for access
 
 Args:
     original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-    file_size: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
@@ -9998,14 +10116,14 @@ Returns:
         variables['input'] = _input
         return (await self.aexecute(RequestMediaUploadMutation, variables, task=task)).request_media_upload
 
-    def request_media_upload(self, original_file_name: str, file_size: int | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> MediaUploadGrant:
+    def request_media_upload(self, original_file_name: str, file_size: ByteCountCoercible | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> MediaUploadGrant:
         """RequestMediaUpload 
 
 Upload media and return a URL for access
 
 Args:
     original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-    file_size: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
+    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
@@ -12174,7 +12292,7 @@ Returns:
         variables['input'] = _input
         return self.execute(CreateModelCollectionMutation, variables, task=task).create_model_collection
 
-    async def acreate_neuronmodel(self, name: str, config: ModelConfigInput, environment: IDCoercible | None | UnsetType=UNSET, parent: IDCoercible | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> NeuronModel:
+    async def acreate_neuronmodel(self, name: str, config: ModelConfigInput, environment: IDCoercible | None | UnsetType=UNSET, parent: IDCoercible | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> NeuronModel:
         """CreateNeuronmodel 
 
 Create a new neuron model
@@ -12185,6 +12303,7 @@ Args:
     parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     config: Input for the configuration of a model. (required)
+    derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
@@ -12200,10 +12319,12 @@ Returns:
         if description is not UNSET:
             _input['description'] = description
         _input['config'] = config
+        if derived_from is not UNSET:
+            _input['derivedFrom'] = derived_from
         variables['input'] = _input
         return (await self.aexecute(CreateNeuronmodelMutation, variables, task=task)).create_neuron_model
 
-    def create_neuronmodel(self, name: str, config: ModelConfigInput, environment: IDCoercible | None | UnsetType=UNSET, parent: IDCoercible | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> NeuronModel:
+    def create_neuronmodel(self, name: str, config: ModelConfigInput, environment: IDCoercible | None | UnsetType=UNSET, parent: IDCoercible | None | UnsetType=UNSET, description: str | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> NeuronModel:
         """CreateNeuronmodel 
 
 Create a new neuron model
@@ -12214,6 +12335,7 @@ Args:
     parent: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     config: Input for the configuration of a model. (required)
+    derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
@@ -12229,6 +12351,8 @@ Returns:
         if description is not UNSET:
             _input['description'] = description
         _input['config'] = config
+        if derived_from is not UNSET:
+            _input['derivedFrom'] = derived_from
         variables['input'] = _input
         return self.execute(CreateNeuronmodelMutation, variables, task=task).create_neuron_model
 
@@ -12308,7 +12432,7 @@ Returns:
         variables['input'] = _input
         return self.execute(CreateSessionMutation, variables, task=task).create_session
 
-    async def acreate_sparse_dataset(self, name: str, store: SporadikCoercible, axes: Iterable[SparseAxisInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> SparseDataset:
+    async def acreate_sparse_dataset(self, name: str, store: SporadikCoercible, axes: Iterable[SparseAxisInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, anchors: Iterable[CoordinateAnchorInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> SparseDataset:
         """CreateSparseDataset 
 
 Create a sparse dataset from an uploaded sparse store. Each INDEX axis says what its positions are through `identifiedBy`; one axis may be TIME (elektro's own) -- a spike raster's samples, identified by nothing and placed on a clock with `createSamplingLaw`. The spec, shape and layouts are read from the store, never declared
@@ -12321,6 +12445,7 @@ Args:
     folder: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
     source_files: One file this container was produced from -- the ABF or NWB file a converter read to write these arrays. Recorded as a link between bytes and data, deliberately not as a coordinate-graph edge: a file has no space, so there is no map to state and `derivedFrom` is the wrong mechanism (required) (list)
+    anchors: Input type for a coordinate anchor, which specifies a list of dimension anchors to anchor to (required) (list)
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
@@ -12339,10 +12464,12 @@ Returns:
             _input['derivedFrom'] = derived_from
         if source_files is not UNSET:
             _input['sourceFiles'] = source_files
+        if anchors is not UNSET:
+            _input['anchors'] = anchors
         variables['input'] = _input
         return (await self.aexecute(CreateSparseDatasetMutation, variables, task=task)).create_sparse_dataset
 
-    def create_sparse_dataset(self, name: str, store: SporadikCoercible, axes: Iterable[SparseAxisInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> SparseDataset:
+    def create_sparse_dataset(self, name: str, store: SporadikCoercible, axes: Iterable[SparseAxisInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, anchors: Iterable[CoordinateAnchorInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> SparseDataset:
         """CreateSparseDataset 
 
 Create a sparse dataset from an uploaded sparse store. Each INDEX axis says what its positions are through `identifiedBy`; one axis may be TIME (elektro's own) -- a spike raster's samples, identified by nothing and placed on a clock with `createSamplingLaw`. The spec, shape and layouts are read from the store, never declared
@@ -12355,6 +12482,7 @@ Args:
     folder: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
     source_files: One file this container was produced from -- the ABF or NWB file a converter read to write these arrays. Recorded as a link between bytes and data, deliberately not as a coordinate-graph edge: a file has no space, so there is no map to state and `derivedFrom` is the wrong mechanism (required) (list)
+    anchors: Input type for a coordinate anchor, which specifies a list of dimension anchors to anchor to (required) (list)
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
@@ -12373,6 +12501,8 @@ Returns:
             _input['derivedFrom'] = derived_from
         if source_files is not UNSET:
             _input['sourceFiles'] = source_files
+        if anchors is not UNSET:
+            _input['anchors'] = anchors
         variables['input'] = _input
         return self.execute(CreateSparseDatasetMutation, variables, task=task).create_sparse_dataset
 
@@ -12460,7 +12590,7 @@ Returns:
         variables['input'] = _input
         return self.execute(DeleteSparseDatasetMutation, variables, task=task).delete_sparse_dataset
 
-    async def acreate_table_dataset(self, name: str, data: ParquetCoercible, columns: Iterable[ColumnInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> TableDataset:
+    async def acreate_table_dataset(self, name: str, data: ParquetCoercible, columns: Iterable[ColumnInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, anchors: Iterable[CoordinateAnchorInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> TableDataset:
         """CreateTableDataset 
 
 Create a table dataset from an uploaded parquet store: every column declared in file order, checked against the file. Columns with an `axisType` become the axes of the table's own coordinate system -- a TIME column makes it an event table, placeable on a clock. `identifiedBy` on a column says what its values are: a DATASET whose contents are the ids (a FIELD edge), or a TABLE whose rows they are (a foreign key -- a spike's unit id referencing the unit table)
@@ -12473,6 +12603,7 @@ Args:
     folder: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
     source_files: One file this container was produced from -- the ABF or NWB file a converter read to write these arrays. Recorded as a link between bytes and data, deliberately not as a coordinate-graph edge: a file has no space, so there is no map to state and `derivedFrom` is the wrong mechanism (required) (list)
+    anchors: Input type for a coordinate anchor, which specifies a list of dimension anchors to anchor to (required) (list)
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
@@ -12491,10 +12622,12 @@ Returns:
             _input['derivedFrom'] = derived_from
         if source_files is not UNSET:
             _input['sourceFiles'] = source_files
+        if anchors is not UNSET:
+            _input['anchors'] = anchors
         variables['input'] = _input
         return (await self.aexecute(CreateTableDatasetMutation, variables, task=task)).create_table_dataset
 
-    def create_table_dataset(self, name: str, data: ParquetCoercible, columns: Iterable[ColumnInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> TableDataset:
+    def create_table_dataset(self, name: str, data: ParquetCoercible, columns: Iterable[ColumnInput], description: str | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, derived_from: Iterable[DerivedFromInput] | None | UnsetType=UNSET, source_files: Iterable[SourceFileInput] | None | UnsetType=UNSET, anchors: Iterable[CoordinateAnchorInput] | None | UnsetType=UNSET, task: TaskLike | None=None) -> TableDataset:
         """CreateTableDataset 
 
 Create a table dataset from an uploaded parquet store: every column declared in file order, checked against the file. Columns with an `axisType` become the axes of the table's own coordinate system -- a TIME column makes it an event table, placeable on a clock. `identifiedBy` on a column says what its values are: a DATASET whose contents are the ids (a FIELD edge), or a TABLE whose rows they are (a foreign key -- a spike's unit id referencing the unit table)
@@ -12507,6 +12640,7 @@ Args:
     folder: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     derived_from: Where this data came from, as a discriminated union: `kind` selects which sort of source is being named, and only that member's id field is read -- any other is rejected. The member inputs annotated `@unionElementOf(union: "DerivedFromInput")` say which field each kind reads. Direction is always this data -> its source (required) (list)
     source_files: One file this container was produced from -- the ABF or NWB file a converter read to write these arrays. Recorded as a link between bytes and data, deliberately not as a coordinate-graph edge: a file has no space, so there is no map to state and `derivedFrom` is the wrong mechanism (required) (list)
+    anchors: Input type for a coordinate anchor, which specifies a list of dimension anchors to anchor to (required) (list)
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
@@ -12525,6 +12659,8 @@ Returns:
             _input['derivedFrom'] = derived_from
         if source_files is not UNSET:
             _input['sourceFiles'] = source_files
+        if anchors is not UNSET:
+            _input['anchors'] = anchors
         variables['input'] = _input
         return self.execute(CreateTableDatasetMutation, variables, task=task).create_table_dataset
 
@@ -13145,7 +13281,7 @@ Returns:
     async def aget_coordinate_anchors(self, filters: CoordinateAnchorFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[CoordinateAnchor]:
         """GetCoordinateAnchors 
 
-List coordinate anchors: the hubs pinning a value unit, a channel label or the rig state to coordinates of a dataset
+List coordinate anchors: the hubs pinning a value unit, a channel label or the rig state to coordinates of an array, table or sparse dataset
 
 Args:
     filters (CoordinateAnchorFilter | None, optional): No description. 
@@ -13165,7 +13301,7 @@ Returns:
     def get_coordinate_anchors(self, filters: CoordinateAnchorFilter | None | UnsetType=UNSET, pagination: OffsetPaginationInput | None | UnsetType=UNSET, task: TaskLike | None=None) -> list[CoordinateAnchor]:
         """GetCoordinateAnchors 
 
-List coordinate anchors: the hubs pinning a value unit, a channel label or the rig state to coordinates of a dataset
+List coordinate anchors: the hubs pinning a value unit, a channel label or the rig state to coordinates of an array, table or sparse dataset
 
 Args:
     filters (CoordinateAnchorFilter | None, optional): No description. 
@@ -14435,6 +14571,7 @@ LinkFileInput.model_rebuild()
 MechanismInput.model_rebuild()
 ModelCollectionFilter.model_rebuild()
 ModelConfigInput.model_rebuild()
+NeuronModelDerivedFromInput.model_rebuild()
 NeuronModelFilter.model_rebuild()
 RegistrationPathInput.model_rebuild()
 SparseDatasetFilter.model_rebuild()

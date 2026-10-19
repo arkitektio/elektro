@@ -67,3 +67,13 @@ def test_a_lens_and_a_dataset_say_how_they_are_described() -> None:
     assert structures.get_fullfilled_structure("@elektro/arraydataset").describe is describe_lens
     described = {i for i, s in structures.identifier_structure_map.items() if s.describe}
     assert described == {"@elektro/lens", "@elektro/arraydataset"}
+
+
+def test_every_structure_class_the_server_identifies_says_so_itself() -> None:
+    """`__identifier__` (turms over `@identified`) agrees with the identifier each class is registered under."""
+    stamped = {
+        identifier: getattr(structure.cls, "__identifier__", None)
+        for identifier, structure in declared.registry.structure_registry.identifier_structure_map.items()
+    }
+    assert {i: s for i, s in stamped.items() if s is not None} == {i: i for i, s in stamped.items() if s is not None}
+    assert any(s is not None for s in stamped.values())
