@@ -155,7 +155,7 @@ wheels = [
 
 [[package]]
 name = "arkitekt-runtime"
-version = "4.4.0"
+version = "5.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "arkitekt-spec" },
@@ -164,25 +164,26 @@ dependencies = [
     { name = "koil" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f0/e9/044826f43dc4f0c03e45472c80ee41948c026925c857519ee964ae619bd9/arkitekt_runtime-4.4.0.tar.gz", hash = "sha256:180f7def7b60310aa2e5b76dff94444ac8d1fbac80b4e5329d948a0baec2d85d", size = 116044, upload-time = "2026-10-07T14:19:59.696Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/93/0b/df0da97de7824dbfe2d2b372159116d15f5403825d7a34abd72aaf10fd77/arkitekt_runtime-5.2.0.tar.gz", hash = "sha256:1b3841b5d5d629ecee0629fe053566af3658a4b490d3dab0b196a4b8082c78d4", size = 123396, upload-time = "2026-10-23T20:25:10.12Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/47/50/9acc321deb279c5f0d2e270995dd06350ab76ce8bc19de0209ddecb0a9c7/arkitekt_runtime-4.4.0-py3-none-any.whl", hash = "sha256:60d11288e032b7c642c07110a00a1a8b40c9e9df54b1bc170f45f176f7a97591", size = 144208, upload-time = "2026-10-07T14:19:58.613Z" },
+    { url = "https://files.pythonhosted.org/packages/51/ea/e5524744340b1f0a39c4a632129d57725903609e42d4b4294fa2bdb57b45/arkitekt_runtime-5.2.0-py3-none-any.whl", hash = "sha256:9a40e44d2b464decd40c2d70bafa0a4343acc809e1c3ae91dc614f585dca124a", size = 152277, upload-time = "2026-10-23T20:25:08.995Z" },
 ]
 
 [[package]]
 name = "arkitekt-spec"
-version = "3.5.0"
+version = "3.19.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "certifi" },
     { name = "docstring-parser" },
     { name = "fieldz" },
     { name = "inflection" },
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1b/13/03225d3e4f792260245c42f66bd7ff88a1d8a2019418b64f1a197b3ce480/arkitekt_spec-3.5.0.tar.gz", hash = "sha256:88bd024d2ce2c9ba093c0f3adcf3435fa48278d186187fc550a4426c582450c3", size = 180793, upload-time = "2026-10-07T14:16:39.067Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/52/7a/23c779701c4f08e13dfc72a335cada2c3a69ea599a2f60100424a877c2b6/arkitekt_spec-3.19.1.tar.gz", hash = "sha256:254daf97f517bbc71edf30a42c21ed852552f6042098f8b549f5ed84c28276ee", size = 248516, upload-time = "2026-10-23T18:40:27.957Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e4/fc/cce339c57dc8477fce86b3d9cbdd0603b0bcdc47123633f3e9c1377e08a6/arkitekt_spec-3.5.0-py3-none-any.whl", hash = "sha256:1aed3f377b73b2ee4f88a17ea0007936a843c9cd9ae531919d7513ec044e1ffd", size = 218390, upload-time = "2026-10-07T14:16:37.814Z" },
+    { url = "https://files.pythonhosted.org/packages/7b/96/e06670f680985923c4bde56a89c0bc532c7de495c0ea659c3f305487c238/arkitekt_spec-3.19.1-py3-none-any.whl", hash = "sha256:ac98bc81e4b92a997e2fdba1b3b2be3f65c7a6aeeb123440e624c55800bb3001", size = 290660, upload-time = "2026-10-23T18:40:26.828Z" },
 ]
 
 [[package]]
@@ -762,14 +763,15 @@ dev = [
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "sporadik" },
     { name = "testcontainers" },
+    { name = "turms" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "arkitekt-spec", specifier = ">=3.5" },
+    { name = "arkitekt-spec", specifier = ">=3.19.1" },
     { name = "dask", specifier = ">=2024.12.1" },
     { name = "duckdb", marker = "extra == 'table'", specifier = ">=1.0" },
-    { name = "fakts", specifier = ">=5.4" },
+    { name = "fakts", specifier = ">=6.1" },
     { name = "filelock", specifier = ">=3.12" },
     { name = "kanne", specifier = ">=2.5.0" },
     { name = "neuron", marker = "sys_platform != 'win32' and extra == 'neuron'", specifier = ">=8.0.0" },
@@ -782,7 +784,7 @@ requires-dist = [
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "rath", specifier = ">=4.1.1" },
     { name = "sporadik", marker = "extra == 'sparse'", specifier = ">=1.1" },
-    { name = "turms", marker = "extra == 'turms'" },
+    { name = "turms", marker = "extra == 'turms'", specifier = ">=2.3.0" },
     { name = "websockets", specifier = ">=15.0.1" },
     { name = "xarray", specifier = ">=2024.11.0" },
     { name = "zarr", specifier = ">=3.1" },
@@ -810,11 +812,12 @@ dev = [
     { name = "scipy", specifier = ">=1.11" },
     { name = "sporadik", specifier = ">=1.1" },
     { name = "testcontainers", specifier = "==3.7.0" },
+    { name = "turms", specifier = ">=2.3.0" },
 ]
 
 [[package]]
 name = "fakts"
-version = "5.5.0"
+version = "6.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -823,9 +826,9 @@ dependencies = [
     { name = "koil" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0f/86/73ea6df08fab818203283eedb59429a6ff7ee3a96c7d08559e807c3b778a/fakts-5.5.0.tar.gz", hash = "sha256:36cdfa58f62b9248db1da40c6efa9c777b2c90594c59496a9c64fa4404529f38", size = 105503, upload-time = "2026-10-07T14:22:51.03Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/10/a4/acfaef26965e8d6452cb627b09b017c4aa2abfcbc144d08ffea275973290/fakts-6.1.0.tar.gz", hash = "sha256:9e1612ecb436cee7384e1f52c0ac0be62fe12c56a9d07047f13aa50af7603ac3", size = 108357, upload-time = "2026-10-23T18:31:51.01Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a8/9a/efd849934eb7a801c8214bbe7f7a49d9611e0cd3129b52d0b43b335d2f6c/fakts-5.5.0-py3-none-any.whl", hash = "sha256:4eea40e08a8b16894b897b1778083025981aae0f205c57aa8316cf961115dffb", size = 112254, upload-time = "2026-10-07T14:22:49.826Z" },
+    { url = "https://files.pythonhosted.org/packages/c8/3a/b0421744a9dadaed6f2965502093d95603ac39775fa00b9754bae251fcf5/fakts-6.1.0-py3-none-any.whl", hash = "sha256:1fc7827bbc6490d5e06a96f86d9bbb49c441635c5e5c451654aa2b85f975d187", size = 115281, upload-time = "2026-10-23T18:31:49.532Z" },
 ]
 
 [[package]]
@@ -2731,7 +2734,7 @@ wheels = [
 
 [[package]]
 name = "turms"
-version = "2.1.2"
+version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "graphql-core" },
@@ -2743,9 +2746,9 @@ dependencies = [
     { name = "rich-click" },
     { name = "watchfiles" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/83/6e/7e232c0fb8e3f968b8074d01acb1985e9292033bff31c0028dfa66c3c453/turms-2.1.2.tar.gz", hash = "sha256:0004ec454be747400f2110759720a0df239158d8f10bce4fe00fe8e499993043", size = 94436, upload-time = "2026-09-22T14:20:04.258Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/65/95/3d7fd47b08dd050a8932dee105a194a13f3b38e9d074153e0b0c02ac9edd/turms-2.3.0.tar.gz", hash = "sha256:e39b50bf26674796f5a4570fd668da05fafc45f06be0ec56f10ec421425822a6", size = 100001, upload-time = "2026-10-19T15:05:52.709Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5b/43/f6994d1344019cfb6a5fb4ad2a8404bfd16ec789895f85a5715cac849d21/turms-2.1.2-py3-none-any.whl", hash = "sha256:457f7d0a17c02ec12fc2343b69b0d5c89a3bdeea443d67edc0c1b19091d73a3e", size = 112870, upload-time = "2026-09-22T14:20:02.877Z" },
+    { url = "https://files.pythonhosted.org/packages/8e/4c/5fcd142e43a98061b245ed330bc6d4a0fe6662a93adb3fadc0a89124647e/turms-2.3.0-py3-none-any.whl", hash = "sha256:d2269c099522e12612bf825c8dfc63bce603349874bed3506a630a0fcd513bd9", size = 118880, upload-time = "2026-10-19T15:05:51.169Z" },
 ]
 
 [[package]]
