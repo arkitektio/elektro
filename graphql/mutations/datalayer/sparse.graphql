@@ -1,5 +1,5 @@
-mutation RequestSparseUpload($input: RequestSparseUploadInput!) {
-  requestSparseUpload(input: $input) {
+mutation RequestSparseUpload {
+  requestSparseUpload {
     ...SparseUploadGrant
   }
 }
@@ -7,5 +7,14 @@ mutation RequestSparseUpload($input: RequestSparseUploadInput!) {
 mutation FinishSparseUpload($input: FinishSparseUploadInput!) {
   finishSparseUpload(input: $input) {
     ...SparseStore
+  }
+}
+
+
+# Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+# credentials asks for this before they expire and carries on. Only the uploader may.
+mutation RefreshSparseUpload($input: RefreshUploadInput!) {
+  refreshSparseUpload(input: $input) {
+    ...SparseUploadGrant
   }
 }

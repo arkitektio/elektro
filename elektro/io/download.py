@@ -1,16 +1,16 @@
-"""Helpers for downloading Zarr, Parquet and big-file data from the DataLayer."""
+"""Helpers for downloading Zarr, Parquet, big-file and media data from the DataLayer."""
 
 from elektro.api.schema import (
     ZarrAccessGrant,
     ParquetAccessGrant,
     BigFileAccessGrant,
+    MediaAccessGrant,
 )
 from elektro.datalayer import DataLayer
 from elektro.errors import NoDataLayerFound, NoElektroFound
 from elektro.rath import ElektroRath
 from koil import unkoil
 from rath.origin import get_origin
-import aiohttp
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Tuple, cast
 import obstore  # Imported to access direct streaming capabilities
@@ -69,6 +69,21 @@ async def aget_bigfile_credentials_and_endpoint(
     before crossing into the event loop.
     """
     credentials = await _as_client(rath, datalayer).arequest_bigfile_access(ID.validate(store))
+    endpoint_url = await datalayer.get_endpoint_url()
+    return credentials, endpoint_url
+
+
+async def aget_media_credentials_and_endpoint(
+    store: str,
+    rath: ElektroRath,
+    datalayer: DataLayer,
+) -> Tuple[MediaAccessGrant, str]:
+    """Fetch media access credentials and the datalayer endpoint URL.
+
+    Both clients are taken as given: callers pick them (see :func:`_clients`)
+    before crossing into the event loop.
+    """
+    credentials = await _as_client(rath, datalayer).arequest_media_access(ID.validate(store))
     endpoint_url = await datalayer.get_endpoint_url()
     return credentials, endpoint_url
 
@@ -252,75 +267,36 @@ def _ensure_parent_directory(file_name: str) -> None:
     parent.mkdir(parents=True, exist_ok=True)
 
 
-async def adownload_presigned_file(
-    presigned_url: str,
-    file_name: str,
-    datalayer: DataLayer | None = None,
-    *,
-    obj: Any = None,  # noqa: ANN401
+async def _awrite_object(
+    credentials: BigFileAccessGrant | MediaAccessGrant, endpoint_url: str, file_name: str, datalayer: DataLayer
 ) -> str:
-    """Download a file from a presigned URL and save it to file_name asynchronously.
-
-    Args:
-        presigned_url: The presigned URL path (appended to the endpoint URL).
-        file_name: Local path to write the downloaded file to.
-        datalayer: Optional DataLayer override.
-        obj: The object the download is made on; its origin gives the datalayer
-            when none is given.
-
-    Returns:
-        The local path where the file was saved.
-    """
-    datalayer = _datalayer(datalayer, obj)
-
-    endpoint_url = await datalayer.get_endpoint_url()
+    """Stream the one object a grant names into ``file_name``."""
     _ensure_parent_directory(file_name)
+    store = create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy)
 
-    # Stream the file in 1 MiB chunks to avoid per-read syscall overhead.
-    async with aiohttp.ClientSession() as session:
-        # ``proxy=None`` is aiohttp's own default, so an unproxied datalayer is unchanged.
-        async with session.get(
-            endpoint_url + presigned_url,
-            proxy=datalayer.proxy,
-            # A pinned store by its hub's certificate alone; any other as before.
-            ssl=datalayer.ssl_context() if datalayer.certificates else True,
-        ) as response:
-            response.raise_for_status()
-            with open(file_name, "wb") as file:
-                while True:
-                    chunk = await response.content.read(1024 * 1024)
-                    if not chunk:
-                        break
-                    file.write(chunk)
+    # Stream the file asynchronously directly into the file object
+    response = await obstore.get_async(store, credentials.key)
+    with open(file_name, "wb") as file:
+        async for chunk in response.stream():
+            file.write(chunk)
 
     return file_name
 
 
-def download_presigned_file(
-    presigned_url: str,
-    file_name: str,
-    datalayer: DataLayer | None = None,
-    *,
-    obj: Any = None,  # noqa: ANN401
+def _write_object(
+    credentials: BigFileAccessGrant | MediaAccessGrant, endpoint_url: str, file_name: str, datalayer: DataLayer
 ) -> str:
-    """Download a file from a presigned URL and save it to file_name synchronously.
+    """Stream the one object a grant names into ``file_name`` synchronously."""
+    _ensure_parent_directory(file_name)
+    store = create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy)
 
-    Args:
-        presigned_url: The presigned URL path (appended to the endpoint URL).
-        file_name: Local path to write the downloaded file to.
-        datalayer: Optional DataLayer override.
-        obj: The object the download is made on; its origin gives the datalayer
-            when none is given.
+    # Stream the file synchronously directly into the file object
+    response = obstore.get(store, credentials.key)
+    with open(file_name, "wb") as file:
+        for chunk in response.stream():
+            file.write(chunk)
 
-    Returns:
-        The local path where the file was saved.
-    """
-    return unkoil(
-        adownload_presigned_file,
-        presigned_url,
-        file_name=file_name,
-        datalayer=_datalayer(datalayer, obj),
-    )
+    return file_name
 
 
 async def adownload_file(
@@ -348,17 +324,7 @@ async def adownload_file(
     credentials, endpoint_url = await aget_bigfile_credentials_and_endpoint(
         store_id, rath, datalayer
     )
-
-    _ensure_parent_directory(file_name)
-    store = create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy)
-
-    # Stream the file asynchronously directly into the file object
-    response = await obstore.get_async(store, credentials.key)
-    with open(file_name, "wb") as file:
-        async for chunk in response.stream():
-            file.write(chunk)
-
-    return file_name
+    return await _awrite_object(credentials, endpoint_url, file_name, datalayer)
 
 
 def download_file(
@@ -386,14 +352,60 @@ def download_file(
     credentials, endpoint_url = unkoil(
         aget_bigfile_credentials_and_endpoint, store_id, rath, datalayer
     )
+    return _write_object(credentials, endpoint_url, file_name, datalayer)
 
-    _ensure_parent_directory(file_name)
-    store = create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy)
 
-    # Stream the file synchronously directly into the file object
-    response = obstore.get(store, credentials.key)
-    with open(file_name, "wb") as file:
-        for chunk in response.stream():
-            file.write(chunk)
+async def adownload_media_file(
+    store_id: str,
+    file_name: str,
+    datalayer: DataLayer | None = None,
+    *,
+    rath: ElektroRath | None = None,
+    obj: Any = None,  # noqa: ANN401
+) -> str:
+    """Download a media object from its store and save it to file_name asynchronously.
 
-    return file_name
+    Args:
+        store_id: The ID of the media store to download from.
+        file_name: Local path to write the downloaded file to.
+        datalayer: Optional DataLayer override.
+        rath: Optional rath client override.
+        obj: The object the download is made on; its origin is used when nothing
+            explicit is given.
+
+    Returns:
+        The local path where the file was saved.
+    """
+    rath, datalayer = _clients(rath, datalayer, obj)
+    credentials, endpoint_url = await aget_media_credentials_and_endpoint(
+        store_id, rath, datalayer
+    )
+    return await _awrite_object(credentials, endpoint_url, file_name, datalayer)
+
+
+def download_media_file(
+    store_id: str,
+    file_name: str,
+    datalayer: DataLayer | None = None,
+    *,
+    rath: ElektroRath | None = None,
+    obj: Any = None,  # noqa: ANN401
+) -> str:
+    """Download a media object from its store and save it to file_name synchronously.
+
+    Args:
+        store_id: The ID of the media store to download from.
+        file_name: Local path to write the downloaded file to.
+        datalayer: Optional DataLayer override.
+        rath: Optional rath client override.
+        obj: The object the download is made on; its origin is used when nothing
+            explicit is given.
+
+    Returns:
+        The local path where the file was saved.
+    """
+    rath, datalayer = _clients(rath, datalayer, obj)
+    credentials, endpoint_url = unkoil(
+        aget_media_credentials_and_endpoint, store_id, rath, datalayer
+    )
+    return _write_object(credentials, endpoint_url, file_name, datalayer)

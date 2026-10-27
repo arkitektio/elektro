@@ -20,7 +20,6 @@ fragment BigFileStore on BigFileStore {
   key
   bucket
   path
-  presignedUrl
 }
 
 fragment MediaStore on MediaStore {

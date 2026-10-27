@@ -873,9 +873,7 @@ type BigFileAccessGrant {
   store: String
 }
 
-"""
-A type representing a big file store reference, which can be either a string ID or a more complex object.
-"""
+"""A reference to a big file store: the id its finished upload returned."""
 scalar BigFileLike
 
 """
@@ -888,6 +886,11 @@ type BigFileStore @key(fields: "id", resolvable: true) {
   key: String!
 
   """
+  The byte budget the upload grant advertised for this store. Advertised, not enforced: a session policy bounds what a credential may write, never how much, so a store may exceed this
+  """
+  maxBytes: ByteCount
+
+  """
   How many bytes this store actually holds, measured when its upload was finished. Null while unfinished, or for stores written before this was recorded
   """
   sizeBytes: ByteCount
@@ -895,8 +898,7 @@ type BigFileStore @key(fields: "id", resolvable: true) {
   contentType: String
 
   """Get temporary S3 read credentials for the object."""
-  accessGrant(host: String = null): BigFileAccessGrant!
-  presignedUrl: String!
+  accessGrant: BigFileAccessGrant!
 }
 
 """Temporary S3 credentials for uploading a big file."""
@@ -915,7 +917,6 @@ type BigFileUploadGrant {
   originalFileName: String
   uploadFileName: String!
   uploadContentType: String
-  uploadFormField: String!
 }
 
 """
@@ -3699,27 +3700,25 @@ input FromFileLike {
 
 """Temporary S3 credentials for reading a media object."""
 type GeneralMediaAccessGrant {
-  path: String!
-  store: String
   status: String!
   accessKey: String!
   secretKey: String!
   sessionToken: String!
   region: String!
   bucket: String!
+  prefix: String!
   expiresIn: Int!
 }
 
 """Temporary S3 credentials for reading a parquet object."""
 type GeneralParquetAccessGrant {
-  path: String!
-  store: String
   status: String!
   accessKey: String!
   secretKey: String!
   sessionToken: String!
   region: String!
   bucket: String!
+  prefix: String!
   expiresIn: Int!
 }
 
@@ -3731,19 +3730,19 @@ type GeneralSparseAccessGrant {
   sessionToken: String!
   region: String!
   bucket: String!
+  prefix: String!
   expiresIn: Int!
 }
 
 """Temporary S3 credentials for reading a Zarr store."""
 type GeneralZarrAccessGrant {
-  path: String!
-  store: String
   status: String!
   accessKey: String!
   secretKey: String!
   sessionToken: String!
   region: String!
   bucket: String!
+  prefix: String!
   expiresIn: Int!
 }
 
@@ -4372,6 +4371,11 @@ type MediaStore @key(fields: "id", resolvable: true) {
   key: String!
 
   """
+  The byte budget the upload grant advertised for this store. Advertised, not enforced: a session policy bounds what a credential may write, never how much, so a store may exceed this
+  """
+  maxBytes: ByteCount
+
+  """
   How many bytes this store actually holds, measured when its upload was finished. Null while unfinished, or for stores written before this was recorded
   """
   sizeBytes: ByteCount
@@ -4379,13 +4383,10 @@ type MediaStore @key(fields: "id", resolvable: true) {
   contentType: String
 
   """Get temporary S3 read credentials for the media object."""
-  accessGrant(host: String = null): MediaAccessGrant!
-
-  """Compatibility field returning the canonical S3 object path."""
-  presignedUrl(host: String = null): String!
+  accessGrant: MediaAccessGrant!
 }
 
-"""A presigned PUT grant for uploading a media object."""
+"""Temporary S3 credentials for uploading a media object."""
 type MediaUploadGrant {
   status: String!
   accessKey: String!
@@ -4401,7 +4402,6 @@ type MediaUploadGrant {
   originalFileName: String
   uploadFileName: String!
   uploadContentType: String
-  uploadFormField: String!
 }
 
 type ModEnvironment @key(fields: "id", resolvable: true) {
@@ -4617,6 +4617,11 @@ type Mutation {
   """Finalize a media upload after the client has written the object"""
   finishMediaUpload(input: FinishMediaUploadInput!): MediaStore! @auth(any_role_of: ["admin", "editor", "bot"])
 
+  """
+  Reissue upload credentials for a media upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit
+  """
+  refreshMediaUpload(input: RefreshUploadInput!): MediaUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+
   """Request temporary S3 read credentials for a media file"""
   requestMediaAccess(input: RequestMediaAccessInput!): MediaAccessGrant!
 
@@ -4625,14 +4630,29 @@ type Mutation {
   """
   requestGeneralMediaAccess(input: RequestGeneralMediaAccessInput!): GeneralMediaAccessGrant!
 
+  """
+  Reissue upload credentials for a bigfile upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit
+  """
+  refreshBigfileUpload(input: RefreshUploadInput!): BigFileUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+
   """Request an upload grant for a big file store"""
   requestBigfileUpload(input: RequestBigFileUploadInput!): BigFileUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+
+  """
+  Reissue upload credentials for a zarr upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit
+  """
+  refreshZarrUpload(input: RefreshUploadInput!): ZarrUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """Finalize a big file upload after the client has written the object"""
   finishBigfileUpload(input: FinishBigFileUploadInput!): BigFileStore! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """Request temporary S3 read credentials for a big file"""
   requestBigfileAccess(input: RequestBigFileAccessInput!): BigFileAccessGrant!
+
+  """
+  Reissue upload credentials for a parquet upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit
+  """
+  refreshParquetUpload(input: RefreshUploadInput!): ParquetUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """Request an upload grant for a Zarr store"""
   requestZarrUpload(input: RequestZarrUploadInput!): ZarrUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
@@ -4665,7 +4685,7 @@ type Mutation {
   """
   Request an upload grant for a sparse store. The grant covers the whole prefix, so one request authorizes the group's metadata and all three of its arrays. It declares nothing about the matrix: the group states its encoding, shape and chunking, and the server reads them when the upload is finished
   """
-  requestSparseUpload(input: RequestSparseUploadInput!): SparseUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+  requestSparseUpload: SparseUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """
   Finalize a sparse upload, which is when the group's own metadata is read. A missing encoding, a missing array, or an `indptr` whose length contradicts the declared shape are all refused here -- that is what an interrupted upload looks like, and catching it now beats a reader discovering it later
@@ -4675,7 +4695,7 @@ type Mutation {
   """
   Reissue upload credentials for a sparse store whose upload is still in flight, for the reason `refreshZarrUpload` exists: three chunked arrays of a large matrix take long enough that a write can outlive its session token. Refuses a store that is already populated -- that is an overwrite, not a resumption
   """
-  refreshSparseUpload(input: RefreshSparseUploadInput!): SparseUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+  refreshSparseUpload(input: RefreshUploadInput!): SparseUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
 
   """
   Request temporary S3 read credentials for a sparse store. Covers the whole prefix, because a lookup needs `indptr` before it knows which range of `data` to fetch
@@ -5318,7 +5338,9 @@ enum Ordering {
 
 type Organization @key(fields: "id", resolvable: true) {
   id: ID!
-  slug: String!
+
+  """The organization across issuers and services: `<issuer>#<org>`"""
+  identifier: String!
 }
 
 """A parameter port of a mechanism"""
@@ -5381,6 +5403,11 @@ type ParquetStore @key(fields: "id", resolvable: true) {
   key: String!
 
   """
+  The byte budget the upload grant advertised for this store. Advertised, not enforced: a session policy bounds what a credential may write, never how much, so a store may exceed this
+  """
+  maxBytes: ByteCount
+
+  """
   How many bytes this store actually holds, measured when its upload was finished. Null while unfinished, or for stores written before this was recorded
   """
   sizeBytes: ByteCount
@@ -5388,10 +5415,7 @@ type ParquetStore @key(fields: "id", resolvable: true) {
   contentType: String
 
   """Get temporary S3 read credentials for the parquet object."""
-  accessGrant(host: String = null): ParquetAccessGrant!
-
-  """Compatibility field returning the canonical S3 object path."""
-  presignedUrl(host: String = null): String!
+  accessGrant: ParquetAccessGrant!
 }
 
 """Temporary S3 credentials for uploading a parquet store."""
@@ -5410,7 +5434,6 @@ type ParquetUploadGrant {
   originalFileName: String
   uploadFileName: String!
   uploadContentType: String
-  uploadFormField: String!
 }
 
 """
@@ -5921,7 +5944,7 @@ input RecordingSiteInput {
   kind: RecordingKind! = VOLTAGE
 }
 
-input RefreshSparseUploadInput {
+input RefreshUploadInput {
   storeId: String!
 }
 
@@ -5950,10 +5973,8 @@ input RequestBigFileAccessInput {
 
 input RequestBigFileUploadInput {
   originalFileName: String!
-  fileSize: ByteCount = null
+  fileSize: ByteCount!
   contentType: String = null
-  host: String = null
-  port: Int = null
 }
 
 input RequestGeneralMediaAccessInput {
@@ -5978,7 +5999,7 @@ input RequestMediaAccessInput {
 
 input RequestMediaUploadInput {
   originalFileName: String!
-  fileSize: ByteCount = null
+  fileSize: ByteCount!
   contentType: String = null
 }
 
@@ -5988,17 +6009,10 @@ input RequestParquetAccessInput {
 
 input RequestParquetUploadInput {
   contentType: String = null
-  host: String = null
-  port: Int = null
 }
 
 input RequestSparseAccessInput {
   storeId: String!
-}
-
-input RequestSparseUploadInput {
-  host: String = null
-  port: Int = null
 }
 
 input RequestZarrAccessInput {
@@ -6009,8 +6023,6 @@ input RequestZarrUploadInput {
   shape: [Int!] = null
   chunks: [Int!] = null
   version: String = null
-  host: String = null
-  port: Int = null
 }
 
 """
@@ -7011,6 +7023,11 @@ type SparseStore @key(fields: "id", resolvable: true) {
   key: String!
 
   """
+  The byte budget the upload grant advertised for this store. Advertised, not enforced: a session policy bounds what a credential may write, never how much, so a store may exceed this
+  """
+  maxBytes: ByteCount
+
+  """
   How many bytes this store actually holds, measured when its upload was finished. Null while unfinished, or for stores written before this was recorded
   """
   sizeBytes: ByteCount
@@ -7031,7 +7048,7 @@ type SparseStore @key(fields: "id", resolvable: true) {
   layouts: [SparseLayout!]!
 
   """Get temporary S3 read credentials for the sparse store."""
-  accessGrant(host: String = null): SparseAccessGrant!
+  accessGrant: SparseAccessGrant!
 }
 
 """
@@ -7052,7 +7069,6 @@ type SparseUploadGrant {
   originalFileName: String
   uploadFileName: String!
   uploadContentType: String
-  uploadFormField: String!
 }
 
 """A specific membrane capacitance (NEURON ``cm``; ``"1 uF/cm^2"``)."""
@@ -8412,6 +8428,11 @@ type ZarrStore @key(fields: "id", resolvable: true) {
   key: String!
 
   """
+  The byte budget the upload grant advertised for this store. Advertised, not enforced: a session policy bounds what a credential may write, never how much, so a store may exceed this
+  """
+  maxBytes: ByteCount
+
+  """
   How many bytes this store actually holds, measured when its upload was finished. Null while unfinished, or for stores written before this was recorded
   """
   sizeBytes: ByteCount
@@ -8436,7 +8457,7 @@ type ZarrStore @key(fields: "id", resolvable: true) {
   codecs: JSON
 
   """Get temporary S3 read credentials for the Zarr object."""
-  accessGrant(host: String = null): ZarrAccessGrant!
+  accessGrant: ZarrAccessGrant!
 }
 
 """Temporary S3 credentials for uploading a Zarr store."""
@@ -8455,7 +8476,6 @@ type ZarrUploadGrant {
   originalFileName: String
   uploadFileName: String!
   uploadContentType: String
-  uploadFormField: String!
 }
 
 scalar _Any

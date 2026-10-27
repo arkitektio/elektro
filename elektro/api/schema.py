@@ -3,7 +3,7 @@
 import builtins
 from datetime import datetime
 from elektro.scalars import ArrayCoercible, ArrayLike, AxisName, BigFileLike, BigFileLikeCoercible, ByteCount, ByteCountCoercible, FileLike, FileLikeCoercible, ParquetCoercible, ParquetLike, RGBAColor, SporadikCoercible, SporadikLike
-from elektro.traits import AxisInputTrait, BiophysicsInputTrait, BiophysicsTrait, CompartmentInputTrait, CompartmentTrait, CoordinateSystemTrait, CreateSparseDatasetTrait, CreateTableDatasetTrait, DataArrayTrait, DatasetTrait, DeclaresAxesTrait, ElektroFetchable, ExperimentTrait, HasDownloadAccessor, HasParquetStoreAccesor, HasPresignedDownloadAccessor, HasZarrStoreAccessor, Lensable, ModelConfigInputTrait, ModelConfigTrait, ResolvesSpacesTrait, SectionInputTrait, SparseAxisInputTrait, TableDatasetTrait, TopologyInputTrait, TopologyTrait, TransformationTrait
+from elektro.traits import AxisInputTrait, BiophysicsInputTrait, BiophysicsTrait, CompartmentInputTrait, CompartmentTrait, CoordinateSystemTrait, CreateSparseDatasetTrait, CreateTableDatasetTrait, DataArrayTrait, DatasetTrait, DeclaresAxesTrait, ElektroFetchable, ExperimentTrait, HasDownloadAccessor, HasMediaDownloadAccessor, HasParquetStoreAccesor, HasZarrStoreAccessor, Lensable, ModelConfigInputTrait, ModelConfigTrait, ResolvesSpacesTrait, SectionInputTrait, SparseAxisInputTrait, TableDatasetTrait, TopologyInputTrait, TopologyTrait, TransformationTrait
 from enum import Enum
 from kanne.scalars import Capacitance, Concentration, Dimension, Duration, ElectricCurrent, ElectricPotential, ElectricalConductance, ElectricalResistance, Frequency, GenericQuantity, Length, Resistivity, SpecificCapacitance, Temperature, Unit
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, TypeAdapter
@@ -1560,6 +1560,11 @@ class RecordingSiteInput(BaseModel):
     'Default: VOLTAGE'
     model_config = ConfigDict(extra='forbid', validate_assignment=True)
 
+class RefreshUploadInput(BaseModel):
+    """No documentation"""
+    store_id: str = Field(validation_alias=AliasChoices('store_id', 'storeId'), serialization_alias='storeId')
+    model_config = ConfigDict(extra='forbid', validate_assignment=True)
+
 class RegistrationPathInput(BaseModel):
     """A source (dataset, lens, annotation collection, or coordinate system) to register into a shared space, plus the edge that places it. The edge points from the source's own coordinate system to the shared space; the transform is validated exactly as createTransformation validates one"""
     dataset: ID | None = None
@@ -1579,10 +1584,8 @@ class RequestBigFileAccessInput(BaseModel):
 class RequestBigFileUploadInput(BaseModel):
     """No documentation"""
     original_file_name: str = Field(validation_alias=AliasChoices('original_file_name', 'originalFileName'), serialization_alias='originalFileName')
-    file_size: ByteCount | None = Field(validation_alias=AliasChoices('file_size', 'fileSize'), serialization_alias='fileSize', default=None)
+    file_size: ByteCount = Field(validation_alias=AliasChoices('file_size', 'fileSize'), serialization_alias='fileSize')
     content_type: str | None = Field(validation_alias=AliasChoices('content_type', 'contentType'), serialization_alias='contentType', default=None)
-    host: str | None = None
-    port: int | None = None
     model_config = ConfigDict(extra='forbid', validate_assignment=True)
 
 class RequestMediaAccessInput(BaseModel):
@@ -1593,7 +1596,7 @@ class RequestMediaAccessInput(BaseModel):
 class RequestMediaUploadInput(BaseModel):
     """No documentation"""
     original_file_name: str = Field(validation_alias=AliasChoices('original_file_name', 'originalFileName'), serialization_alias='originalFileName')
-    file_size: ByteCount | None = Field(validation_alias=AliasChoices('file_size', 'fileSize'), serialization_alias='fileSize', default=None)
+    file_size: ByteCount = Field(validation_alias=AliasChoices('file_size', 'fileSize'), serialization_alias='fileSize')
     content_type: str | None = Field(validation_alias=AliasChoices('content_type', 'contentType'), serialization_alias='contentType', default=None)
     model_config = ConfigDict(extra='forbid', validate_assignment=True)
 
@@ -1605,14 +1608,6 @@ class RequestParquetAccessInput(BaseModel):
 class RequestParquetUploadInput(BaseModel):
     """No documentation"""
     content_type: str | None = Field(validation_alias=AliasChoices('content_type', 'contentType'), serialization_alias='contentType', default=None)
-    host: str | None = None
-    port: int | None = None
-    model_config = ConfigDict(extra='forbid', validate_assignment=True)
-
-class RequestSparseUploadInput(BaseModel):
-    """No documentation"""
-    host: str | None = None
-    port: int | None = None
     model_config = ConfigDict(extra='forbid', validate_assignment=True)
 
 class RequestZarrAccessInput(BaseModel):
@@ -1625,8 +1620,6 @@ class RequestZarrUploadInput(BaseModel):
     shape: list[int] | None = None
     chunks: list[int] | None = None
     version: str | None = None
-    host: str | None = None
-    port: int | None = None
     model_config = ConfigDict(extra='forbid', validate_assignment=True)
 
 class RevertInput(BaseModel):
@@ -2010,7 +2003,7 @@ class BigFileUploadGrant(ElektroFetchable, BaseModel):
         type = 'BigFileUploadGrant'
 
 class MediaUploadGrant(ElektroFetchable, BaseModel):
-    """A presigned PUT grant for uploading a media object."""
+    """Temporary S3 credentials for uploading a media object."""
     typename: Literal['MediaUploadGrant'] = Field(alias='__typename', default='MediaUploadGrant', exclude=True)
     access_key: str = Field(alias='accessKey')
     secret_key: str = Field(alias='secretKey')
@@ -2773,15 +2766,14 @@ class BigFileStore(HasDownloadAccessor, ElektroFetchable, BaseModel):
     key: str
     bucket: str
     path: str
-    presigned_url: str = Field(alias='presignedUrl')
 
     class Meta:
         """Meta class for BigFileStore"""
-        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}'
+        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}'
         name = 'BigFileStore'
         type = 'BigFileStore'
 
-class MediaStore(HasPresignedDownloadAccessor, ElektroFetchable, BaseModel):
+class MediaStore(HasMediaDownloadAccessor, ElektroFetchable, BaseModel):
     """No documentation"""
     typename: Literal['MediaStore'] = Field(alias='__typename', default='MediaStore', exclude=True)
     id: ID
@@ -3125,7 +3117,7 @@ class ModEnvironment(ElektroFetchable, BaseModel):
 
     class Meta:
         """Meta class for ModEnvironment"""
-        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}'
+        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}'
         name = 'ModEnvironment'
         type = 'ModEnvironment'
 
@@ -3139,7 +3131,7 @@ class File(ElektroFetchable, BaseModel):
 
     class Meta:
         """Meta class for File"""
-        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment File on File {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}'
+        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment File on File {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}'
         name = 'File'
         type = 'File'
 
@@ -3676,7 +3668,7 @@ class NeuronModel(ElektroFetchable, BaseModel):
 
     class Meta:
         """Meta class for NeuronModel"""
-        document = 'fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  distribution {\n    kind\n    value\n    proximalValue\n    distalValue\n    expression\n    __typename\n  }\n  description\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  ions {\n    ...Ion\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  dLambda\n  ra\n  cm\n  parent {\n    parent\n    parentLocation\n    childEnd\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment Ion on Ion {\n  ion\n  style\n  reversalPotential\n  internalConcentration\n  externalConcentration\n  __typename\n}\n\nfragment MechanismGlobalParam on MechanismGlobalParam {\n  mechanism\n  param\n  value\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    ra\n    cm\n    cells {\n      ...Cell\n      __typename\n    }\n    ions {\n      ...Ion\n      __typename\n    }\n    mechanismGlobals {\n      ...MechanismGlobalParam\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}'
+        document = 'fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  distribution {\n    kind\n    value\n    proximalValue\n    distalValue\n    expression\n    __typename\n  }\n  description\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  ions {\n    ...Ion\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  dLambda\n  ra\n  cm\n  parent {\n    parent\n    parentLocation\n    childEnd\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment Ion on Ion {\n  ion\n  style\n  reversalPotential\n  internalConcentration\n  externalConcentration\n  __typename\n}\n\nfragment MechanismGlobalParam on MechanismGlobalParam {\n  mechanism\n  param\n  value\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    ra\n    cm\n    cells {\n      ...Cell\n      __typename\n    }\n    ions {\n      ...Ion\n      __typename\n    }\n    mechanismGlobals {\n      ...MechanismGlobalParam\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}'
         name = 'NeuronModel'
         type = 'NeuronModel'
 
@@ -4042,7 +4034,7 @@ class FinishBigfileUploadMutation(BaseModel):
 
     class Meta:
         """Meta class for FinishBigfileUpload """
-        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nmutation FinishBigfileUpload($input: FinishBigFileUploadInput!) {\n  finishBigfileUpload(input: $input) {\n    ...BigFileStore\n    __typename\n  }\n}'
+        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nmutation FinishBigfileUpload($input: FinishBigFileUploadInput!) {\n  finishBigfileUpload(input: $input) {\n    ...BigFileStore\n    __typename\n  }\n}'
 
 class RequestBigfileAccessMutation(BaseModel):
     """No documentation found for this operation."""
@@ -4056,6 +4048,20 @@ class RequestBigfileAccessMutation(BaseModel):
     class Meta:
         """Meta class for RequestBigfileAccess """
         document = 'fragment BigFileAccessGrant on BigFileAccessGrant {\n  accessKey\n  secretKey\n  sessionToken\n  expiresIn\n  path\n  key\n  bucket\n  __typename\n}\n\nmutation RequestBigfileAccess($input: RequestBigFileAccessInput!) {\n  requestBigfileAccess(input: $input) {\n    ...BigFileAccessGrant\n    __typename\n  }\n}'
+
+class RefreshBigfileUploadMutation(BaseModel):
+    """ Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+ credentials asks for this before they expire and carries on. Only the uploader may."""
+    refresh_bigfile_upload: BigFileUploadGrant = Field(alias='refreshBigfileUpload')
+    "Reissue upload credentials for a bigfile upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit"
+
+    class Arguments(BaseModel):
+        """Arguments for RefreshBigfileUpload """
+        input: RefreshUploadInput
+
+    class Meta:
+        """Meta class for RefreshBigfileUpload """
+        document = 'fragment BigFileUploadGrant on BigFileUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  expiresIn\n  store\n  __typename\n}\n\nmutation RefreshBigfileUpload($input: RefreshUploadInput!) {\n  refreshBigfileUpload(input: $input) {\n    ...BigFileUploadGrant\n    __typename\n  }\n}'
 
 class RequestMediaUploadMutation(BaseModel):
     """No documentation found for this operation."""
@@ -4096,6 +4102,20 @@ class RequestMediaAccessMutation(BaseModel):
         """Meta class for RequestMediaAccess """
         document = 'fragment MediaAccessGrant on MediaAccessGrant {\n  accessKey\n  secretKey\n  sessionToken\n  expiresIn\n  path\n  key\n  bucket\n  __typename\n}\n\nmutation RequestMediaAccess($input: RequestMediaAccessInput!) {\n  requestMediaAccess(input: $input) {\n    ...MediaAccessGrant\n    __typename\n  }\n}'
 
+class RefreshMediaUploadMutation(BaseModel):
+    """ Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+ credentials asks for this before they expire and carries on. Only the uploader may."""
+    refresh_media_upload: MediaUploadGrant = Field(alias='refreshMediaUpload')
+    "Reissue upload credentials for a media upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit"
+
+    class Arguments(BaseModel):
+        """Arguments for RefreshMediaUpload """
+        input: RefreshUploadInput
+
+    class Meta:
+        """Meta class for RefreshMediaUpload """
+        document = 'fragment MediaUploadGrant on MediaUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  expiresIn\n  maxBytes\n  store\n  __typename\n}\n\nmutation RefreshMediaUpload($input: RefreshUploadInput!) {\n  refreshMediaUpload(input: $input) {\n    ...MediaUploadGrant\n    __typename\n  }\n}'
+
 class RequestParquetUploadMutation(BaseModel):
     """No documentation found for this operation."""
     request_parquet_upload: ParquetUploadGrant = Field(alias='requestParquetUpload')
@@ -4135,6 +4155,20 @@ class RequestParquetAccessMutation(BaseModel):
         """Meta class for RequestParquetAccess """
         document = 'fragment ParquetAccessGrant on ParquetAccessGrant {\n  accessKey\n  secretKey\n  sessionToken\n  expiresIn\n  path\n  key\n  bucket\n  __typename\n}\n\nmutation RequestParquetAccess($input: RequestParquetAccessInput!) {\n  requestParquetAccess(input: $input) {\n    ...ParquetAccessGrant\n    __typename\n  }\n}'
 
+class RefreshParquetUploadMutation(BaseModel):
+    """ Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+ credentials asks for this before they expire and carries on. Only the uploader may."""
+    refresh_parquet_upload: ParquetUploadGrant = Field(alias='refreshParquetUpload')
+    "Reissue upload credentials for a parquet upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit"
+
+    class Arguments(BaseModel):
+        """Arguments for RefreshParquetUpload """
+        input: RefreshUploadInput
+
+    class Meta:
+        """Meta class for RefreshParquetUpload """
+        document = 'fragment ParquetUploadGrant on ParquetUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  expiresIn\n  maxBytes\n  store\n  __typename\n}\n\nmutation RefreshParquetUpload($input: RefreshUploadInput!) {\n  refreshParquetUpload(input: $input) {\n    ...ParquetUploadGrant\n    __typename\n  }\n}'
+
 class RequestSparseUploadMutation(BaseModel):
     """No documentation found for this operation."""
     request_sparse_upload: SparseUploadGrant = Field(alias='requestSparseUpload')
@@ -4142,11 +4176,11 @@ class RequestSparseUploadMutation(BaseModel):
 
     class Arguments(BaseModel):
         """Arguments for RequestSparseUpload """
-        input: RequestSparseUploadInput
+        pass
 
     class Meta:
         """Meta class for RequestSparseUpload """
-        document = 'fragment SparseUploadGrant on SparseUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  expiresIn\n  maxBytes\n  store\n  __typename\n}\n\nmutation RequestSparseUpload($input: RequestSparseUploadInput!) {\n  requestSparseUpload(input: $input) {\n    ...SparseUploadGrant\n    __typename\n  }\n}'
+        document = 'fragment SparseUploadGrant on SparseUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  expiresIn\n  maxBytes\n  store\n  __typename\n}\n\nmutation RequestSparseUpload {\n  requestSparseUpload {\n    ...SparseUploadGrant\n    __typename\n  }\n}'
 
 class FinishSparseUploadMutation(BaseModel):
     """No documentation found for this operation."""
@@ -4160,6 +4194,20 @@ class FinishSparseUploadMutation(BaseModel):
     class Meta:
         """Meta class for FinishSparseUpload """
         document = 'fragment SparseStore on SparseStore {\n  id\n  key\n  bucket\n  path\n  spec\n  shape\n  layouts {\n    path\n    encoding\n    encodingVersion\n    indexedAxis\n    indexOrder\n    nnz\n    dtype\n    chunks\n    rangeReadable\n    __typename\n  }\n  __typename\n}\n\nmutation FinishSparseUpload($input: FinishSparseUploadInput!) {\n  finishSparseUpload(input: $input) {\n    ...SparseStore\n    __typename\n  }\n}'
+
+class RefreshSparseUploadMutation(BaseModel):
+    """ Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+ credentials asks for this before they expire and carries on. Only the uploader may."""
+    refresh_sparse_upload: SparseUploadGrant = Field(alias='refreshSparseUpload')
+    'Reissue upload credentials for a sparse store whose upload is still in flight, for the reason `refreshZarrUpload` exists: three chunked arrays of a large matrix take long enough that a write can outlive its session token. Refuses a store that is already populated -- that is an overwrite, not a resumption'
+
+    class Arguments(BaseModel):
+        """Arguments for RefreshSparseUpload """
+        input: RefreshUploadInput
+
+    class Meta:
+        """Meta class for RefreshSparseUpload """
+        document = 'fragment SparseUploadGrant on SparseUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  expiresIn\n  maxBytes\n  store\n  __typename\n}\n\nmutation RefreshSparseUpload($input: RefreshUploadInput!) {\n  refreshSparseUpload(input: $input) {\n    ...SparseUploadGrant\n    __typename\n  }\n}'
 
 class RequestZarrUploadMutation(BaseModel):
     """No documentation found for this operation."""
@@ -4200,6 +4248,20 @@ class RequestZarrAccessMutation(BaseModel):
         """Meta class for RequestZarrAccess """
         document = 'fragment ZarrAccessGrant on ZarrAccessGrant {\n  accessKey\n  secretKey\n  sessionToken\n  expiresIn\n  path\n  key\n  bucket\n  __typename\n}\n\nmutation RequestZarrAccess($input: RequestZarrAccessInput!) {\n  requestZarrAccess(input: $input) {\n    ...ZarrAccessGrant\n    __typename\n  }\n}'
 
+class RefreshZarrUploadMutation(BaseModel):
+    """ Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+ credentials asks for this before they expire and carries on. Only the uploader may."""
+    refresh_zarr_upload: ZarrUploadGrant = Field(alias='refreshZarrUpload')
+    "Reissue upload credentials for a zarr upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit"
+
+    class Arguments(BaseModel):
+        """Arguments for RefreshZarrUpload """
+        input: RefreshUploadInput
+
+    class Meta:
+        """Meta class for RefreshZarrUpload """
+        document = 'fragment ZarrUploadGrant on ZarrUploadGrant {\n  accessKey\n  secretKey\n  sessionToken\n  path\n  key\n  bucket\n  expiresIn\n  maxBytes\n  store\n  __typename\n}\n\nmutation RefreshZarrUpload($input: RefreshUploadInput!) {\n  refreshZarrUpload(input: $input) {\n    ...ZarrUploadGrant\n    __typename\n  }\n}'
+
 class CreateModEnvironmentMutation(BaseModel):
     """No documentation found for this operation."""
     create_mod_environment: ModEnvironment = Field(alias='createModEnvironment')
@@ -4211,7 +4273,7 @@ class CreateModEnvironmentMutation(BaseModel):
 
     class Meta:
         """Meta class for CreateModEnvironment """
-        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nmutation CreateModEnvironment($input: CreateModEnvironmentInput!) {\n  createModEnvironment(input: $input) {\n    ...ModEnvironment\n    __typename\n  }\n}'
+        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nmutation CreateModEnvironment($input: CreateModEnvironmentInput!) {\n  createModEnvironment(input: $input) {\n    ...ModEnvironment\n    __typename\n  }\n}'
 
 class CreateExperimentMutation(BaseModel):
     """ An experiment adopts a world -- an existing clock (`coordinateSystem`) or a new
@@ -4281,7 +4343,7 @@ class FromFileLikeMutation(BaseModel):
 
     class Meta:
         """Meta class for FromFileLike """
-        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment File on File {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}\n\nmutation FromFileLike($input: FromFileLike!) {\n  fromFileLike(input: $input) {\n    ...File\n    __typename\n  }\n}'
+        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment File on File {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}\n\nmutation FromFileLike($input: FromFileLike!) {\n  fromFileLike(input: $input) {\n    ...File\n    __typename\n  }\n}'
 
 class LinkFileMutation(BaseModel):
     """No documentation found for this operation."""
@@ -4621,7 +4683,7 @@ class CreateNeuronmodelMutation(BaseModel):
 
     class Meta:
         """Meta class for CreateNeuronmodel """
-        document = 'fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  distribution {\n    kind\n    value\n    proximalValue\n    distalValue\n    expression\n    __typename\n  }\n  description\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  ions {\n    ...Ion\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  dLambda\n  ra\n  cm\n  parent {\n    parent\n    parentLocation\n    childEnd\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment Ion on Ion {\n  ion\n  style\n  reversalPotential\n  internalConcentration\n  externalConcentration\n  __typename\n}\n\nfragment MechanismGlobalParam on MechanismGlobalParam {\n  mechanism\n  param\n  value\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    ra\n    cm\n    cells {\n      ...Cell\n      __typename\n    }\n    ions {\n      ...Ion\n      __typename\n    }\n    mechanismGlobals {\n      ...MechanismGlobalParam\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nmutation CreateNeuronmodel($input: CreateNeuronModelInput!) {\n  createNeuronModel(input: $input) {\n    ...NeuronModel\n    __typename\n  }\n}'
+        document = 'fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  distribution {\n    kind\n    value\n    proximalValue\n    distalValue\n    expression\n    __typename\n  }\n  description\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  ions {\n    ...Ion\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  dLambda\n  ra\n  cm\n  parent {\n    parent\n    parentLocation\n    childEnd\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment Ion on Ion {\n  ion\n  style\n  reversalPotential\n  internalConcentration\n  externalConcentration\n  __typename\n}\n\nfragment MechanismGlobalParam on MechanismGlobalParam {\n  mechanism\n  param\n  value\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    ra\n    cm\n    cells {\n      ...Cell\n      __typename\n    }\n    ions {\n      ...Ion\n      __typename\n    }\n    mechanismGlobals {\n      ...MechanismGlobalParam\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nmutation CreateNeuronmodel($input: CreateNeuronModelInput!) {\n  createNeuronModel(input: $input) {\n    ...NeuronModel\n    __typename\n  }\n}'
 
 class CreateSessionMutation(BaseModel):
     """ lookup) each: a recording session, or one run of a neuron model -- a run is its
@@ -5205,7 +5267,7 @@ class GetFileQuery(BaseModel):
 
     class Meta:
         """Meta class for GetFile """
-        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment File on File {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}\n\nquery GetFile($id: ID!) {\n  file(id: $id) {\n    ...File\n    __typename\n  }\n}'
+        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment File on File {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}\n\nquery GetFile($id: ID!) {\n  file(id: $id) {\n    ...File\n    __typename\n  }\n}'
 
 class SearchFilesQueryOptions(BaseModel):
     """A file in its original format (e.g. an ABF, an NWB file, a vendor recording), stored in a BigFileStore. Files are the raw bytes that array datasets are converted from."""
@@ -5453,7 +5515,7 @@ class GetNeuronModelQuery(BaseModel):
 
     class Meta:
         """Meta class for GetNeuronModel """
-        document = 'fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  distribution {\n    kind\n    value\n    proximalValue\n    distalValue\n    expression\n    __typename\n  }\n  description\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  ions {\n    ...Ion\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  dLambda\n  ra\n  cm\n  parent {\n    parent\n    parentLocation\n    childEnd\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment Ion on Ion {\n  ion\n  style\n  reversalPotential\n  internalConcentration\n  externalConcentration\n  __typename\n}\n\nfragment MechanismGlobalParam on MechanismGlobalParam {\n  mechanism\n  param\n  value\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    ra\n    cm\n    cells {\n      ...Cell\n      __typename\n    }\n    ions {\n      ...Ion\n      __typename\n    }\n    mechanismGlobals {\n      ...MechanismGlobalParam\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetNeuronModel($id: ID!) {\n  neuronModel(id: $id) {\n    ...NeuronModel\n    __typename\n  }\n}'
+        document = 'fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  distribution {\n    kind\n    value\n    proximalValue\n    distalValue\n    expression\n    __typename\n  }\n  description\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  ions {\n    ...Ion\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  dLambda\n  ra\n  cm\n  parent {\n    parent\n    parentLocation\n    childEnd\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment Ion on Ion {\n  ion\n  style\n  reversalPotential\n  internalConcentration\n  externalConcentration\n  __typename\n}\n\nfragment MechanismGlobalParam on MechanismGlobalParam {\n  mechanism\n  param\n  value\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    ra\n    cm\n    cells {\n      ...Cell\n      __typename\n    }\n    ions {\n      ...Ion\n      __typename\n    }\n    mechanismGlobals {\n      ...MechanismGlobalParam\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery GetNeuronModel($id: ID!) {\n  neuronModel(id: $id) {\n    ...NeuronModel\n    __typename\n  }\n}'
 
 class SearchNeuronModelsQueryOptions(BaseModel):
     """No documentation"""
@@ -5486,7 +5548,7 @@ class ListNeuronModelsQuery(BaseModel):
 
     class Meta:
         """Meta class for ListNeuronModels """
-        document = 'fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  distribution {\n    kind\n    value\n    proximalValue\n    distalValue\n    expression\n    __typename\n  }\n  description\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  ions {\n    ...Ion\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  dLambda\n  ra\n  cm\n  parent {\n    parent\n    parentLocation\n    childEnd\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment Ion on Ion {\n  ion\n  style\n  reversalPotential\n  internalConcentration\n  externalConcentration\n  __typename\n}\n\nfragment MechanismGlobalParam on MechanismGlobalParam {\n  mechanism\n  param\n  value\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    ra\n    cm\n    cells {\n      ...Cell\n      __typename\n    }\n    ions {\n      ...Ion\n      __typename\n    }\n    mechanismGlobals {\n      ...MechanismGlobalParam\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListNeuronModels($filter: NeuronModelFilter, $pagination: OffsetPaginationInput) {\n  neuronModels(filters: $filter, pagination: $pagination) {\n    ...NeuronModel\n    __typename\n  }\n}'
+        document = 'fragment SectionParamMap on SectionParamMap {\n  param\n  mechanism\n  distribution {\n    kind\n    value\n    proximalValue\n    distalValue\n    expression\n    __typename\n  }\n  description\n  __typename\n}\n\nfragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment Compartment on Compartment {\n  id\n  mechanisms\n  ions {\n    ...Ion\n    __typename\n  }\n  sectionParams {\n    ...SectionParamMap\n    __typename\n  }\n  __typename\n}\n\nfragment Mechanism on Mechanism {\n  id\n  name\n  parameters {\n    key\n    kind\n    __typename\n  }\n  __typename\n}\n\nfragment Section on Section {\n  id\n  length\n  diam\n  coords {\n    x\n    y\n    z\n    __typename\n  }\n  category\n  nseg\n  dLambda\n  ra\n  cm\n  parent {\n    parent\n    parentLocation\n    childEnd\n    __typename\n  }\n  __typename\n}\n\nfragment Cell on Cell {\n  id\n  biophysics {\n    compartments {\n      ...Compartment\n      __typename\n    }\n    __typename\n  }\n  topology {\n    sections {\n      ...Section\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ExpTwoSynapse on Exp2Synapse {\n  id\n  tau1\n  tau2\n  e\n  cell\n  location\n  position\n  __typename\n}\n\nfragment Ion on Ion {\n  ion\n  style\n  reversalPotential\n  internalConcentration\n  externalConcentration\n  __typename\n}\n\nfragment MechanismGlobalParam on MechanismGlobalParam {\n  mechanism\n  param\n  value\n  __typename\n}\n\nfragment ModEnvironment on ModEnvironment {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  mechanisms {\n    ...Mechanism\n    __typename\n  }\n  __typename\n}\n\nfragment NetStimulator on NetStimulator {\n  id\n  interval\n  number\n  start\n  __typename\n}\n\nfragment SynapticConnection on SynapticConnection {\n  id\n  netStimulator\n  synapse\n  weight\n  threshold\n  delay\n  __typename\n}\n\nfragment NeuronModel on NeuronModel {\n  id\n  name\n  environment {\n    ...ModEnvironment\n    __typename\n  }\n  config {\n    vInit\n    temperature\n    ra\n    cm\n    cells {\n      ...Cell\n      __typename\n    }\n    ions {\n      ...Ion\n      __typename\n    }\n    mechanismGlobals {\n      ...MechanismGlobalParam\n      __typename\n    }\n    netSynapses {\n      ...ExpTwoSynapse\n      __typename\n    }\n    netConnections {\n      ...SynapticConnection\n      __typename\n    }\n    netStimulators {\n      ...NetStimulator\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nquery ListNeuronModels($filter: NeuronModelFilter, $pagination: OffsetPaginationInput) {\n  neuronModels(filters: $filter, pagination: $pagination) {\n    ...NeuronModel\n    __typename\n  }\n}'
 
 class GetNeuronModelSessionsQueryNeuronModelSessions(BaseModel):
     """One session of a neuron model: a clock, and the model's datasets timed onto it -- one run, since a run is its clock"""
@@ -5774,7 +5836,7 @@ class WatchFilesSubscription(BaseModel):
 
     class Meta:
         """Meta class for WatchFiles """
-        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  presignedUrl\n  __typename\n}\n\nfragment File on File {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}\n\nsubscription WatchFiles($folder: ID) {\n  files(folder: $folder) {\n    create {\n      ...File\n      __typename\n    }\n    delete\n    update {\n      ...File\n      __typename\n    }\n    __typename\n  }\n}'
+        document = 'fragment BigFileStore on BigFileStore {\n  id\n  key\n  bucket\n  path\n  __typename\n}\n\nfragment File on File {\n  id\n  name\n  store {\n    ...BigFileStore\n    __typename\n  }\n  __typename\n}\n\nsubscription WatchFiles($folder: ID) {\n  files(folder: $folder) {\n    create {\n      ...File\n      __typename\n    }\n    delete\n    update {\n      ...File\n      __typename\n    }\n    __typename\n  }\n}'
 
 def acquisition_metadata_input(metadata_string: str) -> AcquisitionMetadataInput:
     """Creates a AcquisitionMetadataInput
@@ -6692,7 +6754,7 @@ def create_mod_environment_input(name: str, zip_file: BigFileLikeCoercible, mech
 Arguments:
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    zip_file: A type representing a big file store reference, which can be either a string ID or a more complex object. (required)
+    zip_file: A reference to a big file store: the id its finished upload returned. (required)
     mechanisms: Input for creating a mechanism (required) (list) (required)
 """
     _data: dict[str, builtins.object] = {}
@@ -8004,6 +8066,16 @@ Arguments:
     _data['kind'] = kind
     return RecordingSiteInput.model_validate(_data)
 
+def refresh_upload_input(store_id: str) -> RefreshUploadInput:
+    """Creates a RefreshUploadInput
+
+Arguments:
+    store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+"""
+    _data: dict[str, builtins.object] = {}
+    _data['storeId'] = store_id
+    return RefreshUploadInput.model_validate(_data)
+
 def registration_path_input(dataset: IDCoercible | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, annotation_collection: IDCoercible | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, transform: TransformInput | None | UnsetType=UNSET, name: str | None | UnsetType=UNSET, validity: PlacementValidity | None | UnsetType=UNSET) -> RegistrationPathInput:
     """Creates a RegistrationPathInput
 
@@ -8043,26 +8115,19 @@ Arguments:
     _data['storeId'] = store_id
     return RequestBigFileAccessInput.model_validate(_data)
 
-def request_big_file_upload_input(original_file_name: str, file_size: ByteCountCoercible | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET) -> RequestBigFileUploadInput:
+def request_big_file_upload_input(original_file_name: str, file_size: ByteCountCoercible, content_type: str | None | UnsetType=UNSET) -> RequestBigFileUploadInput:
     """Creates a RequestBigFileUploadInput
 
 Arguments:
     original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
+    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string. (required)
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
 """
     _data: dict[str, builtins.object] = {}
     _data['originalFileName'] = original_file_name
-    if file_size is not UNSET:
-        _data['fileSize'] = file_size
+    _data['fileSize'] = file_size
     if content_type is not UNSET:
         _data['contentType'] = content_type
-    if host is not UNSET:
-        _data['host'] = host
-    if port is not UNSET:
-        _data['port'] = port
     return RequestBigFileUploadInput.model_validate(_data)
 
 def request_media_access_input(store_id: str) -> RequestMediaAccessInput:
@@ -8075,18 +8140,17 @@ Arguments:
     _data['storeId'] = store_id
     return RequestMediaAccessInput.model_validate(_data)
 
-def request_media_upload_input(original_file_name: str, file_size: ByteCountCoercible | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET) -> RequestMediaUploadInput:
+def request_media_upload_input(original_file_name: str, file_size: ByteCountCoercible, content_type: str | None | UnsetType=UNSET) -> RequestMediaUploadInput:
     """Creates a RequestMediaUploadInput
 
 Arguments:
     original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
+    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string. (required)
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
 """
     _data: dict[str, builtins.object] = {}
     _data['originalFileName'] = original_file_name
-    if file_size is not UNSET:
-        _data['fileSize'] = file_size
+    _data['fileSize'] = file_size
     if content_type is not UNSET:
         _data['contentType'] = content_type
     return RequestMediaUploadInput.model_validate(_data)
@@ -8101,36 +8165,16 @@ Arguments:
     _data['storeId'] = store_id
     return RequestParquetAccessInput.model_validate(_data)
 
-def request_parquet_upload_input(content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET) -> RequestParquetUploadInput:
+def request_parquet_upload_input(content_type: str | None | UnsetType=UNSET) -> RequestParquetUploadInput:
     """Creates a RequestParquetUploadInput
 
 Arguments:
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
 """
     _data: dict[str, builtins.object] = {}
     if content_type is not UNSET:
         _data['contentType'] = content_type
-    if host is not UNSET:
-        _data['host'] = host
-    if port is not UNSET:
-        _data['port'] = port
     return RequestParquetUploadInput.model_validate(_data)
-
-def request_sparse_upload_input(host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET) -> RequestSparseUploadInput:
-    """Creates a RequestSparseUploadInput
-
-Arguments:
-    host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
-"""
-    _data: dict[str, builtins.object] = {}
-    if host is not UNSET:
-        _data['host'] = host
-    if port is not UNSET:
-        _data['port'] = port
-    return RequestSparseUploadInput.model_validate(_data)
 
 def request_zarr_access_input(store_id: str) -> RequestZarrAccessInput:
     """Creates a RequestZarrAccessInput
@@ -8142,15 +8186,13 @@ Arguments:
     _data['storeId'] = store_id
     return RequestZarrAccessInput.model_validate(_data)
 
-def request_zarr_upload_input(shape: Iterable[int] | None | UnsetType=UNSET, chunks: Iterable[int] | None | UnsetType=UNSET, version: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET) -> RequestZarrUploadInput:
+def request_zarr_upload_input(shape: Iterable[int] | None | UnsetType=UNSET, chunks: Iterable[int] | None | UnsetType=UNSET, version: str | None | UnsetType=UNSET) -> RequestZarrUploadInput:
     """Creates a RequestZarrUploadInput
 
 Arguments:
     shape: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
     chunks: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
     version: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
 """
     _data: dict[str, builtins.object] = {}
     if shape is not UNSET:
@@ -8159,10 +8201,6 @@ Arguments:
         _data['chunks'] = chunks
     if version is not UNSET:
         _data['version'] = version
-    if host is not UNSET:
-        _data['host'] = host
-    if port is not UNSET:
-        _data['port'] = port
     return RequestZarrUploadInput.model_validate(_data)
 
 def revert_input(id: IDCoercible, history_id: IDCoercible) -> RevertInput:
@@ -9956,17 +9994,15 @@ Returns:
         variables['input'] = _input
         return self.execute(DeleteRegistrationMutation, variables, task=task).delete_registration
 
-    async def arequest_bigfile_upload(self, original_file_name: str, file_size: ByteCountCoercible | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> BigFileUploadGrant:
+    async def arequest_bigfile_upload(self, original_file_name: str, file_size: ByteCountCoercible, content_type: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> BigFileUploadGrant:
         """RequestBigfileUpload 
 
 Request an upload grant for a big file store
 
 Args:
     original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
+    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string. (required)
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
@@ -9975,28 +10011,21 @@ Returns:
         variables: dict[str, builtins.object] = {}
         _input: dict[str, builtins.object] = {}
         _input['originalFileName'] = original_file_name
-        if file_size is not UNSET:
-            _input['fileSize'] = file_size
+        _input['fileSize'] = file_size
         if content_type is not UNSET:
             _input['contentType'] = content_type
-        if host is not UNSET:
-            _input['host'] = host
-        if port is not UNSET:
-            _input['port'] = port
         variables['input'] = _input
         return (await self.aexecute(RequestBigfileUploadMutation, variables, task=task)).request_bigfile_upload
 
-    def request_bigfile_upload(self, original_file_name: str, file_size: ByteCountCoercible | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> BigFileUploadGrant:
+    def request_bigfile_upload(self, original_file_name: str, file_size: ByteCountCoercible, content_type: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> BigFileUploadGrant:
         """RequestBigfileUpload 
 
 Request an upload grant for a big file store
 
 Args:
     original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
+    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string. (required)
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
@@ -10005,14 +10034,9 @@ Returns:
         variables: dict[str, builtins.object] = {}
         _input: dict[str, builtins.object] = {}
         _input['originalFileName'] = original_file_name
-        if file_size is not UNSET:
-            _input['fileSize'] = file_size
+        _input['fileSize'] = file_size
         if content_type is not UNSET:
             _input['contentType'] = content_type
-        if host is not UNSET:
-            _input['host'] = host
-        if port is not UNSET:
-            _input['port'] = port
         variables['input'] = _input
         return self.execute(RequestBigfileUploadMutation, variables, task=task).request_bigfile_upload
 
@@ -10092,14 +10116,50 @@ Returns:
         variables['input'] = _input
         return self.execute(RequestBigfileAccessMutation, variables, task=task).request_bigfile_access
 
-    async def arequest_media_upload(self, original_file_name: str, file_size: ByteCountCoercible | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> MediaUploadGrant:
+    async def arefresh_bigfile_upload(self, store_id: str, task: TaskLike | None=None) -> BigFileUploadGrant:
+        """RefreshBigfileUpload 
+ Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+ credentials asks for this before they expire and carries on. Only the uploader may.
+
+Args:
+    store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
+
+Returns:
+    BigFileUploadGrant
+"""
+        variables: dict[str, builtins.object] = {}
+        _input: dict[str, builtins.object] = {}
+        _input['storeId'] = store_id
+        variables['input'] = _input
+        return (await self.aexecute(RefreshBigfileUploadMutation, variables, task=task)).refresh_bigfile_upload
+
+    def refresh_bigfile_upload(self, store_id: str, task: TaskLike | None=None) -> BigFileUploadGrant:
+        """RefreshBigfileUpload 
+ Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+ credentials asks for this before they expire and carries on. Only the uploader may.
+
+Args:
+    store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
+
+Returns:
+    BigFileUploadGrant
+"""
+        variables: dict[str, builtins.object] = {}
+        _input: dict[str, builtins.object] = {}
+        _input['storeId'] = store_id
+        variables['input'] = _input
+        return self.execute(RefreshBigfileUploadMutation, variables, task=task).refresh_bigfile_upload
+
+    async def arequest_media_upload(self, original_file_name: str, file_size: ByteCountCoercible, content_type: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> MediaUploadGrant:
         """RequestMediaUpload 
 
 Upload media and return a URL for access
 
 Args:
     original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
+    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string. (required)
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
@@ -10109,21 +10169,20 @@ Returns:
         variables: dict[str, builtins.object] = {}
         _input: dict[str, builtins.object] = {}
         _input['originalFileName'] = original_file_name
-        if file_size is not UNSET:
-            _input['fileSize'] = file_size
+        _input['fileSize'] = file_size
         if content_type is not UNSET:
             _input['contentType'] = content_type
         variables['input'] = _input
         return (await self.aexecute(RequestMediaUploadMutation, variables, task=task)).request_media_upload
 
-    def request_media_upload(self, original_file_name: str, file_size: ByteCountCoercible | None | UnsetType=UNSET, content_type: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> MediaUploadGrant:
+    def request_media_upload(self, original_file_name: str, file_size: ByteCountCoercible, content_type: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> MediaUploadGrant:
         """RequestMediaUpload 
 
 Upload media and return a URL for access
 
 Args:
     original_file_name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
-    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string.
+    file_size: A number of bytes. 64-bit, unlike Int: serialized as a JSON number, and accepted as a number or a numeric string. (required)
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
@@ -10133,8 +10192,7 @@ Returns:
         variables: dict[str, builtins.object] = {}
         _input: dict[str, builtins.object] = {}
         _input['originalFileName'] = original_file_name
-        if file_size is not UNSET:
-            _input['fileSize'] = file_size
+        _input['fileSize'] = file_size
         if content_type is not UNSET:
             _input['contentType'] = content_type
         variables['input'] = _input
@@ -10216,15 +10274,49 @@ Returns:
         variables['input'] = _input
         return self.execute(RequestMediaAccessMutation, variables, task=task).request_media_access
 
-    async def arequest_parquet_upload(self, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ParquetUploadGrant:
+    async def arefresh_media_upload(self, store_id: str, task: TaskLike | None=None) -> MediaUploadGrant:
+        """RefreshMediaUpload 
+ Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+ credentials asks for this before they expire and carries on. Only the uploader may.
+
+Args:
+    store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
+
+Returns:
+    MediaUploadGrant
+"""
+        variables: dict[str, builtins.object] = {}
+        _input: dict[str, builtins.object] = {}
+        _input['storeId'] = store_id
+        variables['input'] = _input
+        return (await self.aexecute(RefreshMediaUploadMutation, variables, task=task)).refresh_media_upload
+
+    def refresh_media_upload(self, store_id: str, task: TaskLike | None=None) -> MediaUploadGrant:
+        """RefreshMediaUpload 
+ Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+ credentials asks for this before they expire and carries on. Only the uploader may.
+
+Args:
+    store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
+
+Returns:
+    MediaUploadGrant
+"""
+        variables: dict[str, builtins.object] = {}
+        _input: dict[str, builtins.object] = {}
+        _input['storeId'] = store_id
+        variables['input'] = _input
+        return self.execute(RefreshMediaUploadMutation, variables, task=task).refresh_media_upload
+
+    async def arequest_parquet_upload(self, content_type: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> ParquetUploadGrant:
         """RequestParquetUpload 
 
 Request an upload grant for a Parquet store
 
 Args:
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
@@ -10234,22 +10326,16 @@ Returns:
         _input: dict[str, builtins.object] = {}
         if content_type is not UNSET:
             _input['contentType'] = content_type
-        if host is not UNSET:
-            _input['host'] = host
-        if port is not UNSET:
-            _input['port'] = port
         variables['input'] = _input
         return (await self.aexecute(RequestParquetUploadMutation, variables, task=task)).request_parquet_upload
 
-    def request_parquet_upload(self, content_type: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ParquetUploadGrant:
+    def request_parquet_upload(self, content_type: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> ParquetUploadGrant:
         """RequestParquetUpload 
 
 Request an upload grant for a Parquet store
 
 Args:
     content_type: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
@@ -10259,10 +10345,6 @@ Returns:
         _input: dict[str, builtins.object] = {}
         if content_type is not UNSET:
             _input['contentType'] = content_type
-        if host is not UNSET:
-            _input['host'] = host
-        if port is not UNSET:
-            _input['port'] = port
         variables['input'] = _input
         return self.execute(RequestParquetUploadMutation, variables, task=task).request_parquet_upload
 
@@ -10342,48 +10424,68 @@ Returns:
         variables['input'] = _input
         return self.execute(RequestParquetAccessMutation, variables, task=task).request_parquet_access
 
-    async def arequest_sparse_upload(self, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> SparseUploadGrant:
+    async def arefresh_parquet_upload(self, store_id: str, task: TaskLike | None=None) -> ParquetUploadGrant:
+        """RefreshParquetUpload 
+ Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+ credentials asks for this before they expire and carries on. Only the uploader may.
+
+Args:
+    store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
+
+Returns:
+    ParquetUploadGrant
+"""
+        variables: dict[str, builtins.object] = {}
+        _input: dict[str, builtins.object] = {}
+        _input['storeId'] = store_id
+        variables['input'] = _input
+        return (await self.aexecute(RefreshParquetUploadMutation, variables, task=task)).refresh_parquet_upload
+
+    def refresh_parquet_upload(self, store_id: str, task: TaskLike | None=None) -> ParquetUploadGrant:
+        """RefreshParquetUpload 
+ Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+ credentials asks for this before they expire and carries on. Only the uploader may.
+
+Args:
+    store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
+
+Returns:
+    ParquetUploadGrant
+"""
+        variables: dict[str, builtins.object] = {}
+        _input: dict[str, builtins.object] = {}
+        _input['storeId'] = store_id
+        variables['input'] = _input
+        return self.execute(RefreshParquetUploadMutation, variables, task=task).refresh_parquet_upload
+
+    async def arequest_sparse_upload(self, task: TaskLike | None=None) -> SparseUploadGrant:
         """RequestSparseUpload 
 
 Request an upload grant for a sparse store. The grant covers the whole prefix, so one request authorizes the group's metadata and all three of its arrays. It declares nothing about the matrix: the group states its encoding, shape and chunking, and the server reads them when the upload is finished
 
 Args:
-    host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     SparseUploadGrant
 """
         variables: dict[str, builtins.object] = {}
-        _input: dict[str, builtins.object] = {}
-        if host is not UNSET:
-            _input['host'] = host
-        if port is not UNSET:
-            _input['port'] = port
-        variables['input'] = _input
         return (await self.aexecute(RequestSparseUploadMutation, variables, task=task)).request_sparse_upload
 
-    def request_sparse_upload(self, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> SparseUploadGrant:
+    def request_sparse_upload(self, task: TaskLike | None=None) -> SparseUploadGrant:
         """RequestSparseUpload 
 
 Request an upload grant for a sparse store. The grant covers the whole prefix, so one request authorizes the group's metadata and all three of its arrays. It declares nothing about the matrix: the group states its encoding, shape and chunking, and the server reads them when the upload is finished
 
 Args:
-    host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
     SparseUploadGrant
 """
         variables: dict[str, builtins.object] = {}
-        _input: dict[str, builtins.object] = {}
-        if host is not UNSET:
-            _input['host'] = host
-        if port is not UNSET:
-            _input['port'] = port
-        variables['input'] = _input
         return self.execute(RequestSparseUploadMutation, variables, task=task).request_sparse_upload
 
     async def afinish_sparse_upload(self, store_id: str, valid: bool, task: TaskLike | None=None) -> SparseStore:
@@ -10426,7 +10528,43 @@ Returns:
         variables['input'] = _input
         return self.execute(FinishSparseUploadMutation, variables, task=task).finish_sparse_upload
 
-    async def arequest_zarr_upload(self, shape: Iterable[int] | None | UnsetType=UNSET, chunks: Iterable[int] | None | UnsetType=UNSET, version: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ZarrUploadGrant:
+    async def arefresh_sparse_upload(self, store_id: str, task: TaskLike | None=None) -> SparseUploadGrant:
+        """RefreshSparseUpload 
+ Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+ credentials asks for this before they expire and carries on. Only the uploader may.
+
+Args:
+    store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
+
+Returns:
+    SparseUploadGrant
+"""
+        variables: dict[str, builtins.object] = {}
+        _input: dict[str, builtins.object] = {}
+        _input['storeId'] = store_id
+        variables['input'] = _input
+        return (await self.aexecute(RefreshSparseUploadMutation, variables, task=task)).refresh_sparse_upload
+
+    def refresh_sparse_upload(self, store_id: str, task: TaskLike | None=None) -> SparseUploadGrant:
+        """RefreshSparseUpload 
+ Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+ credentials asks for this before they expire and carries on. Only the uploader may.
+
+Args:
+    store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
+
+Returns:
+    SparseUploadGrant
+"""
+        variables: dict[str, builtins.object] = {}
+        _input: dict[str, builtins.object] = {}
+        _input['storeId'] = store_id
+        variables['input'] = _input
+        return self.execute(RefreshSparseUploadMutation, variables, task=task).refresh_sparse_upload
+
+    async def arequest_zarr_upload(self, shape: Iterable[int] | None | UnsetType=UNSET, chunks: Iterable[int] | None | UnsetType=UNSET, version: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> ZarrUploadGrant:
         """RequestZarrUpload 
 
 Request an upload grant for a Zarr store
@@ -10435,8 +10573,6 @@ Args:
     shape: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
     chunks: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
     version: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
@@ -10450,14 +10586,10 @@ Returns:
             _input['chunks'] = chunks
         if version is not UNSET:
             _input['version'] = version
-        if host is not UNSET:
-            _input['host'] = host
-        if port is not UNSET:
-            _input['port'] = port
         variables['input'] = _input
         return (await self.aexecute(RequestZarrUploadMutation, variables, task=task)).request_zarr_upload
 
-    def request_zarr_upload(self, shape: Iterable[int] | None | UnsetType=UNSET, chunks: Iterable[int] | None | UnsetType=UNSET, version: str | None | UnsetType=UNSET, host: str | None | UnsetType=UNSET, port: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> ZarrUploadGrant:
+    def request_zarr_upload(self, shape: Iterable[int] | None | UnsetType=UNSET, chunks: Iterable[int] | None | UnsetType=UNSET, version: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> ZarrUploadGrant:
         """RequestZarrUpload 
 
 Request an upload grant for a Zarr store
@@ -10466,8 +10598,6 @@ Args:
     shape: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
     chunks: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1. (required) (list)
     version: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    host: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    port: The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1.
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
 Returns:
@@ -10481,10 +10611,6 @@ Returns:
             _input['chunks'] = chunks
         if version is not UNSET:
             _input['version'] = version
-        if host is not UNSET:
-            _input['host'] = host
-        if port is not UNSET:
-            _input['port'] = port
         variables['input'] = _input
         return self.execute(RequestZarrUploadMutation, variables, task=task).request_zarr_upload
 
@@ -10564,6 +10690,42 @@ Returns:
         variables['input'] = _input
         return self.execute(RequestZarrAccessMutation, variables, task=task).request_zarr_access
 
+    async def arefresh_zarr_upload(self, store_id: str, task: TaskLike | None=None) -> ZarrUploadGrant:
+        """RefreshZarrUpload 
+ Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+ credentials asks for this before they expire and carries on. Only the uploader may.
+
+Args:
+    store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
+
+Returns:
+    ZarrUploadGrant
+"""
+        variables: dict[str, builtins.object] = {}
+        _input: dict[str, builtins.object] = {}
+        _input['storeId'] = store_id
+        variables['input'] = _input
+        return (await self.aexecute(RefreshZarrUploadMutation, variables, task=task)).refresh_zarr_upload
+
+    def refresh_zarr_upload(self, store_id: str, task: TaskLike | None=None) -> ZarrUploadGrant:
+        """RefreshZarrUpload 
+ Reissues credentials for an upload still in flight, to the same key: a write that outlives its
+ credentials asks for this before they expire and carries on. Only the uploader may.
+
+Args:
+    store_id: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
+    task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
+
+Returns:
+    ZarrUploadGrant
+"""
+        variables: dict[str, builtins.object] = {}
+        _input: dict[str, builtins.object] = {}
+        _input['storeId'] = store_id
+        variables['input'] = _input
+        return self.execute(RefreshZarrUploadMutation, variables, task=task).refresh_zarr_upload
+
     async def acreate_mod_environment(self, name: str, zip_file: BigFileLikeCoercible, mechanisms: Iterable[MechanismInput], description: str | None | UnsetType=UNSET, task: TaskLike | None=None) -> ModEnvironment:
         """CreateModEnvironment 
 
@@ -10572,7 +10734,7 @@ Create a mechanism from a mod file
 Args:
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    zip_file: A type representing a big file store reference, which can be either a string ID or a more complex object. (required)
+    zip_file: A reference to a big file store: the id its finished upload returned. (required)
     mechanisms: Input for creating a mechanism (required) (list) (required)
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 
@@ -10597,7 +10759,7 @@ Create a mechanism from a mod file
 Args:
     name: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text. (required)
     description: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    zip_file: A type representing a big file store reference, which can be either a string ID or a more complex object. (required)
+    zip_file: A reference to a big file store: the id its finished upload returned. (required)
     mechanisms: Input for creating a mechanism (required) (list) (required)
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
 

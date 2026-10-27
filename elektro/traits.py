@@ -1167,31 +1167,31 @@ class HasDownloadAccessor(ContextBound):
         from elektro.io.download import download_file
 
         store_id, key = get_attributes_or_error(self, "id", "key")
-        return download_file(store_id, file_name=file_name or key, obj=self)
+        return download_file(store_id, file_name=file_name or key.rsplit("/", 1)[-1], obj=self)
 
     async def adownload(self, file_name: str | None = None) -> Awaitable[str]:
         """Download the file asynchronously and return the local path."""
         from elektro.io.download import adownload_file
 
         store_id, key = get_attributes_or_error(self, "id", "key")
-        return await adownload_file(store_id, file_name=file_name or key, obj=self)
+        return await adownload_file(store_id, file_name=file_name or key.rsplit("/", 1)[-1], obj=self)
 
 
-class HasPresignedDownloadAccessor(ContextBound):
-    """Accessor mixin for downloading the object via its presigned URL."""
+class HasMediaDownloadAccessor(ContextBound):
+    """Accessor mixin for downloading a media object through a media access grant."""
 
     _dataset: Any = None
 
     def download(self, file_name: str | None = None) -> str:
-        """Download the file from its presigned URL and return the local path."""
-        from elektro.io.download import download_presigned_file
+        """Download the media object and return the local path."""
+        from elektro.io.download import download_media_file
 
-        url, key = get_attributes_or_error(self, "presigned_url", "key")
-        return download_presigned_file(url, file_name=file_name or key, obj=self)
+        store_id, key = get_attributes_or_error(self, "id", "key")
+        return download_media_file(store_id, file_name=file_name or key.rsplit("/", 1)[-1], obj=self)
 
     async def adownload(self, file_name: str | None = None) -> Awaitable[str]:
-        """Download the file from its presigned URL asynchronously."""
-        from elektro.io.download import adownload_presigned_file
+        """Download the media object asynchronously and return the local path."""
+        from elektro.io.download import adownload_media_file
 
-        url, key = get_attributes_or_error(self, "presigned_url", "key")
-        return await adownload_presigned_file(url, file_name=file_name or key, obj=self)
+        store_id, key = get_attributes_or_error(self, "id", "key")
+        return await adownload_media_file(store_id, file_name=file_name or key.rsplit("/", 1)[-1], obj=self)

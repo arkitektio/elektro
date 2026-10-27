@@ -338,7 +338,7 @@ ttl.data.df()                     # a duckdb relation over the parquet on S3, ma
 
 ```python
 path = bigfile_store.download()              # → local file path
-path = media_store.download("frame.png")     # presigned download
+path = media_store.download("frame.png")     # through a media access grant
 ```
 
 **Units.** Physical quantities are real [pint](https://pint.readthedocs.io/) quantities via

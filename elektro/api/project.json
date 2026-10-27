@@ -154,7 +154,7 @@
                     "elektro.traits.HasDownloadAccessor"
                 ],
                 "MediaStore": [
-                    "elektro.traits.HasPresignedDownloadAccessor"
+                    "elektro.traits.HasMediaDownloadAccessor"
                 ],
                 "Lens": [
                     "elektro.traits.Lensable"
