@@ -24,6 +24,7 @@ from arkitekt_spec.declare.app import AppRegistry
 from arkitekt_spec.declare.widgets import SearchWidget
 
 from elektro.api.schema import (
+    SCOPES,
     Annotation,
     AnnotationCollection,
     ArrayDataset,
@@ -67,6 +68,9 @@ registry = AppRegistry()
 @registry.service(
     schema=build_relative_path("api", "schema.graphql"),
     turms=build_relative_path("api", "project.json"),
+    # What the client's operations need at elektro, as turms gathered it from the schema: every
+    # app using elektro asks for it.
+    scopes=SCOPES,
 )
 def elektro(
     elektro: Annotated[

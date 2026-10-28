@@ -14693,6 +14693,7 @@ Returns:
             variables['folder'] = folder
         for event in self.subscribe(WatchFilesSubscription, variables, task=task):
             yield event.files
+SCOPES: list[str] = ['elektro_models', 'elektro_read', 'elektro_write']
 AnnotationCollectionDerivedFromInput.model_rebuild()
 AnnotationCollectionFilter.model_rebuild()
 AnnotationFilter.model_rebuild()

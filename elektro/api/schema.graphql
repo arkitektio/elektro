@@ -4594,482 +4594,482 @@ input ModelWorkspaceOrder @oneOf {
 
 type Mutation {
   """Create an empty collaboration, to put objects in and grant a guest"""
-  createCollaboration(input: CreateCollaborationInput!): Collaboration! @auth(any_role_of: ["admin", "editor"])
+  createCollaboration(input: CreateCollaborationInput!): Collaboration! @auth(required_scopes: ["elektro_share"], any_role_of: ["elektro_editor"])
 
   """
   Put an object in a collaboration, with what it needs to be seen: an experiment brings the data its layers draw, a dataset its stores, its spaces and their edges, and its anchors
   """
-  addToCollaboration(input: CollaborationObjectInput!): Collaboration! @auth(any_role_of: ["admin", "editor"])
+  addToCollaboration(input: CollaborationObjectInput!): Collaboration! @auth(required_scopes: ["elektro_share"], any_role_of: ["elektro_editor"])
 
   """
   Take an object out of a collaboration, with what it brought that nothing else there needs
   """
-  removeFromCollaboration(input: CollaborationObjectInput!): Collaboration! @auth(any_role_of: ["admin", "editor"])
+  removeFromCollaboration(input: CollaborationObjectInput!): Collaboration! @auth(required_scopes: ["elektro_share"], any_role_of: ["elektro_editor"])
 
   """
   Delete a collaboration: whoever was granted it sees nothing of it any more
   """
-  deleteCollaboration(id: ID!): ID! @auth(any_role_of: ["admin", "editor"])
+  deleteCollaboration(id: ID!): ID! @auth(required_scopes: ["elektro_share"], any_role_of: ["elektro_editor"])
 
   """Upload media and return a URL for access"""
-  requestMediaUpload(input: RequestMediaUploadInput!): MediaUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+  requestMediaUpload(input: RequestMediaUploadInput!): MediaUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
 
   """Finalize a media upload after the client has written the object"""
-  finishMediaUpload(input: FinishMediaUploadInput!): MediaStore! @auth(any_role_of: ["admin", "editor", "bot"])
+  finishMediaUpload(input: FinishMediaUploadInput!): MediaStore! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
 
   """
   Reissue upload credentials for a media upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit
   """
-  refreshMediaUpload(input: RefreshUploadInput!): MediaUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+  refreshMediaUpload(input: RefreshUploadInput!): MediaUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
 
   """Request temporary S3 read credentials for a media file"""
-  requestMediaAccess(input: RequestMediaAccessInput!): MediaAccessGrant!
+  requestMediaAccess(input: RequestMediaAccessInput!): MediaAccessGrant! @auth(required_scopes: ["elektro_read"])
 
   """
   Request temporary S3 read credentials for media files in the organization
   """
-  requestGeneralMediaAccess(input: RequestGeneralMediaAccessInput!): GeneralMediaAccessGrant!
+  requestGeneralMediaAccess(input: RequestGeneralMediaAccessInput!): GeneralMediaAccessGrant! @auth(required_scopes: ["elektro_read"])
 
   """
   Reissue upload credentials for a bigfile upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit
   """
-  refreshBigfileUpload(input: RefreshUploadInput!): BigFileUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+  refreshBigfileUpload(input: RefreshUploadInput!): BigFileUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
 
   """Request an upload grant for a big file store"""
-  requestBigfileUpload(input: RequestBigFileUploadInput!): BigFileUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+  requestBigfileUpload(input: RequestBigFileUploadInput!): BigFileUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
 
   """
   Reissue upload credentials for a zarr upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit
   """
-  refreshZarrUpload(input: RefreshUploadInput!): ZarrUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+  refreshZarrUpload(input: RefreshUploadInput!): ZarrUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
 
   """Finalize a big file upload after the client has written the object"""
-  finishBigfileUpload(input: FinishBigFileUploadInput!): BigFileStore! @auth(any_role_of: ["admin", "editor", "bot"])
+  finishBigfileUpload(input: FinishBigFileUploadInput!): BigFileStore! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
 
   """Request temporary S3 read credentials for a big file"""
-  requestBigfileAccess(input: RequestBigFileAccessInput!): BigFileAccessGrant!
+  requestBigfileAccess(input: RequestBigFileAccessInput!): BigFileAccessGrant! @auth(required_scopes: ["elektro_read"])
 
   """
   Reissue upload credentials for a parquet upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit
   """
-  refreshParquetUpload(input: RefreshUploadInput!): ParquetUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+  refreshParquetUpload(input: RefreshUploadInput!): ParquetUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
 
   """Request an upload grant for a Zarr store"""
-  requestZarrUpload(input: RequestZarrUploadInput!): ZarrUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+  requestZarrUpload(input: RequestZarrUploadInput!): ZarrUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
 
   """Finalize a Zarr upload after the client has written the object"""
-  finishZarrUpload(input: FinishZarrUploadInput!): ZarrStore! @auth(any_role_of: ["admin", "editor", "bot"])
+  finishZarrUpload(input: FinishZarrUploadInput!): ZarrStore! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
 
   """Request temporary S3 read credentials for a Zarr store"""
-  requestZarrAccess(input: RequestZarrAccessInput!): ZarrAccessGrant!
+  requestZarrAccess(input: RequestZarrAccessInput!): ZarrAccessGrant! @auth(required_scopes: ["elektro_read"])
 
   """
   Request temporary S3 read credentials for Zarr stores in the organization
   """
-  requestGeneralZarrAccess(input: RequestGeneralZarrAccessInput!): GeneralZarrAccessGrant!
+  requestGeneralZarrAccess(input: RequestGeneralZarrAccessInput!): GeneralZarrAccessGrant! @auth(required_scopes: ["elektro_read"])
 
   """Request an upload grant for a Parquet store"""
-  requestParquetUpload(input: RequestParquetUploadInput!): ParquetUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+  requestParquetUpload(input: RequestParquetUploadInput!): ParquetUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
 
   """Finalize a Parquet upload after the client has written the object"""
-  finishParquetUpload(input: FinishParquetUploadInput!): ParquetStore! @auth(any_role_of: ["admin", "editor", "bot"])
+  finishParquetUpload(input: FinishParquetUploadInput!): ParquetStore! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
 
   """Request temporary S3 read credentials for a Parquet file"""
-  requestParquetAccess(input: RequestParquetAccessInput!): ParquetAccessGrant!
+  requestParquetAccess(input: RequestParquetAccessInput!): ParquetAccessGrant! @auth(required_scopes: ["elektro_read"])
 
   """
   Request temporary S3 read credentials for Parquet files in the organization
   """
-  requestGeneralParquetAccess(input: RequestGeneralParquetAccessInput!): GeneralParquetAccessGrant!
+  requestGeneralParquetAccess(input: RequestGeneralParquetAccessInput!): GeneralParquetAccessGrant! @auth(required_scopes: ["elektro_read"])
 
   """
   Request an upload grant for a sparse store. The grant covers the whole prefix, so one request authorizes the group's metadata and all three of its arrays. It declares nothing about the matrix: the group states its encoding, shape and chunking, and the server reads them when the upload is finished
   """
-  requestSparseUpload: SparseUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+  requestSparseUpload: SparseUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
 
   """
   Finalize a sparse upload, which is when the group's own metadata is read. A missing encoding, a missing array, or an `indptr` whose length contradicts the declared shape are all refused here -- that is what an interrupted upload looks like, and catching it now beats a reader discovering it later
   """
-  finishSparseUpload(input: FinishSparseUploadInput!): SparseStore! @auth(any_role_of: ["admin", "editor", "bot"])
+  finishSparseUpload(input: FinishSparseUploadInput!): SparseStore! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
 
   """
   Reissue upload credentials for a sparse store whose upload is still in flight, for the reason `refreshZarrUpload` exists: three chunked arrays of a large matrix take long enough that a write can outlive its session token. Refuses a store that is already populated -- that is an overwrite, not a resumption
   """
-  refreshSparseUpload(input: RefreshUploadInput!): SparseUploadGrant! @auth(any_role_of: ["admin", "editor", "bot"])
+  refreshSparseUpload(input: RefreshUploadInput!): SparseUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
 
   """
   Request temporary S3 read credentials for a sparse store. Covers the whole prefix, because a lookup needs `indptr` before it knows which range of `data` to fetch
   """
-  requestSparseAccess(input: RequestSparseAccessInput!): SparseAccessGrant!
+  requestSparseAccess(input: RequestSparseAccessInput!): SparseAccessGrant! @auth(required_scopes: ["elektro_read"])
 
   """
   Request temporary S3 read credentials for sparse stores in the organization
   """
-  requestGeneralSparseAccess(input: RequestGeneralSparseAccessInput!): GeneralSparseAccessGrant!
+  requestGeneralSparseAccess(input: RequestGeneralSparseAccessInput!): GeneralSparseAccessGrant! @auth(required_scopes: ["elektro_read"])
 
   """
   Create a new dataset from array-like data, with its pyramid levels, optional coordinate anchors (a value unit, channel labels, the rig state) and derivation edges. One of the three ways data enters (with createTableDataset and createSparseDataset): when its samples were taken is said afterwards, by an edge onto a clock (`createSamplingLaw`), and what it is drawn as by an experiment layer
   """
-  createArrayDataset(input: CreateArrayDatasetInput!): ArrayDataset!
+  createArrayDataset(input: CreateArrayDatasetInput!): ArrayDataset! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Rename a dataset or redescribe it -- the whole of what is editable, and audited on `provenanceEntries`. Its arrays, axes and coordinate systems are fixed at creation; a recomputation is a new dataset
   """
-  updateArrayDataset(input: UpdateArrayDatasetInput!): ArrayDataset!
+  updateArrayDataset(input: UpdateArrayDatasetInput!): ArrayDataset! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Delete an existing array dataset, with its levels, its lenses, every interpretation of it, and the coordinate systems nothing else lives in. Its stores are flagged, not deleted: `purge_orphaned_stores` collects them after a grace period
   """
-  deleteArrayDataset(input: DeleteArrayDatasetInput!): ID!
+  deleteArrayDataset(input: DeleteArrayDatasetInput!): ID! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Delete one downsampled level of a dataset. Level 0 cannot be deleted: it is the dataset
   """
-  deleteDataArray(input: DeleteDataArrayInput!): ID!
+  deleteDataArray(input: DeleteDataArrayInput!): ID! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Attach metadata spokes to an array, table or sparse dataset after ingest: the rig state, acquisition metadata, a value histogram, a channel label, a recording or stimulus site, or the simulation state, pinned to some of its coordinates. Get-or-create on (container, coordinates): a second call at the same coordinates adds its spokes to the one anchor, and a spoke stated twice is replaced. A value unit is array-only: a table's units are its columns'
   """
-  createCoordinateAnchor(input: CreateCoordinateAnchorInput!): CoordinateAnchor!
+  createCoordinateAnchor(input: CreateCoordinateAnchorInput!): CoordinateAnchor! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Create a table dataset from an uploaded parquet store: every column declared in file order, checked against the file. Columns with an `axisType` become the axes of the table's own coordinate system -- a TIME column makes it an event table, placeable on a clock. `identifiedBy` on a column says what its values are: a DATASET whose contents are the ids (a FIELD edge), or a TABLE whose rows they are (a foreign key -- a spike's unit id referencing the unit table)
   """
-  createTableDataset(input: CreateTableDatasetInput!): TableDataset!
+  createTableDataset(input: CreateTableDatasetInput!): TableDataset! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Rename a table dataset or redescribe it. Its store, columns and coordinate system are fixed at creation
   """
-  updateTableDataset(input: UpdateTableDatasetInput!): TableDataset!
+  updateTableDataset(input: UpdateTableDatasetInput!): TableDataset! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Delete a table dataset, and the coordinate system it owned if nothing else lives in it. Refused while a layer's picker or a column elsewhere references it
   """
-  deleteTableDataset(input: DeleteTableDatasetInput!): ID!
+  deleteTableDataset(input: DeleteTableDatasetInput!): ID! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Create a sparse dataset from an uploaded sparse store. Each INDEX axis says what its positions are through `identifiedBy`; one axis may be TIME (elektro's own) -- a spike raster's samples, identified by nothing and placed on a clock with `createSamplingLaw`. The spec, shape and layouts are read from the store, never declared
   """
-  createSparseDataset(input: CreateSparseDatasetInput!): SparseDataset!
+  createSparseDataset(input: CreateSparseDatasetInput!): SparseDataset! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Rename a sparse dataset or redescribe it. Its store, axes and coordinate system are fixed at creation
   """
-  updateSparseDataset(input: UpdateSparseDatasetInput!): SparseDataset!
+  updateSparseDataset(input: UpdateSparseDatasetInput!): SparseDataset! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Delete a sparse dataset, and the coordinate system it owned if nothing else lives in it. Refused while a layer's picker names it
   """
-  deleteSparseDataset(input: DeleteSparseDatasetInput!): ID!
+  deleteSparseDataset(input: DeleteSparseDatasetInput!): ID! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Time a sample grid (an array dataset's, or a spike raster's) on a clock: one BY_DIMENSION edge stating `t = sample / samplingRate + tStart`, in the clock's unit. Refused when the grid is already timed on that clock
   """
-  createSamplingLaw(input: CreateSamplingLawInput!): Transformation!
+  createSamplingLaw(input: CreateSamplingLawInput!): Transformation! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Time the named array datasets onto one clock -- a new one, or an existing one for a second batch -- one sampling law (or time lookup) each: a recording session, or one run of a neuron model. Refused unless every dataset has a TIME axis with the same number of samples, and unless the simulated outputs on the clock agree on what was run
   """
-  createSession(input: CreateSessionInput!): CoordinateSystem!
+  createSession(input: CreateSessionInput!): CoordinateSystem! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Place one clock on another -- a segment in its session, a session or a run in an experiment's world -- with one offset edge shared by everything timed on it. Refused when the two are already related
   """
-  createClockOffset(input: CreateClockOffsetInput!): Transformation!
+  createClockOffset(input: CreateClockOffsetInput!): Transformation! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Create a mechanism from a mod file"""
-  createModEnvironment(input: CreateModEnvironmentInput!): ModEnvironment!
+  createModEnvironment(input: CreateModEnvironmentInput!): ModEnvironment! @auth(required_scopes: ["elektro_models"], any_role_of: ["elektro_editor", "elektro_modeler"])
 
   """Create a new neuron model"""
-  createNeuronModel(input: CreateNeuronModelInput!): NeuronModel!
+  createNeuronModel(input: CreateNeuronModelInput!): NeuronModel! @auth(required_scopes: ["elektro_models"], any_role_of: ["elektro_editor", "elektro_modeler"])
 
   """Delete an existing model collection"""
-  deleteModelCollection(input: DeleteInput!): ID!
+  deleteModelCollection(input: DeleteInput!): ID! @auth(required_scopes: ["elektro_models"], any_role_of: ["elektro_editor", "elektro_modeler"])
 
   """Delete an existing model workspace"""
-  deleteModelWorkspace(input: DeleteInput!): ID!
+  deleteModelWorkspace(input: DeleteInput!): ID! @auth(required_scopes: ["elektro_models"], any_role_of: ["elektro_editor", "elektro_modeler"])
 
   """Delete an existing workspace mapping"""
-  deleteWorkspaceMapping(input: DeleteInput!): ID!
+  deleteWorkspaceMapping(input: DeleteInput!): ID! @auth(required_scopes: ["elektro_models"], any_role_of: ["elektro_editor", "elektro_modeler"])
 
   """Delete an existing mod environment"""
-  deleteModEnvironment(input: DeleteInput!): ID!
+  deleteModEnvironment(input: DeleteInput!): ID! @auth(required_scopes: ["elektro_models"], any_role_of: ["elektro_editor", "elektro_modeler"])
 
   """Delete an existing mechanism"""
-  deleteMechanism(input: DeleteMechanismInput!): ID!
+  deleteMechanism(input: DeleteMechanismInput!): ID! @auth(required_scopes: ["elektro_models"], any_role_of: ["elektro_editor", "elektro_modeler"])
 
   """Delete an existing neuron model"""
-  deleteNeuronModel(input: DeleteInput!): ID!
+  deleteNeuronModel(input: DeleteInput!): ID! @auth(required_scopes: ["elektro_models"], any_role_of: ["elektro_editor", "elektro_modeler"])
 
   """
   Delete an experiment and its layers. Its world and everything drawn in it stay
   """
-  deleteExperiment(input: DeleteInput!): ID!
+  deleteExperiment(input: DeleteInput!): ID! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Create a file from file-like data"""
-  fromFileLike(input: FromFileLike!): File!
+  fromFileLike(input: FromFileLike!): File! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Delete an existing file"""
-  deleteFile(input: DeleteFileInput!): ID!
+  deleteFile(input: DeleteFileInput!): ID! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Record a link between a file and the data it encodes, after both already exist
   """
-  linkFile(input: LinkFileInput!): [FileLink!]!
+  linkFile(input: LinkFileInput!): [FileLink!]! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Delete a file link. Neither the file nor the container is touched"""
-  unlinkFile(input: UnlinkFileInput!): ID!
+  unlinkFile(input: UnlinkFileInput!): ID! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Create a new model collection"""
-  createModelCollection(input: CreateModelCollectionInput!): ModelCollection!
+  createModelCollection(input: CreateModelCollectionInput!): ModelCollection! @auth(required_scopes: ["elektro_models"], any_role_of: ["elektro_editor", "elektro_modeler"])
 
   """Create a new model workspace"""
-  createModelWorkspace(input: CreateModelWorkspaceInput!): ModelWorkspace!
+  createModelWorkspace(input: CreateModelWorkspaceInput!): ModelWorkspace! @auth(required_scopes: ["elektro_models"], any_role_of: ["elektro_editor", "elektro_modeler"])
 
   """Update an existing model workspace"""
-  updateModelWorkspace(input: UpdateModelWorkspaceInput!): ModelWorkspace!
+  updateModelWorkspace(input: UpdateModelWorkspaceInput!): ModelWorkspace! @auth(required_scopes: ["elektro_models"], any_role_of: ["elektro_editor", "elektro_modeler"])
 
   """Pin or unpin a model workspace for the current user"""
-  pinModelWorkspace(input: PinModelWorkspaceInput!): ModelWorkspace!
+  pinModelWorkspace(input: PinModelWorkspaceInput!): ModelWorkspace! @auth(required_scopes: ["elektro_models"], any_role_of: ["elektro_editor", "elektro_modeler"])
 
   """Add neuron models to a workspace (optionally into a group)"""
-  addModelsToWorkspace(input: AddModelsToWorkspaceInput!): ModelWorkspace!
+  addModelsToWorkspace(input: AddModelsToWorkspaceInput!): ModelWorkspace! @auth(required_scopes: ["elektro_models"], any_role_of: ["elektro_editor", "elektro_modeler"])
 
   """Remove neuron models from a workspace"""
-  removeModelsFromWorkspace(input: DesociateInput!): ModelWorkspace!
+  removeModelsFromWorkspace(input: DesociateInput!): ModelWorkspace! @auth(required_scopes: ["elektro_models"], any_role_of: ["elektro_editor", "elektro_modeler"])
 
   """Update a workspace mapping (e.g. change its group)"""
-  updateWorkspaceMapping(input: UpdateWorkspaceMappingInput!): WorkspaceMapping!
+  updateWorkspaceMapping(input: UpdateWorkspaceMappingInput!): WorkspaceMapping! @auth(required_scopes: ["elektro_models"], any_role_of: ["elektro_editor", "elektro_modeler"])
 
   """Create a new folder to organize data"""
-  createFolder(input: CreateFolderInput!): Folder!
+  createFolder(input: CreateFolderInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Create a new folder to organize data, or return the one the current user already has under this name and parent
   """
-  ensureFolder(input: CreateFolderInput!): Folder!
+  ensureFolder(input: CreateFolderInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Update folder metadata"""
-  updateFolder(input: ChangeFolderInput!): Folder!
+  updateFolder(input: ChangeFolderInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Revert folder to a previous version"""
-  revertFolder(input: RevertInput!): Folder!
+  revertFolder(input: RevertInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Pin a folder for quick access"""
-  pinFolder(input: PinFolderInput!): Folder!
+  pinFolder(input: PinFolderInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Delete an existing folder. What was filed in it is unfiled, not deleted
   """
-  deleteFolder(input: DeleteFolderInput!): ID!
+  deleteFolder(input: DeleteFolderInput!): ID! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Add folders as children of another folder"""
-  putFoldersInFolder(input: AssociateInput!): Folder!
+  putFoldersInFolder(input: AssociateInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Remove folders from being children of another folder"""
-  releaseFoldersFromFolder(input: DesociateInput!): Folder!
+  releaseFoldersFromFolder(input: DesociateInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """File files in a folder"""
-  putFilesInFolder(input: AssociateInput!): Folder!
+  putFilesInFolder(input: AssociateInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Take files out of a folder"""
-  releaseFilesFromFolder(input: DesociateInput!): Folder!
+  releaseFilesFromFolder(input: DesociateInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   File array datasets in a folder. Only root data is filed explicitly: a derived dataset follows its primary parent, and moving the parent moves it
   """
-  putArrayDatasetsInFolder(input: AssociateInput!): Folder!
+  putArrayDatasetsInFolder(input: AssociateInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Take array datasets out of a folder"""
-  releaseArrayDatasetsFromFolder(input: DesociateInput!): Folder!
+  releaseArrayDatasetsFromFolder(input: DesociateInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """File annotation collections in a folder"""
-  putAnnotationCollectionsInFolder(input: AssociateInput!): Folder!
+  putAnnotationCollectionsInFolder(input: AssociateInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Take annotation collections out of a folder"""
-  releaseAnnotationCollectionsFromFolder(input: DesociateInput!): Folder!
+  releaseAnnotationCollectionsFromFolder(input: DesociateInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   File table datasets in a folder. A derived table follows its primary parent
   """
-  putTableDatasetsInFolder(input: AssociateInput!): Folder!
+  putTableDatasetsInFolder(input: AssociateInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Take table datasets out of a folder"""
-  releaseTableDatasetsFromFolder(input: DesociateInput!): Folder!
+  releaseTableDatasetsFromFolder(input: DesociateInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   File sparse datasets in a folder. A derived matrix follows its primary parent
   """
-  putSparseDatasetsInFolder(input: AssociateInput!): Folder!
+  putSparseDatasetsInFolder(input: AssociateInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Take sparse datasets out of a folder"""
-  releaseSparseDatasetsFromFolder(input: DesociateInput!): Folder!
+  releaseSparseDatasetsFromFolder(input: DesociateInput!): Folder! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Create an empty experiment over a world: an existing space it adopts, or one minted for it. Fill it with the layer mutations
   """
-  createExperiment(input: CreateExperimentInput!): Experiment!
+  createExperiment(input: CreateExperimentInput!): Experiment! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Create an experiment over a coordinate system -- a session's or a run's clock -- with a layer for every trace, spike raster, event table and annotation collection laid out on it. Authors no edges
   """
-  createExperimentFromCoordinateSystem(input: CreateExperimentFromCoordinateSystemInput!): Experiment!
+  createExperimentFromCoordinateSystem(input: CreateExperimentFromCoordinateSystemInput!): Experiment! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Rename or redescribe an experiment"""
-  updateExperiment(input: UpdateExperimentInput!): Experiment!
+  updateExperiment(input: UpdateExperimentInput!): Experiment! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Add a layer of any kind to an experiment, with default render settings"""
-  createLayer(input: CreateLayerInput!): ExperimentLayer!
+  createLayer(input: CreateLayerInput!): ExperimentLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Restyle any layer's compositing: name, blending, opacity, visibility, order
   """
-  updateLayer(input: UpdateLayerInput!): ExperimentLayer!
+  updateLayer(input: UpdateLayerInput!): ExperimentLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Remove a layer from its experiment. What it drew is untouched"""
-  deleteLayer(input: DeleteInput!): ID!
+  deleteLayer(input: DeleteInput!): ID! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Draw an array dataset as a trace: a lens over it (or a `window` of time, lowered to one), and how its lines look
   """
-  createTraceLayer(input: CreateTraceLayerInput!): TraceLayer!
+  createTraceLayer(input: CreateTraceLayerInput!): TraceLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Restyle a trace layer, or point it at another lens"""
-  updateTraceLayer(input: UpdateTraceLayerInput!): TraceLayer!
+  updateTraceLayer(input: UpdateTraceLayerInput!): TraceLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Draw a spike raster: a tick per spike and a row per unit, coloured and ordered by the unit table
   """
-  createSpikesLayer(input: CreateSpikesLayerInput!): SpikesLayer!
+  createSpikesLayer(input: CreateSpikesLayerInput!): SpikesLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Restyle a spikes layer, or point it at another raster"""
-  updateSpikesLayer(input: UpdateSpikesLayerInput!): SpikesLayer!
+  updateSpikesLayer(input: UpdateSpikesLayerInput!): SpikesLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Draw an event table: a mark per row at its TIME column, or an interval with `stopColumn`
   """
-  createEventsLayer(input: CreateEventsLayerInput!): EventsLayer!
+  createEventsLayer(input: CreateEventsLayerInput!): EventsLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Restyle an events layer, or point it at another table"""
-  updateEventsLayer(input: UpdateEventsLayerInput!): EventsLayer!
+  updateEventsLayer(input: UpdateEventsLayerInput!): EventsLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Draw an annotation collection's marks in an experiment"""
-  createAnnotationLayer(input: CreateAnnotationLayerInput!): AnnotationLayer!
+  createAnnotationLayer(input: CreateAnnotationLayerInput!): AnnotationLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Draw an array dataset as an image, time across and one other axis down: a spectrogram, a depth or CSD plot
   """
-  createHeatmapLayer(input: CreateHeatmapLayerInput!): HeatmapLayer!
+  createHeatmapLayer(input: CreateHeatmapLayerInput!): HeatmapLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Restyle a heatmap layer, or point it at another lens"""
-  updateHeatmapLayer(input: UpdateHeatmapLayerInput!): HeatmapLayer!
+  updateHeatmapLayer(input: UpdateHeatmapLayerInput!): HeatmapLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Draw a numeric column of a table with a TIME column as a line over time
   """
-  createSeriesLayer(input: CreateSeriesLayerInput!): SeriesLayer!
+  createSeriesLayer(input: CreateSeriesLayerInput!): SeriesLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Restyle a series layer"""
-  updateSeriesLayer(input: UpdateSeriesLayerInput!): SeriesLayer!
+  updateSeriesLayer(input: UpdateSeriesLayerInput!): SeriesLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Draw per-unit waveform templates in peri-spike time, coloured by the raster's units table
   """
-  createWaveformLayer(input: CreateWaveformLayerInput!): WaveformLayer!
+  createWaveformLayer(input: CreateWaveformLayerInput!): WaveformLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Restyle a waveform layer"""
-  updateWaveformLayer(input: UpdateWaveformLayerInput!): WaveformLayer!
+  updateWaveformLayer(input: UpdateWaveformLayerInput!): WaveformLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Draw a table placed in space -- a channel map, units at their positions -- as a point per row
   """
-  createPointLayer(input: CreatePointLayerInput!): PointLayer!
+  createPointLayer(input: CreatePointLayerInput!): PointLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Restyle a point layer"""
-  updatePointLayer(input: UpdatePointLayerInput!): PointLayer!
+  updatePointLayer(input: UpdatePointLayerInput!): PointLayer! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Create an annotation collection, in a coordinate system of its own, optionally related to what its shapes are drawn over: a dataset's sample grid, a segment's clock. The common path for a timeline -- drawing on an experiment -- goes through createAnnotation instead, which mints the experiment's collection on first use
   """
-  createAnnotationCollection(input: CreateAnnotationCollectionInput!): AnnotationCollection!
+  createAnnotationCollection(input: CreateAnnotationCollectionInput!): AnnotationCollection! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Delete an annotation collection. Its annotations, its experiment layers and the drawing space it owned go with it; what it was drawn over is untouched
   """
-  deleteAnnotationCollection(input: DeleteAnnotationCollectionInput!): ID!
+  deleteAnnotationCollection(input: DeleteAnnotationCollectionInput!): ID! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Draw an annotation into a collection, or onto an experiment (exactly one of the two). Drawing on an experiment finds its annotation collection or mints it on first use: a coordinate system copying the world's axes, an identity registration into the world, and one annotation layer
   """
-  createAnnotation(input: CreateAnnotationInput!): Annotation! @auth(allow_scoped: true)
+  createAnnotation(input: CreateAnnotationInput!): Annotation! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"], allow_scoped: true)
 
   """
   Draw many annotations in one call -- a detector's whole output. One collection resolve, one chain resolve, one insert
   """
-  createAnnotations(input: CreateAnnotationsInput!): [Annotation!]! @auth(allow_scoped: true)
+  createAnnotations(input: CreateAnnotationsInput!): [Annotation!]! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"], allow_scoped: true)
 
   """
   Edit an annotation. Only the supplied fields change; new vectors re-derive the bounding box
   """
-  updateAnnotation(input: UpdateAnnotationInput!): Annotation!
+  updateAnnotation(input: UpdateAnnotationInput!): Annotation! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Delete an annotation. Its collection, and the space it was drawn in, stay
   """
-  deleteAnnotation(input: DeleteAnnotationInput!): ID!
+  deleteAnnotation(input: DeleteAnnotationInput!): ID! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Create a SHARED coordinate system (a space nothing lives in: a clock, a world) and, in one call, author the edges registering any number of sources (datasets, lenses, coordinate systems) into it
   """
-  createCoordinateSystem(input: CreateCoordinateSystemInput!): CoordinateSystem!
+  createCoordinateSystem(input: CreateCoordinateSystemInput!): CoordinateSystem! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Rename a shared coordinate system or anchor its clock. Shared spaces only -- a space data lives in is described by that data, and where data sits is an edge (updateTransformation), not a property of the space
   """
-  updateCoordinateSystem(input: UpdateCoordinateSystemInput!): CoordinateSystem!
+  updateCoordinateSystem(input: UpdateCoordinateSystemInput!): CoordinateSystem! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Delete an unused shared coordinate system. Refused while data lives in it, while anything is laid out over it (an experiment), or while any transformation edge touches it. This is the only door a shared space leaves through -- deleting an experiment never deletes one
   """
-  deleteCoordinateSystem(input: DeleteCoordinateSystemInput!): ID!
+  deleteCoordinateSystem(input: DeleteCoordinateSystemInput!): ID! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Delete every registration INTO a shared space in one call, returning the deleted edge ids. The space, whatever is laid out over it (its layers drop to UNREGISTERED) and the space's own claims into wider spaces all survive
   """
-  clearCoordinateSystem(input: ClearCoordinateSystemInput!): [ID!]!
+  clearCoordinateSystem(input: ClearCoordinateSystemInput!): [ID!]! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Delete every orphaned shared space in the organization -- nothing living in it, nothing laid out over it, no edge touching it -- and return the deleted ids. Org admins sweep every orphan; anyone else sweeps only their own
   """
-  deleteOrphanedCoordinateSystems: [ID!]!
+  deleteOrphanedCoordinateSystems: [ID!]! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Create one edge of the coordinate graph, mapping an input coordinate system to an output one. This is where a sampling law is corrected, two clocks are synchronised, and a recording is registered into a world
   """
-  createTransformation(input: CreateTransformationInput!): Transformation!
+  createTransformation(input: CreateTransformationInput!): Transformation! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Refine a transformation's parameters in place. Everything that looks through the edge moves with it, because nothing stores a composed path
   """
-  updateTransformation(input: UpdateTransformationInput!): Transformation!
+  updateTransformation(input: UpdateTransformationInput!): Transformation! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Delete an existing transformation. A wrapper takes its children with it
   """
-  deleteTransformation(input: DeleteTransformationInput!): ID!
+  deleteTransformation(input: DeleteTransformationInput!): ID! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Un-register a source from a space by naming the source and the space rather than the edge. Deletes every edge from the source's spaces into that one -- rivals are allowed, so there is no single edge to mean -- and returns their ids. An UNMAPPABLE declaration is not a placement and is never matched
   """
-  deleteRegistration(input: DeleteRegistrationInput!): [ID!]!
+  deleteRegistration(input: DeleteRegistrationInput!): [ID!]! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Create a lens: an immutable selection over a dataset. A sliced lens gets its own coordinate system and the derived edge recording the shift
   """
-  createLens(input: CreateLensInput!): Lens!
+  createLens(input: CreateLensInput!): Lens! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Delete a lens, and the coordinate system it owned if it was sliced"""
-  deleteLens(input: DeleteLensInput!): ID!
+  deleteLens(input: DeleteLensInput!): ID! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 }
 
 """Base class for net connection parameters."""
@@ -5660,118 +5660,118 @@ type Query {
   """
   List coordinate systems: the nodes of the coordinate graph -- a dataset's sample grid, a clock, an experiment's world
   """
-  coordinateSystems(filters: CoordinateSystemFilter, ordering: [CoordinateSystemOrder!]! = [], pagination: OffsetPaginationInput): [CoordinateSystem!]!
+  coordinateSystems(filters: CoordinateSystemFilter, ordering: [CoordinateSystemOrder!]! = [], pagination: OffsetPaginationInput): [CoordinateSystem!]! @auth(required_scopes: ["elektro_read"])
 
   """
   List transformations: the directed edges of the coordinate graph -- a sampling law, a time lookup, an offset, a derivation. Compose them client-side; the server never stores a composed path, because the same dataset can sit in two experiments under two offsets
   """
-  transformations: [Transformation!]!
+  transformations: [Transformation!]! @auth(required_scopes: ["elektro_read"])
 
   """
   List lenses: immutable selections over a dataset -- a sweep, an epoch window, a run of channels
   """
-  lenses(filters: LensFilter, ordering: [LensOrder!]! = [], pagination: OffsetPaginationInput): [Lens!]!
+  lenses(filters: LensFilter, ordering: [LensOrder!]! = [], pagination: OffsetPaginationInput): [Lens!]! @auth(required_scopes: ["elektro_read"])
 
   """
   List array datasets: N-dimensional arrays with named dimensions and anchored metadata -- a recording, a stimulus, a vector of sample times, a unit's waveform templates
   """
-  arrayDatasets(filters: ArrayDatasetFilter, ordering: [ArrayDatasetOrder!]! = [], pagination: OffsetPaginationInput): [ArrayDataset!]!
+  arrayDatasets(filters: ArrayDatasetFilter, ordering: [ArrayDatasetOrder!]! = [], pagination: OffsetPaginationInput): [ArrayDataset!]! @auth(required_scopes: ["elektro_read"])
 
   """
   List table datasets: parquet-backed tables -- event lists, trial tables, a sorter's unit table. One with a TIME coordinate column is drawn as an events layer
   """
-  tableDatasets(filters: TableDatasetFilter, ordering: [TableDatasetOrder!]! = [], pagination: OffsetPaginationInput): [TableDataset!]!
+  tableDatasets(filters: TableDatasetFilter, ordering: [TableDatasetOrder!]! = [], pagination: OffsetPaginationInput): [TableDataset!]! @auth(required_scopes: ["elektro_read"])
 
   """
   List sparse datasets: sparse matrices -- a spike raster of units by samples is one, drawn as a spikes layer
   """
-  sparseDatasets(filters: SparseDatasetFilter, ordering: [SparseDatasetOrder!]! = [], pagination: OffsetPaginationInput): [SparseDataset!]!
+  sparseDatasets(filters: SparseDatasetFilter, ordering: [SparseDatasetOrder!]! = [], pagination: OffsetPaginationInput): [SparseDataset!]! @auth(required_scopes: ["elektro_read"])
 
   """
   List the layers of experiments: traces, spike rasters, event tables and annotation collections, each drawn in one experiment
   """
-  layers(filters: ExperimentLayerFilter, pagination: OffsetPaginationInput): [ExperimentLayer!]!
+  layers(filters: ExperimentLayerFilter, pagination: OffsetPaginationInput): [ExperimentLayer!]! @auth(required_scopes: ["elektro_read"])
 
   """List data arrays: the multiscale zarr arrays backing array datasets"""
-  dataArrays(filters: DataArrayFilter, ordering: [DataArrayOrder!]! = [], pagination: OffsetPaginationInput): [DataArray!]!
+  dataArrays(filters: DataArrayFilter, ordering: [DataArrayOrder!]! = [], pagination: OffsetPaginationInput): [DataArray!]! @auth(required_scopes: ["elektro_read"])
 
   """
   List coordinate anchors: the hubs pinning a value unit, a channel label or the rig state to coordinates of an array, table or sparse dataset
   """
-  coordinateAnchors(filters: CoordinateAnchorFilter, pagination: OffsetPaginationInput): [CoordinateAnchor!]!
+  coordinateAnchors(filters: CoordinateAnchorFilter, pagination: OffsetPaginationInput): [CoordinateAnchor!]! @auth(required_scopes: ["elektro_read"])
 
   """List file links: which file a container was read from, or written to"""
-  fileLinks(filters: FileLinkFilter, ordering: [FileLinkOrder!]! = [], pagination: OffsetPaginationInput): [FileLink!]!
+  fileLinks(filters: FileLinkFilter, ordering: [FileLinkOrder!]! = [], pagination: OffsetPaginationInput): [FileLink!]! @auth(required_scopes: ["elektro_read"])
 
   """
   List annotation collections: named sets of marks, each owning the coordinate system they are drawn in
   """
-  annotationCollections(filters: AnnotationCollectionFilter, ordering: [AnnotationCollectionOrder!]! = [], pagination: OffsetPaginationInput): [AnnotationCollection!]!
+  annotationCollections(filters: AnnotationCollectionFilter, ordering: [AnnotationCollectionOrder!]! = [], pagination: OffsetPaginationInput): [AnnotationCollection!]! @auth(required_scopes: ["elektro_read"])
 
   """
   List annotations: events, epochs and measurements, each in its collection's coordinate system
   """
-  annotations(filters: AnnotationFilter, ordering: [AnnotationOrder!]! = [], pagination: OffsetPaginationInput): [Annotation!]!
+  annotations(filters: AnnotationFilter, ordering: [AnnotationOrder!]! = [], pagination: OffsetPaginationInput): [Annotation!]! @auth(required_scopes: ["elektro_read"])
 
   """
   List folders (collections of array, table and sparse datasets, annotation collections and files)
   """
-  folders(filters: FolderFilter, ordering: [FolderOrder!]! = [], pagination: OffsetPaginationInput): [Folder!]!
+  folders(filters: FolderFilter, ordering: [FolderOrder!]! = [], pagination: OffsetPaginationInput): [Folder!]! @auth(required_scopes: ["elektro_read"])
 
   """List folders created by the current user"""
-  myfolders(filters: FolderFilter, ordering: [FolderOrder!]! = [], pagination: OffsetPaginationInput): [Folder!]!
-  experiments(filters: ExperimentFilter, ordering: [ExperimentOrder!]! = [], pagination: OffsetPaginationInput): [Experiment!]!
-  neuronModels(filters: NeuronModelFilter, ordering: [NeuronModelOrder!]! = [], pagination: OffsetPaginationInput): [NeuronModel!]!
-  modelCollections(filters: ModelCollectionFilter, ordering: [ModelCollectionOrder!]! = [], pagination: OffsetPaginationInput): [ModelCollection!]!
-  modelWorkspaces(filters: ModelWorkspaceFilter, ordering: [ModelWorkspaceOrder!]! = [], pagination: OffsetPaginationInput): [ModelWorkspace!]!
-  workspaceMappings(filters: WorkspaceMappingFilter, ordering: [WorkspaceMappingOrder!]! = [], pagination: OffsetPaginationInput): [WorkspaceMapping!]!
-  files(filters: FileFilter, ordering: [FileOrder!]! = [], pagination: OffsetPaginationInput): [File!]!
-  myfiles(filters: FileFilter, ordering: [FileOrder!]! = [], pagination: OffsetPaginationInput): [File!]!
+  myfolders(filters: FolderFilter, ordering: [FolderOrder!]! = [], pagination: OffsetPaginationInput): [Folder!]! @auth(required_scopes: ["elektro_read"])
+  experiments(filters: ExperimentFilter, ordering: [ExperimentOrder!]! = [], pagination: OffsetPaginationInput): [Experiment!]! @auth(required_scopes: ["elektro_read"])
+  neuronModels(filters: NeuronModelFilter, ordering: [NeuronModelOrder!]! = [], pagination: OffsetPaginationInput): [NeuronModel!]! @auth(required_scopes: ["elektro_read"])
+  modelCollections(filters: ModelCollectionFilter, ordering: [ModelCollectionOrder!]! = [], pagination: OffsetPaginationInput): [ModelCollection!]! @auth(required_scopes: ["elektro_read"])
+  modelWorkspaces(filters: ModelWorkspaceFilter, ordering: [ModelWorkspaceOrder!]! = [], pagination: OffsetPaginationInput): [ModelWorkspace!]! @auth(required_scopes: ["elektro_read"])
+  workspaceMappings(filters: WorkspaceMappingFilter, ordering: [WorkspaceMappingOrder!]! = [], pagination: OffsetPaginationInput): [WorkspaceMapping!]! @auth(required_scopes: ["elektro_read"])
+  files(filters: FileFilter, ordering: [FileOrder!]! = [], pagination: OffsetPaginationInput): [File!]! @auth(required_scopes: ["elektro_read"])
+  myfiles(filters: FileFilter, ordering: [FileOrder!]! = [], pagination: OffsetPaginationInput): [File!]! @auth(required_scopes: ["elektro_read"])
 
   """
   List the organization's collaborations: what a guest granted one sees of it (a guest: the collaborations granted to them)
   """
-  collaborations: [Collaboration!]!
+  collaborations: [Collaboration!]! @auth(required_scopes: ["elektro_read"])
 
   """Get a single collaboration by ID"""
-  collaboration(id: ID!): Collaboration!
-  modEnvironments(filters: ModEnvironmentFilter, ordering: [ModEnvironmentOrder!]! = [], pagination: OffsetPaginationInput): [ModEnvironment!]!
-  mechanisms(filters: MechanismFilter, ordering: [MechanismOrder!]! = [], pagination: OffsetPaginationInput): [Mechanism!]!
-  mechanism(id: ID!): Mechanism!
-  modEnvironment(id: ID!): ModEnvironment!
+  collaboration(id: ID!): Collaboration! @auth(required_scopes: ["elektro_read"])
+  modEnvironments(filters: ModEnvironmentFilter, ordering: [ModEnvironmentOrder!]! = [], pagination: OffsetPaginationInput): [ModEnvironment!]! @auth(required_scopes: ["elektro_read"])
+  mechanisms(filters: MechanismFilter, ordering: [MechanismOrder!]! = [], pagination: OffsetPaginationInput): [Mechanism!]! @auth(required_scopes: ["elektro_read"])
+  mechanism(id: ID!): Mechanism! @auth(required_scopes: ["elektro_read"])
+  modEnvironment(id: ID!): ModEnvironment! @auth(required_scopes: ["elektro_read"])
 
   """Get a single coordinate system by ID"""
   coordinateSystem(
     """The unique identifier of an object"""
     id: ID!
-  ): CoordinateSystem!
+  ): CoordinateSystem! @auth(required_scopes: ["elektro_read"])
 
   """Get a single transformation by ID"""
   transformation(
     """The unique identifier of an object"""
     id: ID!
-  ): Transformation!
+  ): Transformation! @auth(required_scopes: ["elektro_read"])
 
   """Get a single lens by ID"""
   lens(
     """The unique identifier of an object"""
     id: ID!
-  ): Lens!
+  ): Lens! @auth(required_scopes: ["elektro_read"])
 
   """
   Walk the coordinate graph out from one system: every coordinate system it reaches and every top-level edge between them. Reachability is undirected (an edge pointing into the system relates to it as much as one pointing out), the edges keep their true direction, and nothing is composed -- what the list queries cannot answer is 'which edges relate to *this* one', because relatedness is transitive and a filter is not
   """
-  coordinateGraph(coordinateSystem: ID!, maxDepth: Int = null): CoordinateGraph!
+  coordinateGraph(coordinateSystem: ID!, maxDepth: Int = null): CoordinateGraph! @auth(required_scopes: ["elektro_read"])
 
   """
   Walk the *derivation* edges out from one dataset and return its provenance component: everything this data was computed from, everything computed from it, transitively in both directions, and the edges between them. Distinct from `coordinateGraph`, which walks every edge touching a space -- a registration there drags in every other dataset on the same clock, which is a neighbourhood rather than a lineage. Nodes are datasets, not spaces: a dataset's sample grid and its lenses are one node in a provenance story. Kind-blind, so an UNMAPPABLE edge is included; filter on `kind` for the chain that actually places things. Root it at any dataset's coordinate system
   """
-  lineageGraph(coordinateSystem: ID!, maxDepth: Int = null): LineageGraph!
+  lineageGraph(coordinateSystem: ID!, maxDepth: Int = null): LineageGraph! @auth(required_scopes: ["elektro_read"])
 
   """
   List everything filed in a folder: its sub-folders, files, array, table and sparse datasets and annotation collections
   """
-  children(parent: ID!, filters: FolderChildrenFilter = null, pagination: ChildrenPaginationInput = null, order: ChildrenOrder = null): [FolderChild!]!
+  children(parent: ID!, filters: FolderChildrenFilter = null, pagination: ChildrenPaginationInput = null, order: ChildrenOrder = null): [FolderChild!]! @auth(required_scopes: ["elektro_read"])
 
   """Returns a list of cells in a model"""
   cells(
@@ -5779,7 +5779,7 @@ type Query {
     modelId: ID!
     ids: [ID!] = null
     search: String = null
-  ): [Cell!]!
+  ): [Cell!]! @auth(required_scopes: ["elektro_read"])
 
   """
   Get one cell of a neuron model by its compound id, 'model:cell' (see `Cell.compoundId`)
@@ -5787,7 +5787,7 @@ type Query {
   cell(
     """The unique identifier of an object"""
     id: ID!
-  ): Cell!
+  ): Cell! @auth(required_scopes: ["elektro_read"])
 
   """
   Get one section of a cell of a neuron model by its compound id, 'model:cell:section' (see `Section.compoundId`)
@@ -5795,7 +5795,7 @@ type Query {
   section(
     """The unique identifier of an object"""
     id: ID!
-  ): Section!
+  ): Section! @auth(required_scopes: ["elektro_read"])
 
   """
   The sections of one cell of a neuron model, read from the model's config
@@ -5808,92 +5808,92 @@ type Query {
     cellId: ID!
     ids: [ID!] = null
     search: String = null
-  ): [Section!]!
+  ): [Section!]! @auth(required_scopes: ["elektro_read"])
 
   """Get a single table dataset by ID"""
   tableDataset(
     """The unique identifier of an object"""
     id: ID!
-  ): TableDataset!
+  ): TableDataset! @auth(required_scopes: ["elektro_read"])
 
   """Get a single sparse dataset by ID"""
   sparseDataset(
     """The unique identifier of an object"""
     id: ID!
-  ): SparseDataset!
+  ): SparseDataset! @auth(required_scopes: ["elektro_read"])
 
   """Get a single experiment layer by ID"""
   layer(
     """The unique identifier of an object"""
     id: ID!
-  ): ExperimentLayer!
+  ): ExperimentLayer! @auth(required_scopes: ["elektro_read"])
   experiment(
     """The unique identifier of an object"""
     id: ID!
-  ): Experiment!
+  ): Experiment! @auth(required_scopes: ["elektro_read"])
   modelCollection(
     """The unique identifier of an object"""
     id: ID!
-  ): ModelCollection!
+  ): ModelCollection! @auth(required_scopes: ["elektro_read"])
   modelWorkspace(
     """The unique identifier of an object"""
     id: ID!
-  ): ModelWorkspace!
+  ): ModelWorkspace! @auth(required_scopes: ["elektro_read"])
   workspaceMapping(
     """The unique identifier of an object"""
     id: ID!
-  ): WorkspaceMapping!
+  ): WorkspaceMapping! @auth(required_scopes: ["elektro_read"])
 
   """Get a single array dataset by ID"""
   arrayDataset(
     """The unique identifier of an object"""
     id: ID!
-  ): ArrayDataset!
+  ): ArrayDataset! @auth(required_scopes: ["elektro_read"])
 
   """Get a single data array by ID"""
   dataArray(
     """The unique identifier of an object"""
     id: ID!
-  ): DataArray!
+  ): DataArray! @auth(required_scopes: ["elektro_read"])
 
   """Get a single file link by ID"""
   fileLink(
     """The unique identifier of an object"""
     id: ID!
-  ): FileLink!
+  ): FileLink! @auth(required_scopes: ["elektro_read"])
 
   """Returns a single neuron model by ID"""
   neuronModel(
     """The unique identifier of an object"""
     id: ID!
-  ): NeuronModel!
+  ): NeuronModel! @auth(required_scopes: ["elektro_read"])
 
   """Get a single annotation collection by ID"""
   annotationCollection(
     """The unique identifier of an object"""
     id: ID!
-  ): AnnotationCollection!
+  ): AnnotationCollection! @auth(required_scopes: ["elektro_read"])
 
   """Get a single annotation by ID"""
   annotation(
     """The unique identifier of an object"""
     id: ID!
-  ): Annotation!
+  ): Annotation! @auth(required_scopes: ["elektro_read"])
 
   """
   The k annotations of one collection nearest to a point -- the events nearest an instant -- by cube distance between the point and each annotation's bounding box (GiST-accelerated; 0 inside the box). Scoped to one collection because boxes only compare within one frame; the point is in the collection's own coordinate order
   """
-  nearestAnnotations(collection: ID!, point: [Float!]!, limit: Int! = 10): [Annotation!]!
+  nearestAnnotations(collection: ID!, point: [Float!]!, limit: Int! = 10): [Annotation!]! @auth(required_scopes: ["elektro_read"])
   file(
     """The unique identifier of an object"""
     id: ID!
-  ): File!
+  ): File! @auth(required_scopes: ["elektro_read"])
 
   """Get a single folder by ID"""
   folder(
     """The unique identifier of an object"""
     id: ID!
-  ): Folder!
+  ): Folder! @auth(required_scopes: ["elektro_read"])
 }
 
 """The Color scalar type represents a color as a list of 4 values RGBA"""
@@ -7256,10 +7256,10 @@ type Subscription {
   """
   Subscribe to the array datasets of this organization, or of one of its folders, as they are created, updated and deleted
   """
-  arrayDatasets(folder: ID = null): ArrayDatasetEvent!
+  arrayDatasets(folder: ID = null): ArrayDatasetEvent! @auth(required_scopes: ["elektro_read"])
 
   """Subscribe to real-time file updates"""
-  files(folder: ID = null): FileEvent!
+  files(folder: ID = null): FileEvent! @auth(required_scopes: ["elektro_read"])
 }
 
 enum SynapseKind {
