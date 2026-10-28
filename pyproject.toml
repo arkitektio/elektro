@@ -19,14 +19,14 @@ dependencies = [
     "kanne>=2.5.0",
     "filelock>=3.12",
     "pydantic>=2",
-    # The service and structures are declared with arkitekt-spec (4.1: a service's scopes).
-    "arkitekt-spec>=4.1",
+    # The service and structures are declared with arkitekt-spec (5.0: a service reads its scopes off its client).
+    "arkitekt-spec>=5.0",
     # The service wiring (Alias, Require, FaktsAuthLink); it came through rekuest before.
     "fakts>=6.1",
 ]
 
 [project.optional-dependencies]
-turms = ["turms>=2.3.0"]
+turms = ["turms>=3.0"]
 neuron = ["neuron>=8.0.0; sys_platform != 'win32'"]
 table = ["pyarrow>=12.0.1", "pandas>=2.2", "duckdb>=1.0"]
 # The sparse wire format a spike raster is uploaded in. An extra: a client that never uploads
@@ -56,7 +56,7 @@ dev-dependencies =  [
     "scipy>=1.11",
     "neuron>=9.0.1; sys_platform != 'win32'",
     "ruff>0.11",
-    "turms>=2.3.0",
+    "turms>=3.0",
     "basedpyright>=1.21",
 ]
 
