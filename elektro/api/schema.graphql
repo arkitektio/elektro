@@ -4612,15 +4612,15 @@ type Mutation {
   deleteCollaboration(id: ID!): ID! @auth(required_scopes: ["elektro_share"], any_role_of: ["elektro_editor"])
 
   """Upload media and return a URL for access"""
-  requestMediaUpload(input: RequestMediaUploadInput!): MediaUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
+  requestMediaUpload(input: RequestMediaUploadInput!): MediaUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Finalize a media upload after the client has written the object"""
-  finishMediaUpload(input: FinishMediaUploadInput!): MediaStore! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
+  finishMediaUpload(input: FinishMediaUploadInput!): MediaStore! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Reissue upload credentials for a media upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit
   """
-  refreshMediaUpload(input: RefreshUploadInput!): MediaUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
+  refreshMediaUpload(input: RefreshUploadInput!): MediaUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Request temporary S3 read credentials for a media file"""
   requestMediaAccess(input: RequestMediaAccessInput!): MediaAccessGrant! @auth(required_scopes: ["elektro_read"])
@@ -4633,18 +4633,18 @@ type Mutation {
   """
   Reissue upload credentials for a bigfile upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit
   """
-  refreshBigfileUpload(input: RefreshUploadInput!): BigFileUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
+  refreshBigfileUpload(input: RefreshUploadInput!): BigFileUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Request an upload grant for a big file store"""
-  requestBigfileUpload(input: RequestBigFileUploadInput!): BigFileUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
+  requestBigfileUpload(input: RequestBigFileUploadInput!): BigFileUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Reissue upload credentials for a zarr upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit
   """
-  refreshZarrUpload(input: RefreshUploadInput!): ZarrUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
+  refreshZarrUpload(input: RefreshUploadInput!): ZarrUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Finalize a big file upload after the client has written the object"""
-  finishBigfileUpload(input: FinishBigFileUploadInput!): BigFileStore! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
+  finishBigfileUpload(input: FinishBigFileUploadInput!): BigFileStore! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Request temporary S3 read credentials for a big file"""
   requestBigfileAccess(input: RequestBigFileAccessInput!): BigFileAccessGrant! @auth(required_scopes: ["elektro_read"])
@@ -4652,13 +4652,13 @@ type Mutation {
   """
   Reissue upload credentials for a parquet upload still in flight, to the same key, so a write that outlives its credentials carries on. Only the uploader may, never for a finished store, and never past the upload's time limit
   """
-  refreshParquetUpload(input: RefreshUploadInput!): ParquetUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
+  refreshParquetUpload(input: RefreshUploadInput!): ParquetUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Request an upload grant for a Zarr store"""
-  requestZarrUpload(input: RequestZarrUploadInput!): ZarrUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
+  requestZarrUpload(input: RequestZarrUploadInput!): ZarrUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Finalize a Zarr upload after the client has written the object"""
-  finishZarrUpload(input: FinishZarrUploadInput!): ZarrStore! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
+  finishZarrUpload(input: FinishZarrUploadInput!): ZarrStore! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Request temporary S3 read credentials for a Zarr store"""
   requestZarrAccess(input: RequestZarrAccessInput!): ZarrAccessGrant! @auth(required_scopes: ["elektro_read"])
@@ -4669,10 +4669,10 @@ type Mutation {
   requestGeneralZarrAccess(input: RequestGeneralZarrAccessInput!): GeneralZarrAccessGrant! @auth(required_scopes: ["elektro_read"])
 
   """Request an upload grant for a Parquet store"""
-  requestParquetUpload(input: RequestParquetUploadInput!): ParquetUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
+  requestParquetUpload(input: RequestParquetUploadInput!): ParquetUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Finalize a Parquet upload after the client has written the object"""
-  finishParquetUpload(input: FinishParquetUploadInput!): ParquetStore! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
+  finishParquetUpload(input: FinishParquetUploadInput!): ParquetStore! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """Request temporary S3 read credentials for a Parquet file"""
   requestParquetAccess(input: RequestParquetAccessInput!): ParquetAccessGrant! @auth(required_scopes: ["elektro_read"])
@@ -4685,17 +4685,17 @@ type Mutation {
   """
   Request an upload grant for a sparse store. The grant covers the whole prefix, so one request authorizes the group's metadata and all three of its arrays. It declares nothing about the matrix: the group states its encoding, shape and chunking, and the server reads them when the upload is finished
   """
-  requestSparseUpload: SparseUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
+  requestSparseUpload: SparseUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Finalize a sparse upload, which is when the group's own metadata is read. A missing encoding, a missing array, or an `indptr` whose length contradicts the declared shape are all refused here -- that is what an interrupted upload looks like, and catching it now beats a reader discovering it later
   """
-  finishSparseUpload(input: FinishSparseUploadInput!): SparseStore! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
+  finishSparseUpload(input: FinishSparseUploadInput!): SparseStore! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Reissue upload credentials for a sparse store whose upload is still in flight, for the reason `refreshZarrUpload` exists: three chunked arrays of a large matrix take long enough that a write can outlive its session token. Refuses a store that is already populated -- that is an overwrite, not a resumption
   """
-  refreshSparseUpload(input: RefreshUploadInput!): SparseUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["admin", "editor", "bot"])
+  refreshSparseUpload(input: RefreshUploadInput!): SparseUploadGrant! @auth(required_scopes: ["elektro_write"], any_role_of: ["elektro_editor"])
 
   """
   Request temporary S3 read credentials for a sparse store. Covers the whole prefix, because a lookup needs `indptr` before it knows which range of `data` to fetch

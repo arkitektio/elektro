@@ -44,6 +44,17 @@ projects:
             # Each method hands its operation to execute/aexecute/subscribe/asubscribe
             # of self, which the Elektro client implements over its rath.
             client_class: ElektroApi
+            # What the operations need at elektro, read off the schema's
+            # `@auth(required_scopes: ...)` on every root field they select: every
+            # app using elektro asks for it (arkitekt-spec reads it off the client).
+            client_fields:
+              - name: __scopes__
+                kind: tuple[str, ...]
+                collector:
+                  type: root_field_directive
+                  directive: auth
+                  argument: required_scopes
+                combine: union
             # Every operation takes an optional `task=`: the task its request is
             # attributed to. Omitted, the client falls back to the ambient one
             # (`rath.task.current_task`), which is what an action gets for free.
@@ -62,9 +73,6 @@ projects:
               AxisInput: elektro.scalars.AxisName
             expand_input_types:
               - input
-          # SCOPES: what the operations above need at elektro, read off the schema's
-          # `@auth(required_scopes: ...)`. The service hands it to every app's manifest.
-          - type: turms.plugins.scopes.ScopesPlugin
         processors:
           - type: turms.processors.disclaimer.DisclaimerProcessor
         scalar_definitions:
@@ -115,10 +123,12 @@ projects:
 
         # The structure each type is known by across the hub (arkitekt-service's
         # `@identified`), on every class generated for it, a nested selection included.
-        directive_class_vars:
-          - directive: identified
-            argument: by
-            attribute: __identifier__
+        class_fields:
+          - name: __identifier__
+            collector:
+              type: type_directive
+              directive: identified
+              argument: by
         additional_bases:
           ArrayDataset:
             - elektro.traits.DatasetTrait
