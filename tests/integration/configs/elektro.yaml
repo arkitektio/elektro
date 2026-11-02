@@ -11,6 +11,9 @@ authentikate:
     test:
       sub: 1
       iss: lok
+      # elektro asks every root field for a scope and every write for a role.
+      scope: openid elektro_all
+      roles: [elektro_admin]
       org: test
       client_id: test
       client_app: test
