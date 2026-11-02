@@ -4,7 +4,7 @@ import os
 import re
 import zipfile
 from pathlib import Path
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from elektro.api.schema import MechanismInput, ParameterInput
 from kanne.scalars import parse_dimension, parse_unit
 
@@ -19,8 +19,8 @@ if TYPE_CHECKING:
 
 
 def _neuron_units_to_schema(
-    raw_unit: Optional[str],
-) -> Tuple[Optional[str], Optional[str]]:
+    raw_unit: str | None,
+) -> tuple[str | None, str | None]:
     """Turn a NEURON parameter unit token into a ``(reference_unit, dimension)`` pair.
 
     NEURON declares a parameter's unit in parentheses, e.g. ``gbar = 0.05 (S/cm2)``.
@@ -51,7 +51,7 @@ def parse_mod_file_to_schema(file_path: Path) -> MechanismInput:
     """
     Parses a single .mod file and returns a populated MechanismInput schema.
     """
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         content = f.read()
 
     # 1. Extract Mechanism Name
@@ -121,7 +121,7 @@ def parse_mod_file_to_schema(file_path: Path) -> MechanismInput:
 
 def build_and_zip_environment(
     directory_path: str, output_zip_path: str = "/tmp/mechanisms.zip"
-) -> Tuple[str, List[MechanismInput]]:
+) -> tuple[str, list[MechanismInput]]:
     """
     Zips the directory, parses all .mod files, and returns the zip path
     along with the list of extracted mechanism schemas.
@@ -130,7 +130,7 @@ def build_and_zip_environment(
     if not model_dir.exists() or not model_dir.is_dir():
         raise FileNotFoundError(f"Directory {directory_path} does not exist.")
 
-    mechanisms_schema: List[MechanismInput] = []
+    mechanisms_schema: list[MechanismInput] = []
     ignored_folders = {"x86_64", "arm64", "i686", "powerpc", "umac"}
     ignored_extensions = {".o", ".c", ".so", ".dll", ".dylib"}
 
@@ -162,7 +162,7 @@ async def acreate_mod_environment_from_directory(
     elektro: "Elektro",
     name: str,
     directory_path: str,
-    description: Optional[str] = None,
+    description: str | None = None,
     output_zip_path: str = "/tmp/mechanisms.zip",
 ) -> "ModEnvironment":
     """Zip a mechanisms directory, parse its ``.mod`` files, and create a
@@ -185,7 +185,7 @@ def create_mod_environment_from_directory(
     elektro: "Elektro",
     name: str,
     directory_path: str,
-    description: Optional[str] = None,
+    description: str | None = None,
     output_zip_path: str = "/tmp/mechanisms.zip",
 ) -> "ModEnvironment":
     """Zip a mechanisms directory, parse its ``.mod`` files, and create a

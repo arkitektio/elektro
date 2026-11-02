@@ -12,7 +12,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
@@ -215,7 +215,7 @@ async def astore_mesh_file(
 
 
 async def aupload_bigfile(
-    file: Union[FileLike, BigFileLike],
+    file: FileLike | BigFileLike,
     credentials: "BigFileUploadGrant",
     datalayer: "DataLayer",
 ) -> str:
@@ -290,7 +290,7 @@ def _store_xarray_via_obstore(
 
 
 def _store_bigfile_via_obstore(
-    file: Union[FileLike, BigFileLike],
+    file: FileLike | BigFileLike,
     credentials: "BigFileUploadGrant",
     endpoint_url: str,
     proxy: str | None = None,
@@ -356,7 +356,7 @@ def upload_parquet(
 
 
 def upload_bigfile(
-    file: Union[FileLike, BigFileLike],
+    file: FileLike | BigFileLike,
     credentials: "BigFileUploadGrant",
     datalayer: "DataLayer",
 ) -> str:

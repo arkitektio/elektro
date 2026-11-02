@@ -7,7 +7,7 @@ Custom scalars for elektro
 import io
 import os
 import mimetypes
-from typing import TYPE_CHECKING, Any, IO, List, Optional, Protocol, TypeAlias
+from typing import TYPE_CHECKING, Any, IO, Protocol, TypeAlias
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
 import xarray as xr
@@ -450,10 +450,10 @@ class FiveDVector(list):
     def list_from_numpyarray(
         cls: "FiveDVector",
         x: np.ndarray,
-        t: Optional[int] = None,
-        c: Optional[int] = None,
-        z: Optional[int] = None,
-    ) -> List["FiveDVector"]:
+        t: int | None = None,
+        c: int | None = None,
+        z: int | None = None,
+    ) -> list["FiveDVector"]:
         """Creates a list of FiveDVectors from a numpy array
 
         Args:

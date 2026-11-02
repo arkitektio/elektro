@@ -4,11 +4,9 @@ from typing import (
     Protocol,
     Any,
     runtime_checkable,
-    Optional,
-    Tuple,
-    Awaitable,
     TYPE_CHECKING,
 )
+from collections.abc import Awaitable
 
 if TYPE_CHECKING:
     from elektro.api.schema import (
@@ -30,7 +28,7 @@ class Namer(Protocol):
     def __call__(
         self,
         file: Any,
-    ) -> Awaitable[Tuple[str, str]]:
+    ) -> Awaitable[tuple[str, str]]:
         """Return the s3 path (bucket and key) for the given file."""
         ...
 
@@ -46,7 +44,7 @@ class Downloader(Protocol):
         bucket: str,
         key: str,
         credentials: "Credentials",
-        executor: Optional[ThreadPoolExecutor] = None,
+        executor: ThreadPoolExecutor | None = None,
     ) -> Any:
         """Download a file from the DataLayer and return the local path."""
         ...
@@ -66,7 +64,7 @@ class Uploader(Protocol):
         file: Any,
         credentials: "Credentials",
         endpoint_url: str,
-        executor: Optional[ThreadPoolExecutor] = None,
+        executor: ThreadPoolExecutor | None = None,
     ) -> str:
         """Upload the file to the DataLayer and return its s3 path."""
         ...

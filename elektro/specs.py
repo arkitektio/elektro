@@ -77,7 +77,6 @@ from typing import (
     Final,
     Literal,
     Protocol,
-    Union,
     cast,
     get_args,
 )
@@ -132,7 +131,7 @@ DescriptorKey = Literal[
 
 #: What a descriptor key can be constrained to. The counts are ints; the value
 #: keys are strings; the set operators (IN, NOT_IN) take a sequence of either.
-DescriptorValue = Union[int, str, bool, Sequence[int | str]]
+DescriptorValue = int | str | bool | Sequence[int | str]
 
 #: The matching operators, as they read back off a `RequiresInput`. A Literal
 #: rather than `DescriptorOperator` because `use_enum_values=True` means the
@@ -380,7 +379,7 @@ class _HasAxes(Protocol):
     def axes(self) -> Sequence[_TypedAxis]: ...
 
 
-Candidate = Union[_HasCoordinateSystem, _HasIntrinsicSystem]
+Candidate = _HasCoordinateSystem | _HasIntrinsicSystem
 """Anything with ``axis_names``, ``shape`` and a typed system -- a Lens
 (``coordinate_system``, else its ``dataset``'s intrinsic system) or an
 ArrayDataset (``intrinsic_system``)."""

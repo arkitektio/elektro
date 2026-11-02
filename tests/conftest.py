@@ -1,7 +1,7 @@
 """Shared pytest fixtures and configuration for the elektro test suite."""
 
 import sys
-from typing import Generator
+from collections.abc import Generator
 import pytest
 from dokker import Deployment, testing
 from dokker.log_watcher import LogWatcher

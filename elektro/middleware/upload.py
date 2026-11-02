@@ -21,7 +21,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Dict, Tuple, Type, Union, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from concurrent.futures import ThreadPoolExecutor
 from koil import unkoil
@@ -93,7 +93,7 @@ logger = logging.getLogger(__name__)
 async def _apply_recursive_async(
     func,  # noqa: ANN001
     obj: Any,  # noqa: ANN401
-    typeguard: Union[Type[Any], Tuple[Type[Any], ...]],
+    typeguard: type[Any] | tuple[type[Any], ...],
 ) -> Any:  # noqa: ANN401
     """Recursively applies an async function to matching elements in a nested structure."""
     if isinstance(obj, dict):
@@ -115,7 +115,7 @@ async def _apply_recursive_async(
 def _apply_recursive_sync(
     func,  # noqa: ANN001
     obj: Any,  # noqa: ANN401
-    typeguard: Union[Type[Any], Tuple[Type[Any], ...]],
+    typeguard: type[Any] | tuple[type[Any], ...],
 ) -> Any:  # noqa: ANN401
     """Recursively applies a sync function to matching elements in a nested structure."""
     if isinstance(obj, dict):
@@ -148,7 +148,7 @@ BIGFILE = _Kind(RequestBigfileUploadMutation, "request_bigfile_upload", FinishBi
 SPARSE = _Kind(RequestSparseUploadMutation, "request_sparse_upload", FinishSparseUploadMutation, FinishSparseUploadInput, RefreshSparseUploadMutation, "refresh_sparse_upload")
 
 
-def _request(mutation: Any, input: Any) -> Dict[str, Any]:  # noqa: ANN401
+def _request(mutation: Any, input: Any) -> dict[str, Any]:  # noqa: ANN401
     return mutation.Arguments(input=input).model_dump(by_alias=True, exclude_unset=True)
 
 
@@ -166,7 +166,7 @@ def _byte_size(value: Any) -> int:  # noqa: ANN401
     return end - position
 
 
-def _bigfile_request(file: Union[FileLike, BigFileLike, MeshLike]) -> Dict[str, Any]:
+def _bigfile_request(file: FileLike | BigFileLike | MeshLike) -> dict[str, Any]:
     name = getattr(file, "file_name", None) or getattr(file, "key", None) or "upload"
     return _request(RequestBigfileUploadMutation, RequestBigFileUploadInput(original_file_name=name, file_size=_byte_size(file.value)))
 
@@ -301,7 +301,7 @@ class UploadMiddleware(OperationMiddleware):
         """Upload a table as one parquet object."""
         return self._upload(rath, PARQUET, _request(RequestParquetUploadMutation, RequestParquetUploadInput()), lambda grant: upload_parquet(parquet_input, grant, datalayer))
 
-    def _upload_bigfile(self, datalayer: "DataLayer", rath: "ElektroRath", file: Union[FileLike, BigFileLike]) -> str:
+    def _upload_bigfile(self, datalayer: "DataLayer", rath: "ElektroRath", file: FileLike | BigFileLike) -> str:
         """Upload a file, declaring its size: the server reserves it and holds the upload to it."""
         return self._upload(rath, BIGFILE, _bigfile_request(file), lambda grant: upload_bigfile(file, grant, datalayer))
 
@@ -325,7 +325,7 @@ class UploadMiddleware(OperationMiddleware):
         """Upload a table as one parquet object."""
         return await self._aupload(rath, PARQUET, _request(RequestParquetUploadMutation, RequestParquetUploadInput()), lambda grant: aupload_parquet(parquet_input, grant, datalayer, self._executor_session))
 
-    async def _aupload_bigfile(self, datalayer: "DataLayer", rath: "ElektroRath", file: Union[FileLike, BigFileLike]) -> str:
+    async def _aupload_bigfile(self, datalayer: "DataLayer", rath: "ElektroRath", file: FileLike | BigFileLike) -> str:
         """Upload a file, declaring its size: the server reserves it and holds the upload to it."""
         return await self._aupload(rath, BIGFILE, _bigfile_request(file), lambda grant: aupload_bigfile(file, grant, datalayer))
 
@@ -343,10 +343,10 @@ class UploadMiddleware(OperationMiddleware):
 
     def process_variables(
         self,
-        variables: Dict[str, Any],
-        operation: Type[TOperation],
+        variables: dict[str, Any],
+        operation: type[TOperation],
         rath: "ElektroRath",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Process serialized variables synchronously (obstore path).
 
         Called from ``execute()`` and ``subscribe()``. Uses sync I/O
@@ -392,10 +392,10 @@ class UploadMiddleware(OperationMiddleware):
 
     async def aprocess_variables(
         self,
-        variables: Dict[str, Any],
-        operation: Type[TOperation],
+        variables: dict[str, Any],
+        operation: type[TOperation],
         rath: "ElektroRath",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Process serialized variables asynchronously (obstore path).
 
         Called from ``aexecute()`` and ``asubscribe()``. Uses async I/O

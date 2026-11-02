@@ -14,7 +14,8 @@ If you want to add your own traits to the graphql type, you can do so by adding 
 from collections import deque
 from collections.abc import Hashable, Sequence
 from enum import Enum
-from typing import Awaitable, ClassVar, List, NamedTuple, Self, Union
+from typing import ClassVar, NamedTuple, Self
+from collections.abc import Awaitable
 import numpy as np
 from numpy.typing import NDArray
 import pandas as pd
@@ -47,7 +48,7 @@ from .vocabulary import (
 
 #: A point or a stack of them: a (N,) vector, a (K, N) array, or anything
 #: `np.asarray` turns into one.
-PointsLike = Union[Sequence[float], Sequence[Sequence[float]], NDArray[np.generic]]
+PointsLike = Sequence[float] | Sequence[Sequence[float]] | NDArray[np.generic]
 
 
 if TYPE_CHECKING:
@@ -130,7 +131,7 @@ class TopologyInputTrait(BaseModel):
         return x
 
     @property
-    def section_ids(self) -> List[str]:
+    def section_ids(self) -> list[str]:
         """The ids of all sections in the topology."""
         sections = get_attributes_or_error(self, "sections")
         return [section.id for section in sections]
@@ -148,7 +149,7 @@ class ModelConfigInputTrait(BaseModel):
         return x
 
     @property
-    def cell_ids(self) -> List[str]:
+    def cell_ids(self) -> list[str]:
         """The ids of all cells in the model config."""
         sections = get_attributes_or_error(self, "cells")
         return [section.id for section in sections]
@@ -166,7 +167,7 @@ class BiophysicsTrait:
         return x
 
     @property
-    def compartment_ids(self) -> List[str]:
+    def compartment_ids(self) -> list[str]:
         """The ids of all compartments in the biophysics data."""
         compartments = get_attributes_or_error(self, "compartments")
         return [compartment.id for compartment in compartments]
@@ -182,7 +183,7 @@ class BiophysicsTrait:
         for compartment in compartments:
             data = {
                 "id": compartment.id,
-                "mechanisms": " ".join(([mechanism for mechanism in compartment.mechanisms])),
+                "mechanisms": " ".join([mechanism for mechanism in compartment.mechanisms]),
                 **{param.param: param.distribution.value for param in compartment.section_params},
                 **{
                     f"e{ion.ion}": ion.reversal_potential
@@ -208,7 +209,7 @@ class TopologyTrait:
         return x
 
     @property
-    def section_ids(self) -> List[str]:
+    def section_ids(self) -> list[str]:
         """The ids of all sections in the topology."""
         compartments = get_attributes_or_error(self, "sections")
         return [compartment.id for compartment in compartments]
@@ -496,7 +497,7 @@ class DatasetTrait(ContextBound):
             f"{sorted(a.level for a in arrays)}"
         )
 
-    def multi_scale_data(self) -> List[xr.DataArray]:
+    def multi_scale_data(self) -> list[xr.DataArray]:
         """Every pyramid level of this dataset, finest first."""
         arrays = get_attributes_or_error(self, "data_arrays")
         dims = get_attributes_or_error(self, "axis_names")

@@ -1,6 +1,7 @@
 """Utility helpers for working with chunked array dimensions."""
 
-from typing import Hashable, Mapping, cast
+from typing import cast
+from collections.abc import Hashable, Mapping
 import math
 
 

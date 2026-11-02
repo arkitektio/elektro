@@ -12,7 +12,7 @@ Both sync and async variants are supported:
 from __future__ import annotations
 
 import abc
-from typing import Any, Dict, Type, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from pydantic import BaseModel
 
@@ -43,10 +43,10 @@ class OperationMiddleware(BaseModel, abc.ABC):
     @abc.abstractmethod
     def process_variables(
         self,
-        variables: Dict[str, Any],
-        operation: Type[TOperation],
+        variables: dict[str, Any],
+        operation: type[TOperation],
         rath: "ElektroRath",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Process the serialized variables dict synchronously.
 
         Called from ``execute()`` and ``subscribe()`` (the sync path).
@@ -65,10 +65,10 @@ class OperationMiddleware(BaseModel, abc.ABC):
     @abc.abstractmethod
     async def aprocess_variables(
         self,
-        variables: Dict[str, Any],
-        operation: Type[TOperation],
+        variables: dict[str, Any],
+        operation: type[TOperation],
         rath: "ElektroRath",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Process the serialized variables dict asynchronously.
 
         Called from ``aexecute()`` and ``asubscribe()`` (the async path).

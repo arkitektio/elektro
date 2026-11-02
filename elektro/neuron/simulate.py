@@ -14,7 +14,7 @@ import platform
 import zipfile
 from pathlib import Path
 from filelock import FileLock, Timeout
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Literal, Union
+from typing import TYPE_CHECKING, Any, Literal
 from pydantic import BaseModel, Field
 
 from elektro.api.schema import (
@@ -231,7 +231,7 @@ class RecordBase(BaseModel):
     """Base configuration for a recording attached to a cell location."""
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: Optional[str] = None
+    name: str | None = None
     cell: str
     location: str
     position: float = 0.5
@@ -248,7 +248,7 @@ class StimulusBase(BaseModel):
     """Base configuration for a stimulus injected into a cell location."""
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: Optional[str] = None
+    name: str | None = None
     kind: StimulusKind
     cell: str
     location: str
@@ -284,7 +284,7 @@ class WhiteNoiseStimulus(StimulusBase):
     kind: Literal[StimulusKind.CURRENT] = StimulusKind.CURRENT  # type: ignore[assignment]
     noise_level: ElectricCurrent = ElectricCurrent("0.05 nanoampere")
     reference_dt: Duration = Duration("0.05 ms")
-    seed: Optional[int] = None
+    seed: int | None = None
     delay: Duration = Duration("0 ms")
 
 
@@ -300,7 +300,7 @@ class SineWaveStimulus(StimulusBase):
     delay: Duration = Duration("0 ms")
 
 
-def _resolve_noise_seeds(stims: List[Any]) -> List[Any]:
+def _resolve_noise_seeds(stims: list[Any]) -> list[Any]:
     """Return ``stims`` with every unseeded ``WhiteNoiseStimulus`` given a fresh seed.
 
     Seeds come from fresh OS entropy (``SeedSequence()``), so they never depend on
@@ -318,7 +318,7 @@ def _resolve_noise_seeds(stims: List[Any]) -> List[Any]:
 
 # Whitelisted names available to distribution expressions. Only pure, total math
 # helpers — no I/O, no attribute access, no builtins.
-_EXPR_FUNCTIONS: Dict[str, Any] = {
+_EXPR_FUNCTIONS: dict[str, Any] = {
     "exp": math.exp,
     "log": math.log,
     "log10": math.log10,
@@ -334,7 +334,7 @@ _EXPR_FUNCTIONS: Dict[str, Any] = {
     "max": max,
     "pow": pow,
 }
-_EXPR_CONSTANTS: Dict[str, float] = {"pi": math.pi, "e": math.e}
+_EXPR_CONSTANTS: dict[str, float] = {"pi": math.pi, "e": math.e}
 
 # AST node types permitted inside a distribution expression. Anything else
 # (attribute access, comprehensions, lambdas, subscripts, calls to non-whitelisted
@@ -359,7 +359,7 @@ _EXPR_ALLOWED_NODES = (
 )
 
 
-def _safe_eval_expression(expression: str, variables: Dict[str, float]) -> float:
+def _safe_eval_expression(expression: str, variables: dict[str, float]) -> float:
     """Evaluate a distribution ``expression`` in a restricted, side-effect-free sandbox.
 
     Only arithmetic over numeric literals, the supplied ``variables`` (``x``, ``d``),
@@ -403,7 +403,7 @@ def _safe_eval_expression(expression: str, variables: Dict[str, float]) -> float
     return float(eval(compile(tree, "<distribution>", "eval"), {"__builtins__": {}}, names))
 
 
-def _neuron_unit(h: Any, name: str) -> Optional[str]:
+def _neuron_unit(h: Any, name: str) -> str | None:
     """The unit NEURON declares for the variable ``name`` (e.g. ``"mmho/cm2"``).
 
     Returns ``None`` when NEURON declares no unit (or does not know the name).
@@ -508,7 +508,7 @@ def _apply_section_param(
 #   - NERNST: e<ion> is computed once (at init) from fixed concentrations via Nernst.
 #   - ACCUMULATED: concentrations are states advanced by an accumulation mechanism and
 #     e<ion> follows them via Nernst on every step.
-_ION_STYLE_ARGS: Dict[str, tuple[int, int, int, int, int]] = {
+_ION_STYLE_ARGS: dict[str, tuple[int, int, int, int, int]] = {
     "FIXED_REVERSAL": (1, 1, 0, 0, 1),
     "NERNST": (1, 2, 1, 0, 1),
     "ACCUMULATED": (3, 2, 1, 1, 1),
@@ -548,7 +548,7 @@ def _nseg_from_dlambda(h: Any, sec: Any, d_lambda: float) -> int:
     return int((sec.L / (d_lambda * _lambda_f(h, sec, 100.0)) + 0.9) / 2) * 2 + 1
 
 
-def _apply_ions(h: Any, sec: Any, ions: List[Any]) -> None:
+def _apply_ions(h: Any, sec: Any, ions: list[Any]) -> None:
     """Apply per-section ion settings (reversal potential / concentrations / style).
 
     An ion can only be configured on a section where a mechanism actually uses it
@@ -583,13 +583,13 @@ def _apply_ions(h: Any, sec: Any, ions: List[Any]) -> None:
             raise ValueError(f"Failed to set ion {ion.ion} on section {sec.name()}") from e
 
 
-def instantiate_cell(h: Any, cell: Cell, config: NeuronModelConfig) -> Dict[str, Any]:
+def instantiate_cell(h: Any, cell: Cell, config: NeuronModelConfig) -> dict[str, Any]:
     """Build NEURON sections for a cell and return them keyed by section id.
 
     ``config`` supplies the model-wide defaults (Ra, cm, ion settings) that a
     section or compartment may override.
     """
-    h_sections: Dict[str, Any] = {}
+    h_sections: dict[str, Any] = {}
 
     for sec_def in cell.topology.sections:
         sec = h.Section(name=f"{cell.id}_{sec_def.id}")
@@ -663,7 +663,7 @@ def instantiate_cell(h: Any, cell: Cell, config: NeuronModelConfig) -> Dict[str,
 
         # Ion settings: model-wide defaults first, overridden per ion species by the
         # compartment's own ions. Applied after mechanisms so the ion is present.
-        ions_by_species: Dict[str, Any] = {ion.ion: ion for ion in config.ions}
+        ions_by_species: dict[str, Any] = {ion.ion: ion for ion in config.ions}
         ions_by_species.update({ion.ion: ion for ion in comp.ions})
         _apply_ions(h, sec, list(ions_by_species.values()))
 
@@ -675,10 +675,10 @@ class NeuronModelInstance:
     """Holds the instantiated NEURON objects for a model."""
 
     h: object
-    cell_h_sections: Dict[str, Dict[str, Any]]
-    net_stimulations: Dict[str, Any]
-    net_connections: Dict[str, Any]
-    net_synapses: Dict[str, Any]
+    cell_h_sections: dict[str, dict[str, Any]]
+    net_stimulations: dict[str, Any]
+    net_connections: dict[str, Any]
+    net_synapses: dict[str, Any]
 
 
 @dataclass
@@ -703,8 +703,8 @@ class SimulationResults:
     """Results produced by running a NEURON simulation."""
 
     time_trace: np.ndarray[Any, Any]
-    recordings: List[RecordedTrace]
-    stimuli: List[RecordedTrace]
+    recordings: list[RecordedTrace]
+    stimuli: list[RecordedTrace]
     model: NeuronModel
     duration: Duration
     dt: Duration
@@ -713,15 +713,15 @@ class SimulationResults:
     raw_stimulations: dict[str, Any] | None = None
     #: The stimuli exactly as played, with every white-noise seed resolved, so the
     #: run can be reproduced.
-    stims: List[Any] | None = None
+    stims: list[Any] | None = None
 
 
 def instantiate_model(h: Any, model: NeuronModelConfig) -> NeuronModelInstance:
     """Instantiate all cells, synapses and connections of a model in NEURON."""
-    cell_h_sections: Dict[str, Dict[str, Any]] = {}
-    net_stimulations: Dict[str, Any] = {}
-    net_connections: Dict[str, Any] = {}
-    net_synapses: Dict[str, Any] = {}
+    cell_h_sections: dict[str, dict[str, Any]] = {}
+    net_stimulations: dict[str, Any] = {}
+    net_connections: dict[str, Any] = {}
+    net_synapses: dict[str, Any] = {}
 
     for cell in model.cells:
         cell_h_sections[cell.id] = instantiate_cell(h, cell, model)
@@ -798,8 +798,8 @@ def _stimulus_window(stim: Any, times: np.ndarray, total_ms: float) -> tuple[flo
 def run_simulation_processed(
     model: NeuronModel,
     duration: DurationCoercible,
-    stims: List[Union[CurrentClampStimulus, SineWaveStimulus, WhiteNoiseStimulus]],
-    records: List[Union[VRecord]],
+    stims: list[CurrentClampStimulus | SineWaveStimulus | WhiteNoiseStimulus],
+    records: list[VRecord],
     name: str,
     dt: DurationCoercible,
 ) -> SimulationResults:
@@ -989,8 +989,8 @@ def _get_isolated_pool() -> ProcessPoolExecutor:
 async def asimulate(
     model: NeuronModel,
     duration: DurationCoercible,
-    stims: List[Union[CurrentClampStimulus]],  # type: ignore[no-untyped-call]
-    records: List[Union[VRecord]],  # type: ignore[no-untyped-call]
+    stims: list[CurrentClampStimulus],  # type: ignore[no-untyped-call]
+    records: list[VRecord],  # type: ignore[no-untyped-call]
     name: str | None = None,
     dt: DurationCoercible = "0.05 ms",
     process_pool: ProcessPoolExecutor | None = None,
@@ -1031,8 +1031,8 @@ async def arun_simulation(
     elektro: "Elektro",
     model: NeuronModel,
     duration: DurationCoercible,
-    stims: List[Union[CurrentClampStimulus, WhiteNoiseStimulus, SineWaveStimulus]],  # type: ignore[no-untyped-call]
-    records: List[Union[VRecord]],  # type: ignore[no-untyped-call]
+    stims: list[CurrentClampStimulus | WhiteNoiseStimulus | SineWaveStimulus],  # type: ignore[no-untyped-call]
+    records: list[VRecord],  # type: ignore[no-untyped-call]
     name: str | None = None,
     dt: DurationCoercible = "0.05 ms",
     process_pool: ProcessPoolExecutor | None = None,
@@ -1083,11 +1083,11 @@ class PublishedRun:
     """
 
     clock: CoordinateSystem
-    recordings: List[ArrayDataset]
-    stimuli: List[ArrayDataset]
+    recordings: list[ArrayDataset]
+    stimuli: list[ArrayDataset]
 
     @property
-    def datasets(self) -> List[ArrayDataset]:
+    def datasets(self) -> list[ArrayDataset]:
         """Every dataset timed onto the run's clock: recordings, then stimuli."""
         return [*self.recordings, *self.stimuli]
 

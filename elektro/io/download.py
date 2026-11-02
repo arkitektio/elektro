@@ -12,7 +12,7 @@ from elektro.rath import ElektroRath
 from koil import unkoil
 from rath.origin import get_origin
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Tuple, cast
+from typing import TYPE_CHECKING, Any, cast
 import obstore  # Imported to access direct streaming capabilities
 
 from elektro.io.obstore import (
@@ -32,7 +32,7 @@ async def aget_zarr_credentials_and_endpoint(
     store: str,
     rath: ElektroRath,
     datalayer: DataLayer,
-) -> Tuple[ZarrAccessGrant, str]:
+) -> tuple[ZarrAccessGrant, str]:
     """Fetch zarr access credentials and the datalayer endpoint URL.
 
     Both clients are taken as given: callers pick them (see :func:`_clients`)
@@ -47,7 +47,7 @@ async def aget_table_credentials_and_endpoint(
     store: str,
     rath: ElektroRath,
     datalayer: DataLayer,
-) -> Tuple[ParquetAccessGrant, str]:
+) -> tuple[ParquetAccessGrant, str]:
     """Fetch parquet access credentials and the datalayer endpoint URL.
 
     Both clients are taken as given: callers pick them (see :func:`_clients`)
@@ -62,7 +62,7 @@ async def aget_bigfile_credentials_and_endpoint(
     store: str,
     rath: ElektroRath,
     datalayer: DataLayer,
-) -> Tuple[BigFileAccessGrant, str]:
+) -> tuple[BigFileAccessGrant, str]:
     """Fetch big-file access credentials and the datalayer endpoint URL.
 
     Both clients are taken as given: callers pick them (see :func:`_clients`)
@@ -77,7 +77,7 @@ async def aget_media_credentials_and_endpoint(
     store: str,
     rath: ElektroRath,
     datalayer: DataLayer,
-) -> Tuple[MediaAccessGrant, str]:
+) -> tuple[MediaAccessGrant, str]:
     """Fetch media access credentials and the datalayer endpoint URL.
 
     Both clients are taken as given: callers pick them (see :func:`_clients`)
@@ -126,7 +126,7 @@ def _clients(
     rath: ElektroRath | None,
     datalayer: DataLayer | None,
     obj: Any,  # noqa: ANN401
-) -> Tuple[ElektroRath, DataLayer]:
+) -> tuple[ElektroRath, DataLayer]:
     """Both clients for a call: the ones given, else the ones ``obj`` was fetched with.
 
     ``obj`` is the object the call is made on. Nothing is looked up in what happens
@@ -224,7 +224,7 @@ async def aopen_parquet_duckdb(
     rath: ElektroRath | None = None,
     datalayer: DataLayer | None = None,
     obj: Any = None,  # noqa: ANN401
-) -> Tuple["DuckDBPyConnection", "DuckDBPyRelation"]:
+) -> tuple["DuckDBPyConnection", "DuckDBPyRelation"]:
     """Open a lazy DuckDB relation over the parquet object asynchronously.
 
     Returns ``(connection, relation)``. The connection is returned alongside the
@@ -251,7 +251,7 @@ def open_parquet_duckdb(
     rath: ElektroRath | None = None,
     datalayer: DataLayer | None = None,
     obj: Any = None,  # noqa: ANN401
-) -> Tuple["DuckDBPyConnection", "DuckDBPyRelation"]:
+) -> tuple["DuckDBPyConnection", "DuckDBPyRelation"]:
     """Open a lazy DuckDB relation over the parquet object synchronously.
 
     Returns ``(connection, relation)``; keep a reference to the connection for as

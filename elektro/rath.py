@@ -1,7 +1,6 @@
 """The Elektro GraphQL transport layer (Rath) and its link configuration."""
 
 from types import TracebackType
-from typing import List
 from pydantic import Field
 from rath import rath
 from rath.links.auth import AuthTokenLink
@@ -57,7 +56,7 @@ class ElektroRath(rath.Rath):
             order: first middleware processes first, then passes to the next.
     """
 
-    middlewares: List[OperationMiddleware] = Field(default_factory=list)
+    middlewares: list[OperationMiddleware] = Field(default_factory=list)
     """Middleware chain applied to serialized variables in Elektro.execute/subscribe."""
 
     async def __aenter__(self) -> "ElektroRath":

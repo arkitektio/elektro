@@ -7,7 +7,7 @@ Kept free of the generated schema on purpose, so `import elektro` does not pull
 import re
 from collections.abc import Mapping
 from enum import Enum
-from typing import TypeVar, cast, overload, Final, Literal, Union
+from typing import TypeVar, cast, overload, Final, Literal
 
 #: The axis types of the elektro schema, as the wire spells them.
 AxisTypeName = Literal[
@@ -87,12 +87,12 @@ def default_axis_type(name: str) -> AxisTypeName:
 
 #: What `Trace.lens` takes per axis: one index, a ``slice()``, or a
 #: ``(start, stop[, step])`` tuple.
-AxisSelection = Union[
-    int,
-    slice,
-    tuple[int | None, int | None],
-    tuple[int | None, int | None, int | None],
-]
+AxisSelection = (
+    int
+    | slice
+    | tuple[int | None, int | None]
+    | tuple[int | None, int | None, int | None]
+)
 
 #: The normalized form: ``(start, stop, step)``, any of which may be ``None``.
 SliceBounds = tuple[int | None, int | None, int | None]
