@@ -4439,6 +4439,12 @@ type ModelChange {
 
   """The new value of the field."""
   newValue: String
+
+  """The old value of the field, preserving its native JSON type."""
+  oldValueJson: JSON
+
+  """The new value of the field, preserving its native JSON type."""
+  newValueJson: JSON
 }
 
 type ModelCollection @identified(by: "@elektro/modelcollection") {
