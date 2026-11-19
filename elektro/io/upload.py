@@ -56,10 +56,11 @@ async def astore_xarray_input(
     credentials: "ZarrUploadGrant",
     endpoint_url: str,
     proxy: str | None = None,
+    certificates: list[str] | None = None,
 ) -> str:
     """Stores an xarray in the DataLayer"""
     array = xarray.value
-    store_path = create_zarr_store_path(endpoint_url, credentials, proxy=proxy)
+    store_path = create_zarr_store_path(endpoint_url, credentials, proxy=proxy, certificates=certificates)
 
     try:
         logger.debug(
@@ -118,9 +119,10 @@ def _store_parquet_input(
     credentials: "ParquetUploadGrant",
     endpoint_url: str,
     proxy: str | None = None,
+    certificates: list[str] | None = None,
 ) -> str:
     """Store a parquet table in the DataLayer via obstore."""
-    store = create_s3_store(endpoint_url, credentials, proxy=proxy)
+    store = create_s3_store(endpoint_url, credentials, proxy=proxy, certificates=certificates)
     payload, scratch = _parquet_payload(parquet_input.value)
 
     s3_path = f"s3://{credentials.bucket}/{credentials.key}"
@@ -150,7 +152,7 @@ async def astore_sparse_matrix(
     # loop (the agent's socket, every other upload) must not wait for it.
     endpoint_url = await datalayer.get_endpoint_url()
     return await asyncio.to_thread(
-        _store_sparse_into_grant, sparse, credentials, endpoint_url, proxy=datalayer.proxy
+        _store_sparse_into_grant, sparse, credentials, endpoint_url, proxy=datalayer.proxy, certificates=datalayer.certificates
     )
 
 
@@ -160,7 +162,7 @@ def store_sparse_matrix(
     datalayer: "DataLayer",
 ) -> str:
     """Write a sparse matrix into the granted prefix synchronously."""
-    return _store_sparse_into_grant(sparse, credentials, datalayer.endpoint_url, proxy=datalayer.proxy)
+    return _store_sparse_into_grant(sparse, credentials, datalayer.endpoint_url, proxy=datalayer.proxy, certificates=datalayer.certificates)
 
 
 def _store_sparse_into_grant(
@@ -168,6 +170,7 @@ def _store_sparse_into_grant(
     credentials: "SparseUploadGrant",
     endpoint_url: str,
     proxy: str | None = None,
+    certificates: list[str] | None = None,
 ) -> str:
     """The write itself, shared by both paths.
 
@@ -178,7 +181,7 @@ def _store_sparse_into_grant(
     import zarr
 
     layouts = sparse.layouts
-    store_path = create_zarr_store_path(endpoint_url, credentials, proxy=proxy)
+    store_path = create_zarr_store_path(endpoint_url, credentials, proxy=proxy, certificates=certificates)
     s3_path = f"s3://{credentials.bucket}/{credentials.key}"
     try:
         logger.debug(f"Uploading sparse matrix to {s3_path} at {endpoint_url}...")
@@ -197,7 +200,7 @@ async def astore_mesh_file(
 ) -> str:
     """Store a mesh file in the DataLayer asynchronously via obstore."""
     endpoint_url = await datalayer.get_endpoint_url()
-    store = create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy)
+    store = create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy, certificates=datalayer.certificates)
 
     try:
         logger.debug(
@@ -221,7 +224,7 @@ async def aupload_bigfile(
 ) -> str:
     """Upload a big file to the DataLayer asynchronously via obstore."""
     endpoint_url = await datalayer.get_endpoint_url()
-    store = create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy)
+    store = create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy, certificates=datalayer.certificates)
 
     try:
         logger.debug(
@@ -244,7 +247,7 @@ async def aupload_xarray(
     datalayer: "DataLayer",
 ) -> str:
     """Upload an xarray to the DataLayer asynchronously via obstore."""
-    return await astore_xarray_input(array, credentials, await datalayer.get_endpoint_url(), proxy=datalayer.proxy)
+    return await astore_xarray_input(array, credentials, await datalayer.get_endpoint_url(), proxy=datalayer.proxy, certificates=datalayer.certificates)
 
 
 async def aupload_parquet(
@@ -255,7 +258,7 @@ async def aupload_parquet(
 ) -> str:
     """Upload a parquet table to the DataLayer asynchronously via a thread executor."""
     co_future = executor.submit(
-        _store_parquet_input, parquet, credentials, await datalayer.get_endpoint_url(), proxy=datalayer.proxy
+        _store_parquet_input, parquet, credentials, await datalayer.get_endpoint_url(), proxy=datalayer.proxy, certificates=datalayer.certificates
     )
     return await asyncio.wrap_future(co_future)
 
@@ -270,9 +273,10 @@ def _store_xarray_via_obstore(
     credentials: "ZarrUploadGrant",
     endpoint_url: str,
     proxy: str | None = None,
+    certificates: list[str] | None = None,
 ) -> str:
     """Stores an xarray in the DataLayer synchronously via obstore/zarr."""
-    store_path = create_zarr_store_path(endpoint_url, credentials, proxy=proxy)
+    store_path = create_zarr_store_path(endpoint_url, credentials, proxy=proxy, certificates=certificates)
 
     try:
         logger.debug(
@@ -294,9 +298,10 @@ def _store_bigfile_via_obstore(
     credentials: "BigFileUploadGrant",
     endpoint_url: str,
     proxy: str | None = None,
+    certificates: list[str] | None = None,
 ) -> str:
     """Store a big file in the DataLayer synchronously via obstore."""
-    store = create_s3_store(endpoint_url, credentials, proxy=proxy)
+    store = create_s3_store(endpoint_url, credentials, proxy=proxy, certificates=certificates)
 
     try:
         logger.debug(
@@ -318,9 +323,10 @@ def _store_mesh_via_obstore(
     credentials: "BigFileUploadGrant",
     endpoint_url: str,
     proxy: str | None = None,
+    certificates: list[str] | None = None,
 ) -> str:
     """Store a mesh file in the DataLayer synchronously via obstore."""
-    store = create_s3_store(endpoint_url, credentials, proxy=proxy)
+    store = create_s3_store(endpoint_url, credentials, proxy=proxy, certificates=certificates)
 
     try:
         logger.debug(
@@ -343,7 +349,7 @@ def upload_xarray(
     datalayer: "DataLayer",
 ) -> str:
     """Upload an xarray synchronously via obstore."""
-    return _store_xarray_via_obstore(array, credentials, datalayer.endpoint_url, proxy=datalayer.proxy)
+    return _store_xarray_via_obstore(array, credentials, datalayer.endpoint_url, proxy=datalayer.proxy, certificates=datalayer.certificates)
 
 
 def upload_parquet(
@@ -352,7 +358,7 @@ def upload_parquet(
     datalayer: "DataLayer",
 ) -> str:
     """Upload a parquet file synchronously."""
-    return _store_parquet_input(parquet, credentials, datalayer.endpoint_url, proxy=datalayer.proxy)
+    return _store_parquet_input(parquet, credentials, datalayer.endpoint_url, proxy=datalayer.proxy, certificates=datalayer.certificates)
 
 
 def upload_bigfile(
@@ -361,7 +367,7 @@ def upload_bigfile(
     datalayer: "DataLayer",
 ) -> str:
     """Upload a big file synchronously via obstore."""
-    return _store_bigfile_via_obstore(file, credentials, datalayer.endpoint_url, proxy=datalayer.proxy)
+    return _store_bigfile_via_obstore(file, credentials, datalayer.endpoint_url, proxy=datalayer.proxy, certificates=datalayer.certificates)
 
 
 def store_mesh_file(
@@ -370,4 +376,4 @@ def store_mesh_file(
     datalayer: "DataLayer",
 ) -> str:
     """Store a mesh file synchronously via obstore."""
-    return _store_mesh_via_obstore(mesh, credentials, datalayer.endpoint_url, proxy=datalayer.proxy)
+    return _store_mesh_via_obstore(mesh, credentials, datalayer.endpoint_url, proxy=datalayer.proxy, certificates=datalayer.certificates)

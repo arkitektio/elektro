@@ -75,12 +75,8 @@ class DataLayer(KoiledModel):
         Returns:
             The datalayer, ready to use.
         """
-        # elektro reads and writes through obstore (rustls), which takes its roots only from
-        # SSL_CERT_FILE: a pinned store's hub certificate is added there.
-        if alias.is_pinned():
-            from arkitekt_spec.declare import tls
-
-            tls.trust_natively(alias.certificates)
+        # Every obstore store built for it takes these certificates as its own roots
+        # (`create_s3_store(certificates=...)`): nothing process-wide.
         return cls(
             endpoint_url=alias.to_http_path(),
             proxy=alias.proxy,
