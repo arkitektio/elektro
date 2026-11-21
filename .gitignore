@@ -148,3 +148,6 @@ token.temp
 
 # machine-local compose override for the integration test stack (see tests/conftest.py)
 tests/integration/docker-compose.local.yml
+
+# The server version the integration tests ran against, stamped into a release.
+elektro/_tested.json

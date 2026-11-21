@@ -1,5 +1,6 @@
 """Shared pytest fixtures and configuration for the elektro test suite."""
 
+from arkitekt_spec.declare.tested import record_tested
 import sys
 from collections.abc import Generator
 import pytest
@@ -184,6 +185,8 @@ def deployed_app(integration_ports: dict[str, int]) -> Generator[DeployedElektro
         setup.run("initc", command="python init.py")
 
         setup.check_health()
+        # What a release of this client then says it was tested against.
+        record_tested("elektro", elektro_http_url.rsplit("/graphql", 1)[0] + "/ht")
 
         with elektro as elektro:
             deployed = DeployedElektro(

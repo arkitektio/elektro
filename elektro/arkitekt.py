@@ -21,6 +21,7 @@ from rath.links.graphql_ws import GraphQLWSLink
 from rath.links.split import SplitLink
 
 from arkitekt_spec.declare.app import AppRegistry
+from arkitekt_spec.declare.tested import tested_against
 from arkitekt_spec.declare.widgets import SearchWidget
 
 from elektro.api.schema import (
@@ -64,6 +65,10 @@ registry = AppRegistry()
 """What elektro brings to an app: its service, and the types it can send by id."""
 
 
+TESTED = tested_against("elektro")
+"""The elektro server this release wants: the one its release job tested it against."""
+
+
 @registry.service(
     schema=build_relative_path("api", "schema.graphql"),
     turms=build_relative_path("api", "project.json"),
@@ -71,7 +76,7 @@ registry = AppRegistry()
 def elektro(
     elektro: Annotated[
         Alias,
-        Require("live.arkitekt.elektro", "Where the user's traces and recordings live"),
+        Require("live.arkitekt.elektro", "Where the user's traces and recordings live", version=TESTED),
     ],
     datalayer: Annotated[
         Alias,
