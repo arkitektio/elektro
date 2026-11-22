@@ -157,7 +157,9 @@ app = App("rectify", "0.1.0", services=[elektro_service])
 
 
 @app.action
-def rectify(trace: SingleChannelTrace, elektro: Elektro, task: Task) -> SingleChannelTrace:
+def rectify(
+    trace: SingleChannelTrace, elektro: Elektro, task: Task
+) -> SingleChannelTrace:
     """Rectify Trace"""
     source = trace.data  # a lazy xarray.DataArray
     task.progress(50, f"Rectifying {source.shape}")
@@ -199,8 +201,8 @@ with easy("my-script", elektro_service) as elektro:
         folder=folder.id,
     )
 
-    dataset.id           # the new dataset's id
-    dataset.data.shape   # (1000,) — a lazy xarray.DataArray, materialized on access
+    dataset.id  # the new dataset's id
+    dataset.data.shape  # (1000,) — a lazy xarray.DataArray, materialized on access
 
     # Fetch one back
     again = elektro.get_array_dataset(dataset.id)
@@ -211,7 +213,11 @@ In async code use `async with aeasy("my-script", elektro_service) as elektro:` a
 ```python
 folder = await elektro.acreate_folder(name="my_experiment")
 dataset = await elektro.acreate_array_dataset(
-    data=np.random.random((1000,)), scales=[], name="signal_1", axes=["t"], folder=folder.id
+    data=np.random.random((1000,)),
+    scales=[],
+    name="signal_1",
+    axes=["t"],
+    folder=folder.id,
 )
 ```
 
@@ -228,12 +234,12 @@ dataset = await elektro.acreate_array_dataset(
 an `xarray.DataArray` that is only fetched on demand:
 
 ```python
-data = dataset.data               # level 0, as a lazy dask-backed xr.DataArray
-peak = data.max().compute()       # pulls only what it needs
-overview = dataset.level_data(3)          # a coarser pyramid level, same axis names
-dataset.multi_scale_data()                # every level, finest first
-window = dataset.lens(t=(0, 30_000), c=2) # a Lens: an immutable selection, in samples
-window.data                               # the sliced xr.DataArray
+data = dataset.data  # level 0, as a lazy dask-backed xr.DataArray
+peak = data.max().compute()  # pulls only what it needs
+overview = dataset.level_data(3)  # a coarser pyramid level, same axis names
+dataset.multi_scale_data()  # every level, finest first
+window = dataset.lens(t=(0, 30_000), c=2)  # a Lens: an immutable selection, in samples
+window.data  # the sliced xr.DataArray
 ```
 
 **Time lives in the graph, not in columns.** elektro uses the model
@@ -247,20 +253,31 @@ Offsets between clocks are edges too, so nothing stores a composed answer:
 # What the values measure is a ValueUnit anchor, not an axis. Bare axis names cover
 # the conventional ones ("t", "c", "sweep", ...).
 clock = elektro.create_coordinate_system(
-    name="session 12", registrations=[],
+    name="session 12",
+    registrations=[],
     axes=[PhysicalAxisInput(name="t", type=AxisType.TIME, unit="second")],
 )
 probe = elektro.create_array_dataset(
-    data=np.zeros((90_000, 4)), scales=[], name="probe A", axes=["t", "c"],
-    anchors=[CoordinateAnchorInput(axis_anchors=[], value_unit=ValueUnitInput(unit="uV"))],
+    data=np.zeros((90_000, 4)),
+    scales=[],
+    name="probe A",
+    axes=["t", "c"],
+    anchors=[
+        CoordinateAnchorInput(axis_anchors=[], value_unit=ValueUnitInput(unit="uV"))
+    ],
 )
 # `source` is the grid being timed: a coordinate system id, never the dataset's own id.
 # Passing the dataset *object* is fine -- it resolves to its grid client-side.
 law = elektro.create_sampling_law(
-    source=probe.intrinsic_system.id, clock=clock.id, sampling_rate="30 kHz", t_start="2 s",
+    source=probe.intrinsic_system.id,
+    clock=clock.id,
+    sampling_rate="30 kHz",
+    t_start="2 s",
 )
-law.as_matrix()                                  # [[1/30000, 0, 2], [0, 0, 1]]
-probe.intrinsic_system.axis_values_in(clock, "t", 5)  # the first five sample times, in s
+law.as_matrix()  # [[1/30000, 0, 2], [0, 0, 1]]
+probe.intrinsic_system.axis_values_in(
+    clock, "t", 5
+)  # the first five sample times, in s
 ```
 
 Declared axes are checked against the array *before* it is uploaded — a missing
@@ -272,10 +289,15 @@ what they mark (a dataset's samples, a segment's clock, an experiment's world):
 
 ```python
 marks = elektro.create_annotation_collection(
-    name="artifacts", axes=["t"],
-    derived_from=[DatasetDerivedFromInput(dataset=probe.id, transform=IdentityTransformInput())],
+    name="artifacts",
+    axes=["t"],
+    derived_from=[
+        DatasetDerivedFromInput(dataset=probe.id, transform=IdentityTransformInput())
+    ],
 )
-elektro.create_annotation(kind=AnnotationKind.EPOCH, vectors=[[100.0], [250.0]], collection=marks.id)
+elektro.create_annotation(
+    kind=AnnotationKind.EPOCH, vectors=[[100.0], [250.0]], collection=marks.id
+)
 ```
 
 **Experiments** are mikro's scenes for time: a world (usually a session clock) and layers
@@ -284,15 +306,22 @@ is the graph's answer, so there is no per-layer offset -- a segment's clock is p
 `create_clock_offset`, and everything timed on it moves together.
 
 ```python
-experiment = elektro.create_experiment_from_coordinate_system(coordinate_system=clock.id)
+experiment = elektro.create_experiment_from_coordinate_system(
+    coordinate_system=clock.id
+)
 # ...or by hand, one layer per kind:
 experiment = elektro.create_experiment(name="session 12", coordinate_system=clock.id)
 elektro.create_trace_layer(experiment=experiment.id, dataset=probe.id, channel_index=2)
-elektro.create_spikes_layer(experiment=experiment.id, sparse_dataset=raster.id,
-                    color_bys=[ColorByInput(table=units.id, column="depth")])
-elektro.create_events_layer(experiment=experiment.id, table_dataset=ttl.id, label_column="label")
+elektro.create_spikes_layer(
+    experiment=experiment.id,
+    sparse_dataset=raster.id,
+    color_bys=[ColorByInput(table=units.id, column="depth")],
+)
+elektro.create_events_layer(
+    experiment=experiment.id, table_dataset=ttl.id, label_column="label"
+)
 
-experiment.data   # xr.Dataset: `traces` (trace, time), timed through the graph, world units
+experiment.data  # xr.Dataset: `traces` (trace, time), timed through the graph, world units
 ```
 
 A session is a clock and the datasets timed onto it; `create_session` writes one sampling law
@@ -304,8 +333,12 @@ outputs of one clock that disagree on it. A model's runs read back as
 `get_neuron_model_sessions(model.id).sessions` (clock + simulated datasets).
 
 ```python
-clock = elektro.create_session(name="sweep 1", datasets=[v_soma.id, i_inj.id], time_unit="millisecond",
-                       sampling=SamplingInput(rate="40 kHz", t_start="0 ms"))
+clock = elektro.create_session(
+    name="sweep 1",
+    datasets=[v_soma.id, i_inj.id],
+    time_unit="millisecond",
+    sampling=SamplingInput(rate="40 kHz", t_start="0 ms"),
+)
 ```
 
 **Spike rasters** are sparse datasets over `(unit, t)`: the unit axis identified by a units
@@ -314,12 +347,21 @@ the matrix before it is uploaded (`elektro/sparse.py`):
 
 ```python
 raster = elektro.create_sparse_dataset(
-    name="spikes", store=[spikes.tocsr(), spikes.tocsc()],
-    axes=[SparseAxisInput(name="unit", identified_by=[TableIdentifiesInput(table=units.id)]),
-          SparseAxisInput(name="t", type=AxisType.TIME)],
+    name="spikes",
+    store=[spikes.tocsr(), spikes.tocsc()],
+    axes=[
+        SparseAxisInput(
+            name="unit", identified_by=[TableIdentifiesInput(table=units.id)]
+        ),
+        SparseAxisInput(name="t", type=AxisType.TIME),
+    ],
 )
-elektro.create_sampling_law(source=raster.coordinate_system.id, clock=clock.id,
-                    sampling_rate="30 kHz", t_start="0 s")
+elektro.create_sampling_law(
+    source=raster.coordinate_system.id,
+    clock=clock.id,
+    sampling_rate="30 kHz",
+    t_start="0 s",
+)
 ```
 
 **Tables.** `create_table_dataset` takes a dict of columns, a DataFrame, an Arrow table or a
@@ -328,17 +370,18 @@ data. A table reads back as a lazy relation (requires `elektro[table]`):
 
 ```python
 ttl = elektro.create_table_dataset(
-    name="TTL", data={"t": onsets_s, "label": labels},
+    name="TTL",
+    data={"t": onsets_s, "label": labels},
     columns=[ColumnInput(name="t", axis_type=AxisType.TIME, unit="second")],
 )
-ttl.data.df()                     # a duckdb relation over the parquet on S3, materialised
+ttl.data.df()  # a duckdb relation over the parquet on S3, materialised
 ```
 
 **Files & meshes.** Big-file and media stores download to disk on request:
 
 ```python
-path = bigfile_store.download()              # → local file path
-path = media_store.download("frame.png")     # through a media access grant
+path = bigfile_store.download()  # → local file path
+path = media_store.download("frame.png")  # through a media access grant
 ```
 
 **Units.** Physical quantities are real [pint](https://pint.readthedocs.io/) quantities via
@@ -353,8 +396,8 @@ conductances) → `Compartment`. The input traits (`elektro/traits.py`) make the
 and inspect:
 
 ```python
-config.as_input()            # ModelConfig → its GraphQL input form
-biophysics.as_dataframe()    # inspect compartments/mechanisms as a pandas DataFrame
+config.as_input()  # ModelConfig → its GraphQL input form
+biophysics.as_dataframe()  # inspect compartments/mechanisms as a pandas DataFrame
 ```
 
 With the `elektro[neuron]` extra installed, `elektro/neuron/` parses NEURON `.mod` mechanism
@@ -391,7 +434,12 @@ from elektro.rath import ElektroRath
 from elektro.datalayer import DataLayer
 
 # generated types and inputs (operations are methods of `Elektro`)
-from elektro.api.schema import ArrayDataset, Folder, CoordinateAnchorInput, SamplingInput
+from elektro.api.schema import (
+    ArrayDataset,
+    Folder,
+    CoordinateAnchorInput,
+    SamplingInput,
+)
 ```
 
 `elektro.api.schema` is generated from the GraphQL schema by

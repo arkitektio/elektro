@@ -14,7 +14,8 @@ import pytest
 import xarray as xr
 import zarr
 from obstore.store import MemoryStore
-from zarr.storage import ObjectStore as ZarrObjectStore, StorePath
+from zarr.storage import ObjectStore as ZarrObjectStore
+from zarr.storage import StorePath
 
 from elektro.datalayer import DataLayer
 from elektro.io.download import download_file
@@ -67,7 +68,9 @@ def test_download_file_reads_bytes_via_obstore(
         return credentials, "http://example.invalid"
 
     monkeypatch.setattr("elektro.io.download.unkoil", fake_unkoil)
-    monkeypatch.setattr("elektro.io.download.create_s3_store", lambda *_args, **_kwargs: store)
+    monkeypatch.setattr(
+        "elektro.io.download.create_s3_store", lambda *_args, **_kwargs: store
+    )
 
     # The clients are resolved before the hop into the event loop, so they are
     # handed over explicitly here; nothing ambient is involved.
@@ -177,8 +180,14 @@ def test_unnamed_dims_are_not_written_into_the_store() -> None:
     from elektro.io.obstore import _dimension_names
 
     assert _dimension_names(xr.DataArray(np.zeros((4, 8)))) is None
-    assert _dimension_names(xr.DataArray(np.zeros((4, 8)), dims=["t", "c"])) == ["t", "c"]
-    assert _dimension_names(xr.DataArray(np.zeros((4, 8)), dims=["t", "dim_1"])) == ["t", None]
+    assert _dimension_names(xr.DataArray(np.zeros((4, 8)), dims=["t", "c"])) == [
+        "t",
+        "c",
+    ]
+    assert _dimension_names(xr.DataArray(np.zeros((4, 8)), dims=["t", "dim_1"])) == [
+        "t",
+        None,
+    ]
 
 
 def test_write_dataarray_to_zarr_streams_arbitrary_dims() -> None:
@@ -200,7 +209,9 @@ def test_trace_layout_is_small_chunks_in_bounded_shards() -> None:
     from elektro.io.obstore import _zarr_chunk_layout
 
     def layout(shape: tuple[int, ...]) -> tuple:
-        return _zarr_chunk_layout(xr.DataArray(np.empty(shape, np.float32), dims=["t", "c"][: len(shape)]))
+        return _zarr_chunk_layout(
+            xr.DataArray(np.empty(shape, np.float32), dims=["t", "c"][: len(shape)])
+        )
 
     assert layout((25_000_000, 4)) == ((65_536, 4), (1_048_576, 4))
     assert layout((25_000_000,)) == ((262_144,), (4_194_304,))
@@ -210,9 +221,13 @@ def test_trace_layout_is_small_chunks_in_bounded_shards() -> None:
 
 
 @pytest.mark.parametrize("dask_backed", [False, True])
-def test_sharded_write_round_trips_in_a_layout_the_server_accepts(dask_backed: bool) -> None:
+def test_sharded_write_round_trips_in_a_layout_the_server_accepts(
+    dask_backed: bool,
+) -> None:
     """A sharded trace reads back exactly, with sharding_indexed as the sole top-level codec."""
-    values = np.random.default_rng(0).standard_normal((1_500_000, 4)).astype(np.float32)  # 24 MB
+    values = (
+        np.random.default_rng(0).standard_normal((1_500_000, 4)).astype(np.float32)
+    )  # 24 MB
     data = da.from_array(values, chunks=(100_000, 4)) if dask_backed else values
     sp = _store_path()
 

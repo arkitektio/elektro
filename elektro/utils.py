@@ -1,8 +1,8 @@
 """Utility helpers for working with chunked array dimensions."""
 
-from typing import cast
-from collections.abc import Hashable, Mapping
 import math
+from collections.abc import Hashable, Mapping
+from typing import cast
 
 
 def rechunk(
@@ -30,8 +30,12 @@ def rechunk(
     if all_size < 1 * 2048 * 2048:
         return sizes
 
-    x = sizes["x"] if not sizes["x"] > 2048 else 2048  # Biggest X but not bigger than 1024
-    y = sizes["y"] if not sizes["y"] > 2048 else 2048  # Biggest Y but not bigger than 1024
+    x = (
+        sizes["x"] if not sizes["x"] > 2048 else 2048
+    )  # Biggest X but not bigger than 1024
+    y = (
+        sizes["y"] if not sizes["y"] > 2048 else 2048
+    )  # Biggest Y but not bigger than 1024
 
     best_z = math.ceil(chunksize_in_bytes / (x * y * itemsize))
     z = best_z if best_z < sizes["z"] else sizes["z"]

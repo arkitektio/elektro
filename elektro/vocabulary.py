@@ -7,7 +7,7 @@ Kept free of the generated schema on purpose, so `import elektro` does not pull
 import re
 from collections.abc import Mapping
 from enum import Enum
-from typing import TypeVar, cast, overload, Final, Literal
+from typing import Final, Literal, TypeVar, cast, overload
 
 #: The axis types of the elektro schema, as the wire spells them.
 AxisTypeName = Literal[
@@ -202,7 +202,9 @@ _REFUSED_ARROW_PREFIXES: Final[Mapping[str, str]] = {
 }
 
 _DECIMAL128 = re.compile(r"^decimal128\((\d+), (\d+)\)$")
-_DICTIONARY_VALUES = re.compile(r"^dictionary<values=(.+), indices=[^,]+, ordered=\d+>$")
+_DICTIONARY_VALUES = re.compile(
+    r"^dictionary<values=(.+), indices=[^,]+, ordered=\d+>$"
+)
 
 
 class UnknownArrowType(ValueError):
@@ -266,10 +268,11 @@ def duckdb_type(arrow_type: object) -> str:
     )
 
 
-
 #: The colormaps that assign a colour per distinct value rather than a ramp over a range.
 #: Values rather than ``ColorMap`` members, so this module need not import the schema.
-QUALITATIVE_COLORMAP_VALUES: Final[frozenset[str]] = frozenset({"HUES", "DISTINCT", "PASTEL", "VIVID"})
+QUALITATIVE_COLORMAP_VALUES: Final[frozenset[str]] = frozenset(
+    {"HUES", "DISTINCT", "PASTEL", "VIVID"}
+)
 
 
 #: Any of this module's vocabularies, or another ``str``-valued literal alias.

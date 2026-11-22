@@ -44,7 +44,9 @@ def test_identified_time_axis_is_refused() -> None:
 
 def test_unidentified_index_axis_is_refused() -> None:
     with pytest.raises(ValidationError, match="empty `identified_by`"):
-        _sparse(SparseAxisInput(name="unit"), SparseAxisInput(name="t", type=AxisType.TIME))
+        _sparse(
+            SparseAxisInput(name="unit"), SparseAxisInput(name="t", type=AxisType.TIME)
+        )
 
 
 def test_two_time_axes_are_refused() -> None:
@@ -86,5 +88,8 @@ def test_table_columns_are_resolved_from_a_dict() -> None:
     )
     assert isinstance(model.data, ParquetLike)
     # Every column of the file, in its order, with the DuckDB type the server reads back.
-    assert [(c.name, c.dtype) for c in model.columns] == [("t", "DOUBLE"), ("label", "VARCHAR")]
+    assert [(c.name, c.dtype) for c in model.columns] == [
+        ("t", "DOUBLE"),
+        ("label", "VARCHAR"),
+    ]
     assert "columns" in model.model_fields_set

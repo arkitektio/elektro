@@ -42,7 +42,9 @@ def build_config() -> ModelConfigInput:
     """A one-section soma whose compartment uses the custom 'customleak' mechanism."""
     topology = TopologyInput(
         sections=[
-            SectionInput(id="soma", category="soma", nseg=1, diam="20 um", length="20 um"),
+            SectionInput(
+                id="soma", category="soma", nseg=1, diam="20 um", length="20 um"
+            ),
         ]
     )
     biophysics = BiophysicsInput(

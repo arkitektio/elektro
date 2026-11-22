@@ -28,7 +28,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from elektro.api.schema import MechanismInput
-
     from elektro.elektro import Elektro
 
 LEAK_MOD = """
@@ -91,7 +90,9 @@ def _config(environment_id: str) -> ModelConfigInput:
 def test_create_mod_environment(elektro: Elektro, tmp_path: Path) -> None:
     """Creating a ModEnvironment registers the custom leak mechanism."""
     zip_file, mechanisms = _build_environment(tmp_path)
-    env = elektro.create_mod_environment(name="customleak-env", zip_file=zip_file, mechanisms=mechanisms)
+    env = elektro.create_mod_environment(
+        name="customleak-env", zip_file=zip_file, mechanisms=mechanisms
+    )
     assert env.id
     assert any(m.name == "customleak" for m in env.mechanisms)
 
@@ -102,7 +103,9 @@ def test_create_neuronmodel_and_config_roundtrip(
 ) -> None:
     """A created NeuronModel's config round-trips back to a ModelConfigInput."""
     zip_file, mechanisms = _build_environment(tmp_path)
-    env = elektro.create_mod_environment(name="customleak-env-2", zip_file=zip_file, mechanisms=mechanisms)
+    env = elektro.create_mod_environment(
+        name="customleak-env-2", zip_file=zip_file, mechanisms=mechanisms
+    )
 
     model = elektro.create_neuronmodel(
         name="single-soma",
@@ -121,19 +124,22 @@ def test_run_simulation_and_experiment(elektro: Elektro, tmp_path: Path) -> None
     """End-to-end: run a NEURON simulation and assemble an Experiment from it."""
     pytest.importorskip("neuron")  # end-to-end run compiles & executes locally
 
-    from kanne.scalars import ElectricCurrent
+    from kanne.scalars import Duration, ElectricCurrent
+    from koil import unkoil
 
     from elektro.neuron.simulate import (
         CurrentClampStimulus,
         VRecord,
         arun_simulation,
     )
-    from kanne.scalars import Duration
-    from koil import unkoil
 
     zip_file, mechanisms = _build_environment(tmp_path)
-    env = elektro.create_mod_environment(name="customleak-env-3", zip_file=zip_file, mechanisms=mechanisms)
-    model = elektro.create_neuronmodel(name="single-soma-sim", config=_config(env.id), environment=env.id)
+    env = elektro.create_mod_environment(
+        name="customleak-env-3", zip_file=zip_file, mechanisms=mechanisms
+    )
+    model = elektro.create_neuronmodel(
+        name="single-soma-sim", config=_config(env.id), environment=env.id
+    )
 
     run = unkoil(
         arun_simulation,
@@ -163,7 +169,9 @@ def test_run_simulation_and_experiment(elektro: Elektro, tmp_path: Path) -> None
     recorded_anchor = elektro.get_array_dataset_anchors(recorded.id).anchors[0]
     assert recorded_anchor.simulation is not None
     assert recorded_anchor.simulation.model.id == model.id
-    assert recorded_anchor.simulation.dt.to("millisecond").magnitude == pytest.approx(0.025)
+    assert recorded_anchor.simulation.dt.to("millisecond").magnitude == pytest.approx(
+        0.025
+    )
     assert recorded_anchor.recording_site is not None
     injected_anchor = elektro.get_array_dataset_anchors(injected.id).anchors[0]
     assert injected_anchor.simulation is None
@@ -171,7 +179,9 @@ def test_run_simulation_and_experiment(elektro: Elektro, tmp_path: Path) -> None
 
     # The model's runs are read off the graph: its simulated datasets, grouped by clock.
     sessions = elektro.get_neuron_model_sessions(model.id).sessions
-    assert [(s.clock.id, [d.id for d in s.datasets]) for s in sessions] == [(run.clock.id, [recorded.id])]
+    assert [(s.clock.id, [d.id for d in s.datasets]) for s in sessions] == [
+        (run.clock.id, [recorded.id])
+    ]
 
     # The run's clock is the experiment's world: a TRACE layer per dataset timed on it.
     experiment = elektro.create_experiment_from_coordinate_system(
@@ -183,6 +193,8 @@ def test_run_simulation_and_experiment(elektro: Elektro, tmp_path: Path) -> None
     assert dataset["traces"].sizes["trace"] == 2
     assert np.asarray(dataset["traces"]).size > 0
     # Timed through the graph: grid -> run clock (= world), in the world's unit.
-    step = Duration(f"{float(dataset['time'].values[1])} {dataset['time'].attrs['units']}")
+    step = Duration(
+        f"{float(dataset['time'].values[1])} {dataset['time'].attrs['units']}"
+    )
     assert step.to("millisecond").magnitude == pytest.approx(0.025)
     assert float(dataset["time"].values[0]) == 0.0

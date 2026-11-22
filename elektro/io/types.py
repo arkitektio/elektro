@@ -1,12 +1,12 @@
 """Protocol definitions for naming, uploading and downloading DataLayer files."""
 
-from typing import (
-    Protocol,
-    Any,
-    runtime_checkable,
-    TYPE_CHECKING,
-)
 from collections.abc import Awaitable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Protocol,
+    runtime_checkable,
+)
 
 if TYPE_CHECKING:
     from elektro.api.schema import (

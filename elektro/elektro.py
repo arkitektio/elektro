@@ -16,7 +16,6 @@ from elektro.middleware.base import OperationMiddleware
 from elektro.rath import ElektroRath
 
 
-
 class Elektro(Composition, ElektroApi):
     """The Elektro Composition
 
@@ -65,7 +64,6 @@ class Elektro(Composition, ElektroApi):
         description="The rath for interacting with the elektro api",
     )
 
-
     def _origin(self) -> dict[str, Any]:
         """What the objects of a result should remember: the client that fetched them.
 
@@ -113,7 +111,9 @@ class Elektro(Composition, ElektroApi):
         ``aprocess_variables`` method.
         """
         for middleware in middlewares:
-            variables = await middleware.aprocess_variables(variables, operation, self.rath)
+            variables = await middleware.aprocess_variables(
+                variables, operation, self.rath
+            )
         return variables
 
     def execute(
@@ -130,7 +130,9 @@ class Elektro(Composition, ElektroApi):
         rath = self.rath
 
         # First serialize through operation.Arguments (pydantic validation + alias resolution)
-        serialized = operation.Arguments(**variables).model_dump(by_alias=True, exclude_unset=True)
+        serialized = operation.Arguments(**variables).model_dump(
+            by_alias=True, exclude_unset=True
+        )
 
         # Apply sync middleware chain (e.g., upload arrays via obstore)
         serialized = self._apply_middlewares(serialized, operation, rath.middlewares)
@@ -152,12 +154,18 @@ class Elektro(Composition, ElektroApi):
         rath = self.rath
 
         # First serialize through operation.Arguments (pydantic validation + alias resolution)
-        serialized = operation.Arguments(**variables).model_dump(by_alias=True, exclude_unset=True)
+        serialized = operation.Arguments(**variables).model_dump(
+            by_alias=True, exclude_unset=True
+        )
 
         # Apply async middleware chain (e.g., upload arrays via obstore)
-        serialized = await self._aapply_middlewares(serialized, operation, rath.middlewares)
+        serialized = await self._aapply_middlewares(
+            serialized, operation, rath.middlewares
+        )
 
-        x = await rath.aquery(operation.Meta.document, serialized, headers=self._headers(task))
+        x = await rath.aquery(
+            operation.Meta.document, serialized, headers=self._headers(task)
+        )
         return operation.model_validate(x.data, context=self._origin())
 
     def subscribe(
@@ -192,7 +200,9 @@ class Elektro(Composition, ElektroApi):
         serialized = operation.Arguments(**variables).model_dump(by_alias=True)
 
         # Apply async middleware chain
-        serialized = await self._aapply_middlewares(serialized, operation, rath.middlewares)
+        serialized = await self._aapply_middlewares(
+            serialized, operation, rath.middlewares
+        )
 
         async for event in rath.asubscribe(
             operation.Meta.document, serialized, headers=self._headers(task)

@@ -9,7 +9,6 @@ import pytest
 
 from elektro.neuron.parse import build_and_zip_environment, parse_mod_file_to_schema
 
-
 SUFFIX_MOD = """
 TITLE Delayed rectifier potassium channel
 
@@ -100,7 +99,9 @@ def test_build_and_zip_environment(tmp_path: Path) -> None:
     (arch / "special").write_bytes(b"\x00")
 
     out_zip = tmp_path / "mechanisms.zip"
-    zip_path, mechanisms = build_and_zip_environment(str(model_dir), output_zip_path=str(out_zip))
+    zip_path, mechanisms = build_and_zip_environment(
+        str(model_dir), output_zip_path=str(out_zip)
+    )
 
     assert zip_path == str(out_zip)
     # One MechanismInput per .mod file.

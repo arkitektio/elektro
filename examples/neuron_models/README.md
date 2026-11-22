@@ -40,10 +40,13 @@ like `20` is rejected — 20 what?).
 The custom-mechanism scripts do this in three steps:
 
 ```python
-zip_file, mechanisms = build_and_zip_environment("./mod_files")   # zip + parse
-env = elektro.create_mod_environment(name="customleak-env",
-                             zip_file=zip_file, mechanisms=mechanisms)  # upload + register
-model = elektro.create_neuronmodel(name=..., config=..., environment=env.id)   # reference it
+zip_file, mechanisms = build_and_zip_environment("./mod_files")  # zip + parse
+env = elektro.create_mod_environment(
+    name="customleak-env", zip_file=zip_file, mechanisms=mechanisms
+)  # upload + register
+model = elektro.create_neuronmodel(
+    name=..., config=..., environment=env.id
+)  # reference it
 ```
 
 `build_and_zip_environment` parses each `.mod` file's `SUFFIX`/`PARAMETER` block

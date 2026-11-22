@@ -13,10 +13,10 @@ from elektro.api.schema import (
     AxisInput,
     AxisType,
     CoordinateSystem,
-    ScaleInput,
-    ScaleMethod,
     CreateArrayDatasetInput,
     GetCoordinateGraphQuery,
+    ScaleInput,
+    ScaleMethod,
 )
 from elektro.vocabulary import UnknownAxisName, default_axis_type, normalize_selection
 
@@ -112,14 +112,18 @@ def test_bare_axis_names_are_coerced() -> None:
 
 def test_bare_array_takes_the_declared_axis_names() -> None:
     """A bare (t, c) array is named from its axes, so the store and the declaration agree."""
-    created = CreateArrayDatasetInput(data=np.zeros((100, 4)), scales=[], name="x", axes=["t", "c"])
+    created = CreateArrayDatasetInput(
+        data=np.zeros((100, 4)), scales=[], name="x", axes=["t", "c"]
+    )
     assert created.data.value.dims == ("t", "c")
 
 
 def test_axes_must_describe_the_array() -> None:
     """Refused before the upload, as the server would refuse it after."""
     with pytest.raises(ValidationError, match="declares 1"):
-        CreateArrayDatasetInput(data=np.zeros((100, 4)), scales=[], name="x", axes=["t"])
+        CreateArrayDatasetInput(
+            data=np.zeros((100, 4)), scales=[], name="x", axes=["t"]
+        )
 
 
 def test_transposed_declaration_is_refused() -> None:
@@ -134,7 +138,9 @@ def test_every_pyramid_level_answers_to_the_same_axes() -> None:
     level0 = xr.DataArray(np.zeros((100, 4)), dims=["t", "c"])
     created = CreateArrayDatasetInput(
         data=level0,
-        scales=[ScaleInput(level=1, array=np.zeros((50, 4)), scale_method=ScaleMethod.MAX)],
+        scales=[
+            ScaleInput(level=1, array=np.zeros((50, 4)), scale_method=ScaleMethod.MAX)
+        ],
         name="x",
         axes=["t", "c"],
     )
@@ -167,13 +173,18 @@ def test_sample_times_compose_through_the_chain() -> None:
     grid = CoordinateSystem.model_validate(GRID)
     world = CoordinateSystem.model_validate(WORLD)
 
-    assert [step.inverted for step in grid.path_to(world, graph=graph)] == [False, False]
+    assert [step.inverted for step in grid.path_to(world, graph=graph)] == [
+        False,
+        False,
+    ]
     times = grid.axis_values_in(world, "t", 4, graph=graph)
     np.testing.assert_allclose(times, 2.05 + np.arange(4) / 30_000)
 
     # Walked backwards, the offset inverts; the rank-changing law does not.
     clock = CoordinateSystem.model_validate(CLOCK)
-    np.testing.assert_allclose(world.transform_points_to(clock, [1.05], graph=graph), [1.0])
+    np.testing.assert_allclose(
+        world.transform_points_to(clock, [1.05], graph=graph), [1.0]
+    )
 
 
 def test_lookup_is_not_composable() -> None:

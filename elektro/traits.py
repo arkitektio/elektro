@@ -12,31 +12,27 @@ If you want to add your own traits to the graphql type, you can do so by adding 
 """
 
 from collections import deque
-from collections.abc import Hashable, Sequence
+from collections.abc import Awaitable, Hashable, Sequence
 from enum import Enum
-from typing import ClassVar, NamedTuple, Self
-from collections.abc import Awaitable
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, Self
+
 import numpy as np
-from numpy.typing import NDArray
 import pandas as pd
-from pydantic import BaseModel, model_validator
 import xarray as xr
-from typing import TYPE_CHECKING
 from dask.array import from_zarr  # type: ignore
-from typing import Any
+from numpy.typing import NDArray
+from pydantic import BaseModel, model_validator
 from rath.origin import ContextBound
 from rath.scalars import IDCoercible
 from rath.traits import FederationFetchable
 from rath.turms.utils import get_attributes_or_error
 
+from elektro.scalars import axis_name
+from elektro.sparse import check_against_store, check_axes
+from elektro.tables import TableDeclarationError, file_columns_of, resolve_columns
+
 from .client import client_of
 from .scalars import is_unlabeled
-from elektro.scalars import axis_name
-from elektro.sparse import check_against_store
-from elektro.sparse import check_axes
-from elektro.tables import TableDeclarationError
-from elektro.tables import file_columns_of
-from elektro.tables import resolve_columns
 from .vocabulary import (
     MATRIX_KINDS,
     AxisSelection,
@@ -52,27 +48,27 @@ PointsLike = Sequence[float] | Sequence[Sequence[float]] | NDArray[np.generic]
 
 
 if TYPE_CHECKING:
-    from elektro.elektro import Elektro
+    from duckdb import DuckDBPyRelation
+    from zarr.storage import StorePath
+
     from elektro.api.schema import (
-        Compartment,
-        Section,
-        SectionParamMap,
-        Ion,
-        SectionInput,
-        ModelConfigInput,
-        CellInput,
-        CompartmentInput,
-        SectionParamMapInput,
         Axis,
+        CellInput,
+        Compartment,
+        CompartmentInput,
         GetCoordinateGraphQueryCoordinateGraph,
+        Ion,
         Lens,
+        ModelConfigInput,
         PlacementValidity,
+        Section,
+        SectionInput,
+        SectionParamMap,
+        SectionParamMapInput,
         TransformInput,
     )
-    from elektro.rath import ElektroRath
+    from elektro.elektro import Elektro
     from elektro.io.obstore import ParquetDatasetViaObstore
-    from zarr.storage import StorePath
-    from duckdb import DuckDBPyRelation
 
 
 class ModelConfigTrait(BaseModel):
@@ -161,7 +157,9 @@ class BiophysicsTrait:
     def compartment_for_id(self, id: str) -> "Compartment":
         """Return the compartment matching the given id."""
         compartments = get_attributes_or_error(self, "compartments")
-        x = next((compartment for compartment in compartments if compartment.id == id), None)
+        x = next(
+            (compartment for compartment in compartments if compartment.id == id), None
+        )
         if x is None:
             raise ValueError(f"Compartment with id {id} not found")
         return x
@@ -183,8 +181,13 @@ class BiophysicsTrait:
         for compartment in compartments:
             data = {
                 "id": compartment.id,
-                "mechanisms": " ".join([mechanism for mechanism in compartment.mechanisms]),
-                **{param.param: param.distribution.value for param in compartment.section_params},
+                "mechanisms": " ".join(
+                    [mechanism for mechanism in compartment.mechanisms]
+                ),
+                **{
+                    param.param: param.distribution.value
+                    for param in compartment.section_params
+                },
                 **{
                     f"e{ion.ion}": ion.reversal_potential
                     for ion in compartment.ions
@@ -294,8 +297,12 @@ class ExperimentTrait(ContextBound):
             lens = client.get_lens(layer.lens.id)
             samples = lens.data
             time_axis = lens.time_axis
-            space: CoordinateSystemTrait = get_attributes_or_error(lens, "coordinate_system")
-            times = space.axis_values_in(world, time_axis, samples.sizes[time_axis], graph=graph)
+            space: CoordinateSystemTrait = get_attributes_or_error(
+                lens, "coordinate_system"
+            )
+            times = space.axis_values_in(
+                world, time_axis, samples.sizes[time_axis], graph=graph
+            )
             samples = samples.rename({time_axis: "time"}).assign_coords(time=times)
             label = layer.name or f"layer {layer.id}"
 
@@ -306,19 +313,27 @@ class ExperimentTrait(ContextBound):
             if not others:
                 return [samples.expand_dims(trace=[label])]
             flat = samples.stack(trace=others).transpose("trace", "time")
-            names = [f"{label}[{', '.join(f'{d}={int(v)}' for d, v in zip(others, key if isinstance(key, tuple) else (key,)))}]" for key in flat.indexes["trace"]]
+            names = [
+                f"{label}[{', '.join(f'{d}={int(v)}' for d, v in zip(others, key if isinstance(key, tuple) else (key,)))}]"
+                for key in flat.indexes["trace"]
+            ]
             return [flat.drop_vars([*others, "trace"]).assign_coords(trace=names)]
 
         layers = self.layers_of_kind("TRACE")
         if layers:
             traces = xr.concat(
-                [row for layer in layers for row in rows(layer)], dim="trace", join="outer"
+                [row for layer in layers for row in rows(layer)],
+                dim="trace",
+                join="outer",
             )
         else:
             traces = xr.DataArray(
                 np.zeros((0, 0)),
                 dims=["trace", "time"],
-                coords={"trace": np.array([], dtype=object), "time": np.array([], dtype=float)},
+                coords={
+                    "trace": np.array([], dtype=object),
+                    "time": np.array([], dtype=float),
+                },
             )
 
         dataset = xr.Dataset({"traces": traces})
@@ -511,7 +526,9 @@ class DatasetTrait(ContextBound):
         """The full-resolution data of this dataset as a (dask-backed) xr.DataArray."""
         return self.level_data(0)
 
-    def lens(self, elektro: "Elektro | None" = None, **selections: AxisSelection) -> "Lens":
+    def lens(
+        self, elektro: "Elektro | None" = None, **selections: AxisSelection
+    ) -> "Lens":
         """Create a lens on this dataset from pythonic per-axis selections.
 
         With no selections the lens frames the whole dataset. Each keyword names
@@ -528,7 +545,9 @@ class DatasetTrait(ContextBound):
         slices: list[SliceInput] = []
         for axis, selection in selections.items():
             if axis_names is not None and axis not in axis_names:
-                raise ValueError(f"Invalid axis {axis!r} for dataset with axes {list(axis_names)}")
+                raise ValueError(
+                    f"Invalid axis {axis!r} for dataset with axes {list(axis_names)}"
+                )
             start, stop, step = normalize_selection(axis, selection)
             slices.append(SliceInput(axis=axis, start=start, stop=stop, step=step))
 
@@ -553,11 +572,19 @@ class Lensable:
                 raise ValueError(
                     f"Invalid slice dimension {lens_slice.axis} for data with dimensions {data.dims}"
                 )
-            if lens_slice.start is None and lens_slice.stop is None and lens_slice.step is None:
+            if (
+                lens_slice.start is None
+                and lens_slice.stop is None
+                and lens_slice.step is None
+            ):
                 continue
 
             data = data.isel(
-                {lens_slice.axis: slice(lens_slice.start, lens_slice.stop, lens_slice.step)}
+                {
+                    lens_slice.axis: slice(
+                        lens_slice.start, lens_slice.stop, lens_slice.step
+                    )
+                }
             )
 
         return data
@@ -565,7 +592,9 @@ class Lensable:
     @property
     def time_axis(self) -> str:
         """The name of the lens' one TIME axis."""
-        system: CoordinateSystemTrait = get_attributes_or_error(self, "coordinate_system")
+        system: CoordinateSystemTrait = get_attributes_or_error(
+            self, "coordinate_system"
+        )
         return system.time_axis
 
 
@@ -630,7 +659,10 @@ class DeclaresAxesTrait(BaseModel):
         levels: list[tuple[str, Any]] = [("data", getattr(self, "data", None))]
         for scale in getattr(self, "scales", ()) or ():
             levels.append(
-                (f"scales[level={getattr(scale, 'level', '?')}]", getattr(scale, "array", None))
+                (
+                    f"scales[level={getattr(scale, 'level', '?')}]",
+                    getattr(scale, "array", None),
+                )
             )
 
         for name, wrapped in levels:
@@ -647,7 +679,7 @@ class DeclaresAxesTrait(BaseModel):
                 )
 
             if is_unlabeled(array):
-                setattr(wrapped, "value", array.rename(dict(zip(array.dims, declared))))
+                wrapped.value = array.rename(dict(zip(array.dims, declared)))
                 continue
 
             dims = [str(dim) for dim in array.dims]
@@ -697,7 +729,9 @@ def _homogeneous_from_rows(rows: Any, ndim_in: int | None) -> NDArray[np.float64
     return np.vstack([rows, bottom])
 
 
-def _apply_homogeneous(matrix: NDArray[np.float64], points: PointsLike) -> NDArray[np.float64]:
+def _apply_homogeneous(
+    matrix: NDArray[np.float64], points: PointsLike
+) -> NDArray[np.float64]:
     """Apply a homogeneous (M+1) x (N+1) matrix to an (K, N) or (N,) point array."""
     pts = np.atleast_2d(np.asarray(points, dtype=float))
     n = matrix.shape[1] - 1
@@ -731,7 +765,9 @@ def _parameter_matrix(edge: Any, ndim: int | None) -> NDArray[np.float64]:  # no
         return matrix
     if kind in ("AFFINE", "ROTATION"):
         return _homogeneous_from_rows(get_attributes_or_error(edge, "affine"), ndim)
-    raise NotImplementedError(f"Transformations of kind {kind} state no matrix of their own")
+    raise NotImplementedError(
+        f"Transformations of kind {kind} state no matrix of their own"
+    )
 
 
 class PathStep(NamedTuple):
@@ -794,7 +830,10 @@ class TransformationTrait:
             return _parameter_matrix(self, self.ndim_in() or self.ndim_out())
 
         if kind in ("MAP_AXIS", "BY_DIMENSION"):
-            in_names, out_names = self._system_axes("input"), self._system_axes("output")
+            in_names, out_names = (
+                self._system_axes("input"),
+                self._system_axes("output"),
+            )
             if in_names is None or out_names is None:
                 raise ValueError(
                     f"Building a {kind} matrix requires the input and output coordinate "
@@ -804,7 +843,9 @@ class TransformationTrait:
             matrix[len(out_names), len(in_names)] = 1.0
 
             if kind == "MAP_AXIS":
-                input_axes, output_axes = get_attributes_or_error(self, "input_axes", "output_axes")
+                input_axes, output_axes = get_attributes_or_error(
+                    self, "input_axes", "output_axes"
+                )
                 for in_name, out_name in zip(input_axes, output_axes):
                     matrix[out_names.index(out_name), in_names.index(in_name)] = 1.0
                 return matrix
@@ -812,7 +853,9 @@ class TransformationTrait:
             # The children answer to the axes this edge names, not to their own
             # `inputAxes` (which report the whole system's): they are one map over
             # that subset, written out as steps and applied first to last.
-            acts_on_in, acts_on_out = get_attributes_or_error(self, "input_axes", "output_axes")
+            acts_on_in, acts_on_out = get_attributes_or_error(
+                self, "input_axes", "output_axes"
+            )
             block: NDArray[np.float64] | None = None
             for child in get_attributes_or_error(self, "by_dimension_children"):
                 step = _parameter_matrix(child, len(acts_on_in))
@@ -844,7 +887,9 @@ class TransformationTrait:
                 "An UNMAPPABLE transformation is a declared non-correspondence between "
                 "two coordinate systems; it has no matrix by definition"
             )
-        raise NotImplementedError(f"Transformations of kind {kind} have no closed-form matrix")
+        raise NotImplementedError(
+            f"Transformations of kind {kind} have no closed-form matrix"
+        )
 
     def inverse_matrix(self) -> NDArray[np.float64]:
         """The inverse of `as_matrix()`; raises ValueError if not invertible."""
@@ -872,7 +917,9 @@ class TransformationTrait:
         return _apply_homogeneous(self.inverse_matrix(), points)
 
 
-def _bfs_path(transformations: Sequence[object], start_id: str, target_id: str) -> list[PathStep]:
+def _bfs_path(
+    transformations: Sequence[object], start_id: str, target_id: str
+) -> list[PathStep]:
     """Find the shortest composable path between two coordinate systems.
 
     Edges are walked forward (input -> output) and backward (output -> input,
@@ -1007,7 +1054,11 @@ class CoordinateSystemTrait:
         """
         from elektro.api.schema import UNSET
 
-        other_id = other if isinstance(other, (str, int)) else get_attributes_or_error(other, "id")
+        other_id = (
+            other
+            if isinstance(other, (str, int))
+            else get_attributes_or_error(other, "id")
+        )
         return client_of(self, elektro).create_transformation(
             input=get_attributes_or_error(self, "id"),
             output=other_id,
@@ -1042,7 +1093,9 @@ class CoordinateSystemTrait:
         """
         my_id = str(get_attributes_or_error(self, "id"))
         other_id = str(
-            other if isinstance(other, (str, int)) else get_attributes_or_error(other, "id")
+            other
+            if isinstance(other, (str, int))
+            else get_attributes_or_error(other, "id")
         )
         if my_id == other_id:
             return []
@@ -1072,7 +1125,9 @@ class CoordinateSystemTrait:
         elektro: "Elektro | None" = None,
     ) -> NDArray[np.float64]:
         """Map points given in this system's axis order into `other`."""
-        matrix = self.matrix_to(other, max_depth=max_depth, graph=graph, elektro=elektro)
+        matrix = self.matrix_to(
+            other, max_depth=max_depth, graph=graph, elektro=elektro
+        )
         return _apply_homogeneous(matrix, points)
 
     def axis_values_in(
@@ -1168,14 +1223,18 @@ class HasDownloadAccessor(ContextBound):
         from elektro.io.download import download_file
 
         store_id, key = get_attributes_or_error(self, "id", "key")
-        return download_file(store_id, file_name=file_name or key.rsplit("/", 1)[-1], obj=self)
+        return download_file(
+            store_id, file_name=file_name or key.rsplit("/", 1)[-1], obj=self
+        )
 
     async def adownload(self, file_name: str | None = None) -> Awaitable[str]:
         """Download the file asynchronously and return the local path."""
         from elektro.io.download import adownload_file
 
         store_id, key = get_attributes_or_error(self, "id", "key")
-        return await adownload_file(store_id, file_name=file_name or key.rsplit("/", 1)[-1], obj=self)
+        return await adownload_file(
+            store_id, file_name=file_name or key.rsplit("/", 1)[-1], obj=self
+        )
 
 
 class HasMediaDownloadAccessor(ContextBound):
@@ -1188,11 +1247,15 @@ class HasMediaDownloadAccessor(ContextBound):
         from elektro.io.download import download_media_file
 
         store_id, key = get_attributes_or_error(self, "id", "key")
-        return download_media_file(store_id, file_name=file_name or key.rsplit("/", 1)[-1], obj=self)
+        return download_media_file(
+            store_id, file_name=file_name or key.rsplit("/", 1)[-1], obj=self
+        )
 
     async def adownload(self, file_name: str | None = None) -> Awaitable[str]:
         """Download the media object asynchronously and return the local path."""
         from elektro.io.download import adownload_media_file
 
         store_id, key = get_attributes_or_error(self, "id", "key")
-        return await adownload_media_file(store_id, file_name=file_name or key.rsplit("/", 1)[-1], obj=self)
+        return await adownload_media_file(
+            store_id, file_name=file_name or key.rsplit("/", 1)[-1], obj=self
+        )

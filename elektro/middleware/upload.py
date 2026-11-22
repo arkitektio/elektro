@@ -19,11 +19,11 @@ import contextvars
 import io
 import logging
 from collections.abc import Awaitable, Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from concurrent.futures import ThreadPoolExecutor
 from koil import unkoil
 from pydantic import ConfigDict, Field
 
@@ -49,38 +49,36 @@ from elektro.api.schema import (
     RequestZarrUploadInput,
     RequestZarrUploadMutation,
 )
+from elektro.datalayer import DataLayer
+from elektro.io.obstore import upload_refresher
+from elektro.io.upload import (
+    astore_mesh_file,
+    astore_sparse_matrix,
+    # Async paths (obstore)
+    aupload_bigfile,
+    aupload_parquet,
+    aupload_xarray,
+    store_mesh_file,
+    store_sparse_matrix,
+    upload_bigfile,
+    upload_parquet,
+    # Sync paths (obstore)
+    upload_xarray,
+)
 from elektro.middleware.base import OperationMiddleware
 from elektro.scalars import (
+    ArrayLike,
     BigFileLike,
     FileLike,
     MeshLike,
     ParquetLike,
-    ArrayLike,
     SporadikLike,
 )
-from elektro.io.upload import (
-    astore_sparse_matrix,
-    store_sparse_matrix,
-    # Async paths (obstore)
-    aupload_bigfile,
-    aupload_xarray,
-    aupload_parquet,
-    astore_mesh_file,
-    # Sync paths (obstore)
-    upload_xarray,
-    upload_parquet,
-    upload_bigfile,
-    store_mesh_file,
-)
-
-from elektro.datalayer import DataLayer
-from elektro.io.obstore import upload_refresher
 
 if TYPE_CHECKING:
     from elektro.rath import ElektroRath
 
 from rath.turms.funcs import TOperation
-
 
 logger = logging.getLogger(__name__)
 
@@ -97,14 +95,18 @@ async def _apply_recursive_async(
 ) -> Any:  # noqa: ANN401
     """Recursively applies an async function to matching elements in a nested structure."""
     if isinstance(obj, dict):
-        return {k: await _apply_recursive_async(func, v, typeguard) for k, v in obj.items()}
+        return {
+            k: await _apply_recursive_async(func, v, typeguard) for k, v in obj.items()
+        }
     elif isinstance(obj, list):
         return await asyncio.gather(
             *[_apply_recursive_async(func, elem, typeguard) for elem in obj]
         )
     elif isinstance(obj, tuple):
         return tuple(
-            await asyncio.gather(*[_apply_recursive_async(func, elem, typeguard) for elem in obj])
+            await asyncio.gather(
+                *[_apply_recursive_async(func, elem, typeguard) for elem in obj]
+            )
         )
     elif isinstance(obj, typeguard):
         return await func(obj)
@@ -142,10 +144,38 @@ class _Kind:
     refresh_field: str
 
 
-ZARR = _Kind(RequestZarrUploadMutation, "request_zarr_upload", FinishZarrUploadMutation, FinishZarrUploadInput, RefreshZarrUploadMutation, "refresh_zarr_upload")
-PARQUET = _Kind(RequestParquetUploadMutation, "request_parquet_upload", FinishParquetUploadMutation, FinishParquetUploadInput, RefreshParquetUploadMutation, "refresh_parquet_upload")
-BIGFILE = _Kind(RequestBigfileUploadMutation, "request_bigfile_upload", FinishBigfileUploadMutation, FinishBigFileUploadInput, RefreshBigfileUploadMutation, "refresh_bigfile_upload")
-SPARSE = _Kind(RequestSparseUploadMutation, "request_sparse_upload", FinishSparseUploadMutation, FinishSparseUploadInput, RefreshSparseUploadMutation, "refresh_sparse_upload")
+ZARR = _Kind(
+    RequestZarrUploadMutation,
+    "request_zarr_upload",
+    FinishZarrUploadMutation,
+    FinishZarrUploadInput,
+    RefreshZarrUploadMutation,
+    "refresh_zarr_upload",
+)
+PARQUET = _Kind(
+    RequestParquetUploadMutation,
+    "request_parquet_upload",
+    FinishParquetUploadMutation,
+    FinishParquetUploadInput,
+    RefreshParquetUploadMutation,
+    "refresh_parquet_upload",
+)
+BIGFILE = _Kind(
+    RequestBigfileUploadMutation,
+    "request_bigfile_upload",
+    FinishBigfileUploadMutation,
+    FinishBigFileUploadInput,
+    RefreshBigfileUploadMutation,
+    "refresh_bigfile_upload",
+)
+SPARSE = _Kind(
+    RequestSparseUploadMutation,
+    "request_sparse_upload",
+    FinishSparseUploadMutation,
+    FinishSparseUploadInput,
+    RefreshSparseUploadMutation,
+    "refresh_sparse_upload",
+)
 
 
 def _request(mutation: Any, input: Any) -> dict[str, Any]:  # noqa: ANN401
@@ -168,7 +198,12 @@ def _byte_size(value: Any) -> int:  # noqa: ANN401
 
 def _bigfile_request(file: FileLike | BigFileLike | MeshLike) -> dict[str, Any]:
     name = getattr(file, "file_name", None) or getattr(file, "key", None) or "upload"
-    return _request(RequestBigfileUploadMutation, RequestBigFileUploadInput(original_file_name=name, file_size=_byte_size(file.value)))
+    return _request(
+        RequestBigfileUploadMutation,
+        RequestBigFileUploadInput(
+            original_file_name=name, file_size=_byte_size(file.value)
+        ),
+    )
 
 
 class UploadMiddleware(OperationMiddleware):
@@ -222,11 +257,23 @@ class UploadMiddleware(OperationMiddleware):
     # - a write that returns is finished, which is where the server reads and checks what
     #   arrived. Nothing is registered that was not finished.
 
-    def _query(self, rath: "ElektroRath", mutation: Any, variables: dict[str, Any], field: str) -> Any:  # noqa: ANN401
+    def _query(
+        self,
+        rath: "ElektroRath",
+        mutation: Any,  # noqa: ANN401
+        variables: dict[str, Any],
+        field: str,
+    ) -> Any:  # noqa: ANN401
         result = rath.query(mutation.Meta.document, variables)
         return getattr(mutation(**result.data), field)
 
-    async def _aquery(self, rath: "ElektroRath", mutation: Any, variables: dict[str, Any], field: str) -> Any:  # noqa: ANN401
+    async def _aquery(
+        self,
+        rath: "ElektroRath",
+        mutation: Any,  # noqa: ANN401
+        variables: dict[str, Any],
+        field: str,
+    ) -> Any:  # noqa: ANN401
         result = await rath.aquery(mutation.Meta.document, variables)
         return getattr(mutation(**result.data), field)
 
@@ -241,15 +288,29 @@ class UploadMiddleware(OperationMiddleware):
         captured = contextvars.copy_context()
 
         def refresh(store_id: str) -> Any:  # noqa: ANN401
-            variables = kind.refresh.Arguments(input=RefreshUploadInput(store_id=store_id)).model_dump(by_alias=True, exclude_unset=True)
-            return captured.copy().run(self._query, rath, kind.refresh, variables, kind.refresh_field)
+            variables = kind.refresh.Arguments(
+                input=RefreshUploadInput(store_id=store_id)
+            ).model_dump(by_alias=True, exclude_unset=True)
+            return captured.copy().run(
+                self._query, rath, kind.refresh, variables, kind.refresh_field
+            )
 
         return refresh
 
-    def _finish_variables(self, kind: _Kind, store_id: str, valid: bool) -> dict[str, Any]:
-        return kind.finish.Arguments(input=kind.finish_input(store_id=store_id, valid=valid)).model_dump(by_alias=True, exclude_unset=True)
+    def _finish_variables(
+        self, kind: _Kind, store_id: str, valid: bool
+    ) -> dict[str, Any]:
+        return kind.finish.Arguments(
+            input=kind.finish_input(store_id=store_id, valid=valid)
+        ).model_dump(by_alias=True, exclude_unset=True)
 
-    def _upload(self, rath: "ElektroRath", kind: _Kind, request: dict[str, Any], write: Callable[[Any], str]) -> str:
+    def _upload(
+        self,
+        rath: "ElektroRath",
+        kind: _Kind,
+        request: dict[str, Any],
+        write: Callable[[Any], str],
+    ) -> str:
         """Run one upload synchronously: grant, write with self-renewing credentials, finish."""
         grant = self._query(rath, kind.request, request, kind.request_field)
         token = upload_refresher.set(self._refresher(rath, kind))
@@ -257,16 +318,32 @@ class UploadMiddleware(OperationMiddleware):
             store_id = write(grant)
         except BaseException:
             try:
-                rath.query(kind.finish.Meta.document, self._finish_variables(kind, grant.store, valid=False))
+                rath.query(
+                    kind.finish.Meta.document,
+                    self._finish_variables(kind, grant.store, valid=False),
+                )
             except Exception:  # noqa: BLE001 - the write's own error is the one to raise
-                logger.warning("Could not report the failed upload of store %s; it is collected once its deadline passes.", grant.store, exc_info=True)
+                logger.warning(
+                    "Could not report the failed upload of store %s; it is collected once its deadline passes.",
+                    grant.store,
+                    exc_info=True,
+                )
             raise
         finally:
             upload_refresher.reset(token)
-        rath.query(kind.finish.Meta.document, self._finish_variables(kind, store_id, valid=True))
+        rath.query(
+            kind.finish.Meta.document,
+            self._finish_variables(kind, store_id, valid=True),
+        )
         return store_id
 
-    async def _aupload(self, rath: "ElektroRath", kind: _Kind, request: dict[str, Any], write: Callable[[Any], Awaitable[str]]) -> str:
+    async def _aupload(
+        self,
+        rath: "ElektroRath",
+        kind: _Kind,
+        request: dict[str, Any],
+        write: Callable[[Any], Awaitable[str]],
+    ) -> str:
         """Run one upload asynchronously: grant, write with self-renewing credentials, finish."""
         grant = await self._aquery(rath, kind.request, request, kind.request_field)
         token = upload_refresher.set(self._refresher(rath, kind))
@@ -274,13 +351,23 @@ class UploadMiddleware(OperationMiddleware):
             store_id = await write(grant)
         except BaseException:
             try:
-                await rath.aquery(kind.finish.Meta.document, self._finish_variables(kind, grant.store, valid=False))
+                await rath.aquery(
+                    kind.finish.Meta.document,
+                    self._finish_variables(kind, grant.store, valid=False),
+                )
             except Exception:  # noqa: BLE001 - the write's own error is the one to raise
-                logger.warning("Could not report the failed upload of store %s; it is collected once its deadline passes.", grant.store, exc_info=True)
+                logger.warning(
+                    "Could not report the failed upload of store %s; it is collected once its deadline passes.",
+                    grant.store,
+                    exc_info=True,
+                )
             raise
         finally:
             upload_refresher.reset(token)
-        await rath.aquery(kind.finish.Meta.document, self._finish_variables(kind, store_id, valid=True))
+        await rath.aquery(
+            kind.finish.Meta.document,
+            self._finish_variables(kind, store_id, valid=True),
+        )
         return store_id
 
     # ====================================================================
@@ -293,49 +380,121 @@ class UploadMiddleware(OperationMiddleware):
             self._cached_datalayer_url = unkoil(self.datalayer.get_endpoint_url)
         return self._cached_datalayer_url
 
-    def _upload_xarray(self, datalayer: "DataLayer", rath: "ElektroRath", xarray: ArrayLike) -> str:
+    def _upload_xarray(
+        self, datalayer: "DataLayer", rath: "ElektroRath", xarray: ArrayLike
+    ) -> str:
         """Upload an xarray as a zarr store."""
-        return self._upload(rath, ZARR, _request(RequestZarrUploadMutation, RequestZarrUploadInput()), lambda grant: upload_xarray(xarray, grant, datalayer))
+        return self._upload(
+            rath,
+            ZARR,
+            _request(RequestZarrUploadMutation, RequestZarrUploadInput()),
+            lambda grant: upload_xarray(xarray, grant, datalayer),
+        )
 
-    def _upload_parquet(self, datalayer: "DataLayer", rath: "ElektroRath", parquet_input: ParquetLike) -> str:
+    def _upload_parquet(
+        self, datalayer: "DataLayer", rath: "ElektroRath", parquet_input: ParquetLike
+    ) -> str:
         """Upload a table as one parquet object."""
-        return self._upload(rath, PARQUET, _request(RequestParquetUploadMutation, RequestParquetUploadInput()), lambda grant: upload_parquet(parquet_input, grant, datalayer))
+        return self._upload(
+            rath,
+            PARQUET,
+            _request(RequestParquetUploadMutation, RequestParquetUploadInput()),
+            lambda grant: upload_parquet(parquet_input, grant, datalayer),
+        )
 
-    def _upload_bigfile(self, datalayer: "DataLayer", rath: "ElektroRath", file: FileLike | BigFileLike) -> str:
+    def _upload_bigfile(
+        self, datalayer: "DataLayer", rath: "ElektroRath", file: FileLike | BigFileLike
+    ) -> str:
         """Upload a file, declaring its size: the server reserves it and holds the upload to it."""
-        return self._upload(rath, BIGFILE, _bigfile_request(file), lambda grant: upload_bigfile(file, grant, datalayer))
+        return self._upload(
+            rath,
+            BIGFILE,
+            _bigfile_request(file),
+            lambda grant: upload_bigfile(file, grant, datalayer),
+        )
 
-    def _store_mesh(self, datalayer: "DataLayer", rath: "ElektroRath", mesh: MeshLike) -> str:
+    def _store_mesh(
+        self, datalayer: "DataLayer", rath: "ElektroRath", mesh: MeshLike
+    ) -> str:
         """Store a mesh file as a big file, declaring its size."""
-        return self._upload(rath, BIGFILE, _bigfile_request(mesh), lambda grant: store_mesh_file(mesh, grant, datalayer))
+        return self._upload(
+            rath,
+            BIGFILE,
+            _bigfile_request(mesh),
+            lambda grant: store_mesh_file(mesh, grant, datalayer),
+        )
 
-    def _store_sparse(self, datalayer: "DataLayer", rath: "ElektroRath", sparse: SporadikLike) -> str:
+    def _store_sparse(
+        self, datalayer: "DataLayer", rath: "ElektroRath", sparse: SporadikLike
+    ) -> str:
         """Write a sparse matrix into a granted prefix."""
-        return self._upload(rath, SPARSE, {}, lambda grant: store_sparse_matrix(sparse, grant, datalayer))
+        return self._upload(
+            rath,
+            SPARSE,
+            {},
+            lambda grant: store_sparse_matrix(sparse, grant, datalayer),
+        )
 
     # ====================================================================
     # The kinds (async)
     # ====================================================================
 
-    async def _aupload_xarray(self, datalayer: "DataLayer", rath: "ElektroRath", xarray: ArrayLike) -> str:
+    async def _aupload_xarray(
+        self, datalayer: "DataLayer", rath: "ElektroRath", xarray: ArrayLike
+    ) -> str:
         """Upload an xarray as a zarr store."""
-        return await self._aupload(rath, ZARR, _request(RequestZarrUploadMutation, RequestZarrUploadInput()), lambda grant: aupload_xarray(xarray, grant, datalayer))
+        return await self._aupload(
+            rath,
+            ZARR,
+            _request(RequestZarrUploadMutation, RequestZarrUploadInput()),
+            lambda grant: aupload_xarray(xarray, grant, datalayer),
+        )
 
-    async def _aupload_parquet(self, datalayer: "DataLayer", rath: "ElektroRath", parquet_input: ParquetLike) -> str:
+    async def _aupload_parquet(
+        self, datalayer: "DataLayer", rath: "ElektroRath", parquet_input: ParquetLike
+    ) -> str:
         """Upload a table as one parquet object."""
-        return await self._aupload(rath, PARQUET, _request(RequestParquetUploadMutation, RequestParquetUploadInput()), lambda grant: aupload_parquet(parquet_input, grant, datalayer, self._executor_session))
+        return await self._aupload(
+            rath,
+            PARQUET,
+            _request(RequestParquetUploadMutation, RequestParquetUploadInput()),
+            lambda grant: aupload_parquet(
+                parquet_input, grant, datalayer, self._executor_session
+            ),
+        )
 
-    async def _aupload_bigfile(self, datalayer: "DataLayer", rath: "ElektroRath", file: FileLike | BigFileLike) -> str:
+    async def _aupload_bigfile(
+        self, datalayer: "DataLayer", rath: "ElektroRath", file: FileLike | BigFileLike
+    ) -> str:
         """Upload a file, declaring its size: the server reserves it and holds the upload to it."""
-        return await self._aupload(rath, BIGFILE, _bigfile_request(file), lambda grant: aupload_bigfile(file, grant, datalayer))
+        return await self._aupload(
+            rath,
+            BIGFILE,
+            _bigfile_request(file),
+            lambda grant: aupload_bigfile(file, grant, datalayer),
+        )
 
-    async def _astore_mesh(self, datalayer: "DataLayer", rath: "ElektroRath", mesh: MeshLike) -> str:
+    async def _astore_mesh(
+        self, datalayer: "DataLayer", rath: "ElektroRath", mesh: MeshLike
+    ) -> str:
         """Store a mesh file as a big file, declaring its size."""
-        return await self._aupload(rath, BIGFILE, _bigfile_request(mesh), lambda grant: astore_mesh_file(mesh, grant, datalayer))
+        return await self._aupload(
+            rath,
+            BIGFILE,
+            _bigfile_request(mesh),
+            lambda grant: astore_mesh_file(mesh, grant, datalayer),
+        )
 
-    async def _astore_sparse(self, datalayer: "DataLayer", rath: "ElektroRath", sparse: SporadikLike) -> str:
+    async def _astore_sparse(
+        self, datalayer: "DataLayer", rath: "ElektroRath", sparse: SporadikLike
+    ) -> str:
         """Write a sparse matrix into a granted prefix."""
-        return await self._aupload(rath, SPARSE, {}, lambda grant: astore_sparse_matrix(sparse, grant, datalayer))
+        return await self._aupload(
+            rath,
+            SPARSE,
+            {},
+            lambda grant: astore_sparse_matrix(sparse, grant, datalayer),
+        )
 
     # ====================================================================
     # Core middleware methods

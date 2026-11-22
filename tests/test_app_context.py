@@ -12,10 +12,9 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-from elektro.elektro import TASK_HEADER
 from elektro.client import client_of
 from elektro.datalayer import DataLayer
-from elektro.elektro import Elektro
+from elektro.elektro import TASK_HEADER, Elektro
 from elektro.errors import NoDataLayerFound, NoElektroFound
 from elektro.traits import ElektroFetchable, HasDownloadAccessor, HasZarrStoreAccessor
 
@@ -36,22 +35,33 @@ class FakeRath:
         self.calls += 1
         self.headers.append(headers)
         self.variables.append(variables)
-        return SimpleNamespace(data={"store": {"id": "store-1", "nested": {"id": "n-1"}}})
+        return SimpleNamespace(
+            data={"store": {"id": "store-1", "nested": {"id": "n-1"}}}
+        )
 
     def query(
-        self, document: str, variables: dict[str, Any], headers: Any = None  # noqa: ANN401
+        self,
+        document: str,
+        variables: dict[str, Any],
+        headers: Any = None,  # noqa: ANN401
     ) -> SimpleNamespace:
         """Answer in the blocking way."""
         return self._answer(variables, headers)
 
     async def aquery(
-        self, document: str, variables: dict[str, Any], headers: Any = None  # noqa: ANN401
+        self,
+        document: str,
+        variables: dict[str, Any],
+        headers: Any = None,  # noqa: ANN401
     ) -> SimpleNamespace:
         """Answer in the non-blocking way."""
         return self._answer(variables, headers)
 
     async def asubscribe(
-        self, document: str, variables: dict[str, Any], headers: Any = None  # noqa: ANN401
+        self,
+        document: str,
+        variables: dict[str, Any],
+        headers: Any = None,  # noqa: ANN401
     ) -> Any:  # noqa: ANN401
         """Answer one event."""
         yield self._answer(variables, headers)
@@ -66,15 +76,11 @@ class FakeApp:
         self.rath = FakeRath(name)
         self.datalayer = DataLayer(endpoint_url=f"http://{name}.invalid")
         # A real client over fakes: `client_of` only follows an origin that is one.
-        self.elektro = Elektro.model_construct(
-            rath=self.rath, datalayer=self.datalayer
-        )
+        self.elektro = Elektro.model_construct(rath=self.rath, datalayer=self.datalayer)
 
     def get(self, key: type) -> Any:  # noqa: ANN401
         """Answer for the elektro client, and for nothing else."""
         return self.elektro if key is Elektro else None
-
-
 
 
 class Nested(HasZarrStoreAccessor):
@@ -120,7 +126,9 @@ def apps() -> tuple[FakeApp, FakeApp]:
 # --------------------------------------------------------------------------- #
 
 
-def test_execute_goes_through_the_client_it_is_handed(apps: tuple[FakeApp, FakeApp]) -> None:
+def test_execute_goes_through_the_client_it_is_handed(
+    apps: tuple[FakeApp, FakeApp],
+) -> None:
     """What is current plays no part: the client is an argument."""
     a, b = apps
 
@@ -189,7 +197,8 @@ def opened(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
 
     monkeypatch.setattr("elektro.io.download.unkoil", fake_unkoil)
     monkeypatch.setattr(
-        "elektro.io.download.create_zarr_store_path", lambda *args, **kwargs: "a-store-path"
+        "elektro.io.download.create_zarr_store_path",
+        lambda *args, **kwargs: "a-store-path",
     )
     return seen
 
@@ -242,7 +251,9 @@ def test_the_download_accessor_reads_through_its_objects_datalayer(
         return file_name
 
     monkeypatch.setattr("elektro.io.download.download_file", fake_download)
-    big = Big.model_validate({"id": "1", "key": "file.bin"}, context=a.elektro._origin())
+    big = Big.model_validate(
+        {"id": "1", "key": "file.bin"}, context=a.elektro._origin()
+    )
 
     assert big.download() == "file.bin"
 
@@ -297,7 +308,6 @@ def test_the_client_has_exactly_its_fields() -> None:
     )
 
 
-
 # --------------------------------------------------------------------------- #
 # Through rekuest: an argument is expanded through the client its registry is bound to
 # --------------------------------------------------------------------------- #
@@ -316,12 +326,11 @@ async def test_rekuest_expands_through_the_client_its_registry_was_bound_to(
     pytest.importorskip("arkitekt_spec.declare.app")
     from typing import Annotated
 
-    from fakts import Alias, Require
-    from rath.origin import get_origin
-
+    from arkitekt_runtime.structures.serialization.actor import expand_inputs
     from arkitekt_spec.declare.app import AppRegistry
     from arkitekt_spec.declare.definition.define import prepare_definition
-    from arkitekt_runtime.structures.serialization.actor import expand_inputs
+    from fakts import Alias, Require
+    from rath.origin import get_origin
 
     a, b = apps
 
@@ -355,7 +364,10 @@ async def test_rekuest_expands_through_the_client_its_registry_was_bound_to(
     wire = {"store": {"__identifier": "@elektro/teststore", "object": "store-1"}}
 
     expanded = await expand_inputs(
-        definition, wire, structure_registry=bound, shelver=None  # type: ignore[arg-type]
+        definition,
+        wire,
+        structure_registry=bound,
+        shelver=None,  # type: ignore[arg-type]
     )
     store = expanded["store"]
     store.zarr_store  # touched while the OTHER app is current
@@ -371,15 +383,15 @@ async def test_rekuest_expands_through_the_client_its_registry_was_bound_to(
 # --------------------------------------------------------------------------- #
 
 
-
-
 @pytest.mark.asyncio
 async def test_the_ambient_task_is_stamped_without_a_view() -> None:
     """One shared client attributes each call to whatever task is running."""
     from rath.task import task_scope
 
     rath = FakeRath("shared")
-    client = Elektro.model_construct(rath=rath, datalayer=DataLayer(endpoint_url="http://x.invalid"))
+    client = Elektro.model_construct(
+        rath=rath, datalayer=DataLayer(endpoint_url="http://x.invalid")
+    )
 
     await client.aexecute(GetStore, {"id": "store-1"})
     with task_scope(SimpleNamespace(token="token-1")):
@@ -395,7 +407,9 @@ async def test_a_task_named_at_the_call_beats_the_ambient_one() -> None:
     from rath.task import task_scope
 
     rath = FakeRath("shared")
-    client = Elektro.model_construct(rath=rath, datalayer=DataLayer(endpoint_url="http://x.invalid"))
+    client = Elektro.model_construct(
+        rath=rath, datalayer=DataLayer(endpoint_url="http://x.invalid")
+    )
 
     with task_scope(SimpleNamespace(token="ambient")):
         await client.aexecute(

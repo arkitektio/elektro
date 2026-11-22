@@ -1,8 +1,9 @@
 """Integration test for building an array via ``create_array_dataset``."""
 
-from elektro import Elektro
 import numpy as np
 import pytest
+
+from elektro import Elektro
 
 
 @pytest.mark.integration

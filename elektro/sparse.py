@@ -88,7 +88,9 @@ def check_axes(axes: Sequence[SparseAxisInput]) -> None:
         )
 
     types = {axis.name: _axis_type(axis) for axis in axes}
-    wrong = sorted(name for name, kind in types.items() if kind not in SPARSE_AXIS_TYPES)
+    wrong = sorted(
+        name for name, kind in types.items() if kind not in SPARSE_AXIS_TYPES
+    )
     if wrong:
         raise SparseDeclarationError(
             f"{wrong} declare a type other than INDEX or TIME. A sparse matrix enumerates "
@@ -106,14 +108,22 @@ def check_axes(axes: Sequence[SparseAxisInput]) -> None:
             "-- along at least one axis."
         )
 
-    identified_time = [axis.name for axis in axes if _axis_type(axis) == "TIME" and _identifications(axis)]
+    identified_time = [
+        axis.name
+        for axis in axes
+        if _axis_type(axis) == "TIME" and _identifications(axis)
+    ]
     if identified_time:
         raise SparseDeclarationError(
             f"The TIME axis {identified_time} is identified, but a TIME axis' positions are "
             "samples, not ids. Leave `identified_by` empty and place the axis on a clock with "
             "`create_sampling_law` once the dataset exists."
         )
-    empty = [axis.name for axis in axes if _axis_type(axis) == "INDEX" and not _identifications(axis)]
+    empty = [
+        axis.name
+        for axis in axes
+        if _axis_type(axis) == "INDEX" and not _identifications(axis)
+    ]
     if empty:
         raise SparseDeclarationError(
             f"The INDEX axes {empty} have an empty `identified_by`. An axis of a sparse matrix "
@@ -123,7 +133,11 @@ def check_axes(axes: Sequence[SparseAxisInput]) -> None:
         )
 
     for axis in axes:
-        tables = [entry for entry in _identifications(axis) if _enum_value(entry.kind) == "TABLE"]
+        tables = [
+            entry
+            for entry in _identifications(axis)
+            if _enum_value(entry.kind) == "TABLE"
+        ]
         if len(tables) > 1:
             raise SparseDeclarationError(
                 f"Axis {axis.name!r} is identified by more than one table. An axis enumerates "

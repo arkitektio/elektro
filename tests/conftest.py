@@ -1,26 +1,28 @@
 """Shared pytest fixtures and configuration for the elektro test suite."""
 
-from arkitekt_spec.declare.tested import record_tested
-import sys
-from collections.abc import Generator
-import pytest
-from dokker import Deployment, testing
-from dokker.log_watcher import LogWatcher
 import os
 import socket
-from elektro.elektro import Elektro
-from rath.links.auth import ComposedAuthLink
+import sys
+from collections.abc import Generator
+from dataclasses import dataclass
+
+import pytest
+from arkitekt_spec.declare.tested import record_tested
+from dokker import Deployment, testing
+from dokker.log_watcher import LogWatcher
 from rath.links.aiohttp import AIOHttpLink
+from rath.links.auth import ComposedAuthLink
 from rath.links.graphql_ws import GraphQLWSLink
+
+from elektro.datalayer import DataLayer
+from elektro.elektro import Elektro
+from elektro.middleware.upload import UploadMiddleware
 from elektro.rath import (
+    ElektroLinkComposition,
     ElektroRath,
     SplitLink,
-    ElektroLinkComposition,
 )
-from elektro.datalayer import DataLayer
-from elektro.middleware.upload import UploadMiddleware
 from graphql import OperationType
-from dataclasses import dataclass
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -45,7 +47,9 @@ docker_compose_file = os.path.join(project_path, "docker-compose.yml")
 # see the current schema instead of the last-pushed one. Absent (CI, anyone else), the
 # published image is the schema under test, as before.
 _local_override = os.path.join(project_path, "docker-compose.local.yml")
-compose_files = [docker_compose_file] + ([_local_override] if os.path.exists(_local_override) else [])
+compose_files = [docker_compose_file] + (
+    [_local_override] if os.path.exists(_local_override) else []
+)
 
 
 def _reserve_free_ports(count: int) -> list[int]:
@@ -90,6 +94,8 @@ def integration_ports() -> Generator[dict[str, int], None, None]:
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
+
+
 private_key = os.path.join(project_path, "private_key.pem")
 
 
@@ -118,7 +124,9 @@ class DeployedElektro:
 
 
 @pytest.fixture(scope="session")
-def deployed_app(integration_ports: dict[str, int]) -> Generator[DeployedElektro, None, None]:
+def deployed_app(
+    integration_ports: dict[str, int],
+) -> Generator[DeployedElektro, None, None]:
     """Fixture to deploy the Elektro application with Docker Compose.
 
     This fixture sets up the Elektro application using Docker Compose,
@@ -163,7 +171,9 @@ def deployed_app(integration_ports: dict[str, int]) -> Generator[DeployedElektro
 
         y = ElektroRath(
             link=ElektroLinkComposition(
-                auth=ComposedAuthLink(token_loader=token_loader, token_refresher=token_loader),
+                auth=ComposedAuthLink(
+                    token_loader=token_loader, token_refresher=token_loader
+                ),
                 split=SplitLink(
                     left=AIOHttpLink(endpoint_url=elektro_http_url),
                     right=GraphQLWSLink(ws_endpoint_url=elektro_ws_url),

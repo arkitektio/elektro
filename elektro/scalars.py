@@ -5,19 +5,19 @@ Custom scalars for elektro
 """
 
 import io
-import os
 import mimetypes
-from typing import TYPE_CHECKING, Any, IO, Protocol, TypeAlias
-from pydantic import GetCoreSchemaHandler
-from pydantic_core import CoreSchema, core_schema
-import xarray as xr
-import pandas as pd
-import numpy as np
+import os
 import uuid
 from collections.abc import Hashable, Iterable, Mapping
 from enum import Enum
 from pathlib import Path
+from typing import IO, TYPE_CHECKING, Any, Protocol, TypeAlias
 
+import numpy as np
+import pandas as pd
+import xarray as xr
+from pydantic import GetCoreSchemaHandler
+from pydantic_core import CoreSchema, core_schema
 
 AxisName: TypeAlias = Hashable
 """An axis given by its name alone: any hashable, as xarray types its dims (see :func:`axis_name`)."""
@@ -28,6 +28,7 @@ def axis_name(name: AxisName) -> str:
     if isinstance(name, Enum):
         name = name.value
     return str(name)
+
 
 if TYPE_CHECKING:
     import pyarrow as pa
@@ -144,7 +145,6 @@ class XArrayConversionException(Exception):
 ArrayCoercible = xr.DataArray | np.ndarray | list | tuple
 
 
-
 def is_unlabeled(array: xr.DataArray) -> bool:
     """True when no dimension of the array was named by the caller.
 
@@ -210,7 +210,9 @@ class Upload:
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
-        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
+        return core_schema.no_info_after_validator_function(
+            cls.validate, handler(object)
+        )
 
     @classmethod
     def validate(cls, v: object) -> "Upload":
@@ -236,7 +238,9 @@ class Micrometers(float):
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
-        return core_schema.no_info_before_validator_function(cls.validate, handler(float))
+        return core_schema.no_info_before_validator_function(
+            cls.validate, handler(float)
+        )
 
     @classmethod
     def validate(cls, v: MicrometersCoercible) -> "Micrometers":
@@ -254,7 +258,9 @@ class Microliters(float):
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
-        return core_schema.no_info_before_validator_function(cls.validate, handler(float))
+        return core_schema.no_info_before_validator_function(
+            cls.validate, handler(float)
+        )
 
     @classmethod
     def validate(cls, v: MicrolitersCoercible) -> "Microliters":
@@ -272,7 +278,9 @@ class Micrograms(float):
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
-        return core_schema.no_info_before_validator_function(cls.validate, handler(float))
+        return core_schema.no_info_before_validator_function(
+            cls.validate, handler(float)
+        )
 
     @classmethod
     def validate(cls, v: MicrogramsCoercible) -> "Micrograms":
@@ -290,7 +298,9 @@ class Milliseconds(float):
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
-        return core_schema.no_info_before_validator_function(cls.validate, handler(float))
+        return core_schema.no_info_before_validator_function(
+            cls.validate, handler(float)
+        )
 
     @classmethod
     def validate(cls, v: MillisecondsCoercible) -> "Milliseconds":
@@ -569,7 +579,9 @@ class ArrayLike:
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
-        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
+        return core_schema.no_info_after_validator_function(
+            cls.validate, handler(object)
+        )
 
     @classmethod
     def validate(cls, v: "ArrayCoercible | ArrayLike") -> "ArrayLike":
@@ -600,7 +612,9 @@ class BigFile:
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
-        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
+        return core_schema.no_info_after_validator_function(
+            cls.validate, handler(object)
+        )
 
     @classmethod
     def validate(cls, v: BigFileLikeCoercible) -> "BigFile":
@@ -645,7 +659,9 @@ class ParquetLike:
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
-        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
+        return core_schema.no_info_after_validator_function(
+            cls.validate, handler(object)
+        )
 
     @classmethod
     def validate(cls, v: "ParquetCoercible") -> "ParquetLike":
@@ -701,7 +717,9 @@ def _sporadik() -> Any:  # noqa: ANN401 - the module object
     """
     try:
         import sporadik
-    except ModuleNotFoundError as missing:  # pragma: no cover - depends on the environment
+    except (
+        ModuleNotFoundError
+    ) as missing:  # pragma: no cover - depends on the environment
         raise ModuleNotFoundError(
             "A sparse dataset is written in the `sporadik` wire format, which is an optional "
             "extra here: pip install 'elektro[sparse]'."
@@ -738,7 +756,9 @@ class SporadikLike:
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
-        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
+        return core_schema.no_info_after_validator_function(
+            cls.validate, handler(object)
+        )
 
     @classmethod
     def validate(cls, v: "SporadikCoercible") -> "SporadikLike":
@@ -765,9 +785,7 @@ class SporadikLike:
         return f"SporadikLike({axes}, shape={shape})"
 
 
-ParquetCoercible: TypeAlias = (
-    "Mapping[str, Any] | pd.DataFrame | str | Path | pa.Table | pa.RecordBatchReader | ParquetLike"
-)
+ParquetCoercible: TypeAlias = "Mapping[str, Any] | pd.DataFrame | str | Path | pa.Table | pa.RecordBatchReader | ParquetLike"
 """What :class:`ParquetLike` accepts: a dict of columns, a DataFrame, a parquet path, or arrow."""
 
 
@@ -806,7 +824,9 @@ class SparseMatrixLike(Protocol):
         ...
 
 
-SporadikCoercible: TypeAlias = "SparseMatrixLike | list[SparseMatrixLike] | SporadikLike"
+SporadikCoercible: TypeAlias = (
+    "SparseMatrixLike | list[SparseMatrixLike] | SporadikLike"
+)
 """What :class:`SporadikLike` accepts: a scipy.sparse CSR/CSC matrix, a list of them, or layouts."""
 
 
@@ -827,7 +847,9 @@ class FileLike:
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
-        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
+        return core_schema.no_info_after_validator_function(
+            cls.validate, handler(object)
+        )
 
     @classmethod
     def validate(cls, v: FileLikeCoercible) -> "FileLike":
@@ -867,7 +889,9 @@ class MeshLike:
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
-        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
+        return core_schema.no_info_after_validator_function(
+            cls.validate, handler(object)
+        )
 
     @classmethod
     def validate(cls, v: MeshLikeCoercible) -> "MeshLike":
@@ -909,7 +933,9 @@ class BigFileLike:
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
-        return core_schema.no_info_after_validator_function(cls.validate, handler(object))
+        return core_schema.no_info_after_validator_function(
+            cls.validate, handler(object)
+        )
 
     @classmethod
     def validate(cls, v: BigFileLikeCoercible) -> "BigFileLike":

@@ -1,6 +1,8 @@
 """The Elektro GraphQL transport layer (Rath) and its link configuration."""
 
 from types import TracebackType
+
+from kanne.contrib.rath.coerce_pint import CoercePintLink
 from pydantic import Field
 from rath import rath
 from rath.links.auth import AuthTokenLink
@@ -8,7 +10,7 @@ from rath.links.compose import TypedComposedLink
 from rath.links.dictinglink import DictingLink
 from rath.links.file import FileExtraction
 from rath.links.split import SplitLink
-from kanne.contrib.rath.coerce_pint import CoercePintLink
+
 from elektro.middleware.base import OperationMiddleware
 
 

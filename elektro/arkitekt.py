@@ -9,9 +9,11 @@ back. An app takes all of it in with ``App(services=[elektro_service])``.
 import os
 from typing import Annotated
 
+from arkitekt_spec.declare.app import AppRegistry
+from arkitekt_spec.declare.tested import tested_against
+from arkitekt_spec.declare.widgets import SearchWidget
 from fakts import Alias, Require, TokenLoader
 from fakts.contrib.rath.auth import FaktsAuthLink
-from graphql import OperationType
 from kanne.contrib.rath.coerce_pint import CoercePintLink
 from rath.links import compose
 from rath.links.aiohttp import AIOHttpLink
@@ -19,10 +21,6 @@ from rath.links.dictinglink import DictingLink
 from rath.links.file import FileExtraction
 from rath.links.graphql_ws import GraphQLWSLink
 from rath.links.split import SplitLink
-
-from arkitekt_spec.declare.app import AppRegistry
-from arkitekt_spec.declare.tested import tested_against
-from arkitekt_spec.declare.widgets import SearchWidget
 
 from elektro.api.schema import (
     Annotation,
@@ -48,12 +46,12 @@ from elektro.api.schema import (
     SparseDataset,
     TableDataset,
 )
-
 from elektro.datalayer import DataLayer
-from elektro.specs import describe_lens
 from elektro.elektro import Elektro
 from elektro.middleware.upload import UploadMiddleware
 from elektro.rath import ElektroRath
+from elektro.specs import describe_lens
+from graphql import OperationType
 
 
 def build_relative_path(*path: str) -> str:
@@ -76,7 +74,11 @@ TESTED = tested_against("elektro")
 def elektro(
     elektro: Annotated[
         Alias,
-        Require("live.arkitekt.elektro", "Where the user's traces and recordings live", version=TESTED),
+        Require(
+            "live.arkitekt.elektro",
+            "Where the user's traces and recordings live",
+            version=TESTED,
+        ),
     ],
     datalayer: Annotated[
         Alias,
@@ -95,8 +97,16 @@ def elektro(
                 CoercePintLink(),
                 FaktsAuthLink(token_loader=tokens),
                 SplitLink(
-                    left=AIOHttpLink(endpoint_url=elektro.to_http_path("graphql"), proxy=elektro.proxy, ssl_context=elektro.ssl_context()),
-                    right=GraphQLWSLink(ws_endpoint_url=elektro.to_ws_path("graphql"), proxy=elektro.proxy, ssl_context=elektro.ssl_context()),
+                    left=AIOHttpLink(
+                        endpoint_url=elektro.to_http_path("graphql"),
+                        proxy=elektro.proxy,
+                        ssl_context=elektro.ssl_context(),
+                    ),
+                    right=GraphQLWSLink(
+                        ws_endpoint_url=elektro.to_ws_path("graphql"),
+                        proxy=elektro.proxy,
+                        ssl_context=elektro.ssl_context(),
+                    ),
                     split=lambda o: o.node.operation != OperationType.SUBSCRIPTION,
                 ),
             ),
@@ -127,31 +137,33 @@ async def expand_experiment(id: str, elektro: Elektro) -> Experiment:
     return await elektro.aget_experiment(id)
 
 
-@registry.structure("@elektro/tabledataset", widget=_search(SearchTableDatasetsQuery)
-)
+@registry.structure("@elektro/tabledataset", widget=_search(SearchTableDatasetsQuery))
 async def expand_table_dataset(id: str, elektro: Elektro) -> TableDataset:
     """A table dataset, by id."""
     return await elektro.aget_table_dataset(id)
 
 
-@registry.structure("@elektro/sparsedataset", widget=_search(SearchSparseDatasetsQuery)
-)
+@registry.structure("@elektro/sparsedataset", widget=_search(SearchSparseDatasetsQuery))
 async def expand_sparse_dataset(id: str, elektro: Elektro) -> SparseDataset:
     """A sparse dataset, by id."""
     return await elektro.aget_sparse_dataset(id)
 
 
-@registry.structure("@elektro/modelcollection", widget=_search(SearchModelCollectionQuery)
+@registry.structure(
+    "@elektro/modelcollection", widget=_search(SearchModelCollectionQuery)
 )
 async def expand_model_collection(id: str, elektro: Elektro) -> ModelCollection:
     """A model collection, by id."""
     return await elektro.aget_model_collection(id)
 
 
-@registry.structure("@elektro/annotationcollection",
+@registry.structure(
+    "@elektro/annotationcollection",
     widget=_search(SearchAnnotationCollectionsQuery),
 )
-async def expand_annotation_collection(id: str, elektro: Elektro) -> AnnotationCollection:
+async def expand_annotation_collection(
+    id: str, elektro: Elektro
+) -> AnnotationCollection:
     """An annotation collection, by id."""
     return await elektro.aget_annotation_collection(id)
 
@@ -170,7 +182,8 @@ async def expand_lens(id: str, elektro: Elektro) -> Lens:
     return await elektro.aget_lens(id)
 
 
-@registry.structure("@elektro/coordinatesystem",
+@registry.structure(
+    "@elektro/coordinatesystem",
     widget=_search(SearchCoordinateSystemsQuery),
 )
 async def expand_coordinate_system(id: str, elektro: Elektro) -> CoordinateSystem:
@@ -178,8 +191,7 @@ async def expand_coordinate_system(id: str, elektro: Elektro) -> CoordinateSyste
     return await elektro.aget_coordinate_system(id)
 
 
-@registry.structure("@elektro/neuronmodel", widget=_search(SearchNeuronModelsQuery)
-)
+@registry.structure("@elektro/neuronmodel", widget=_search(SearchNeuronModelsQuery))
 async def expand_neuron_model(id: str, elektro: Elektro) -> NeuronModel:
     """A neuron model, by id."""
     return await elektro.aget_neuron_model(id)

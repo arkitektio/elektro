@@ -286,7 +286,9 @@ def _check_declarations(
     side of several hundred megabytes.
     """
     if len(by_name) != len(columns):
-        raise TableDeclarationError(_duplicates("columns", [column.name for column in columns]))
+        raise TableDeclarationError(
+            _duplicates("columns", [column.name for column in columns])
+        )
 
     for declared in by_name:
         if declared not in present:
@@ -298,7 +300,9 @@ def _check_declarations(
             )
 
     for column in columns:
-        axis_type = _enum_value(column.axis_type) if column.axis_type is not None else None
+        axis_type = (
+            _enum_value(column.axis_type) if column.axis_type is not None else None
+        )
         role = _enum_value(column.role)
 
         if axis_type is not None:
@@ -346,7 +350,8 @@ def _check_declarations(
         no_edge = [
             entry
             for entry in (column.identified_by or ())
-            if _enum_value(getattr(entry, "kind", None)) in ("TABLE", "NETWORK_COLLECTION_NODES")
+            if _enum_value(getattr(entry, "kind", None))
+            in ("TABLE", "NETWORK_COLLECTION_NODES")
         ]
         if axis_type in ("SPACE", "TIME") and no_edge:
             raise TableDeclarationError(
@@ -356,7 +361,8 @@ def _check_declarations(
                 "if its values really are ids -- declare the column an INDEX axis."
             )
         if axis_type is None and any(
-            _enum_value(getattr(entry, "kind", None)) == "NETWORK_COLLECTION_NODES" for entry in no_edge
+            _enum_value(getattr(entry, "kind", None)) == "NETWORK_COLLECTION_NODES"
+            for entry in no_edge
         ):
             raise TableDeclarationError(
                 f"Column {column.name!r} is identified by a network collection's nodes but is "

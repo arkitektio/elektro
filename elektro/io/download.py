@@ -1,31 +1,33 @@
 """Helpers for downloading Zarr, Parquet, big-file and media data from the DataLayer."""
 
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
+
+import obstore  # Imported to access direct streaming capabilities
+from koil import unkoil
+from rath.origin import get_origin
+from rath.scalars import ID
+from zarr.storage import StorePath
+
 from elektro.api.schema import (
-    ZarrAccessGrant,
-    ParquetAccessGrant,
     BigFileAccessGrant,
     MediaAccessGrant,
+    ParquetAccessGrant,
+    ZarrAccessGrant,
 )
 from elektro.datalayer import DataLayer
 from elektro.errors import NoDataLayerFound, NoElektroFound
-from elektro.rath import ElektroRath
-from koil import unkoil
-from rath.origin import get_origin
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
-import obstore  # Imported to access direct streaming capabilities
-
 from elektro.io.obstore import (
     ParquetDatasetViaObstore,
     create_s3_store,
     create_zarr_store_path,
 )
-from rath.scalars import ID
-from zarr.storage import StorePath
+from elektro.rath import ElektroRath
 
 if TYPE_CHECKING:
-    from elektro.elektro import Elektro
     from duckdb import DuckDBPyConnection, DuckDBPyRelation
+
+    from elektro.elektro import Elektro
 
 
 async def aget_zarr_credentials_and_endpoint(
@@ -38,7 +40,9 @@ async def aget_zarr_credentials_and_endpoint(
     Both clients are taken as given: callers pick them (see :func:`_clients`)
     before crossing into the event loop.
     """
-    credentials = await _as_client(rath, datalayer).arequest_zarr_access(ID.validate(store))
+    credentials = await _as_client(rath, datalayer).arequest_zarr_access(
+        ID.validate(store)
+    )
     endpoint_url = await datalayer.get_endpoint_url()
     return credentials, endpoint_url
 
@@ -53,7 +57,9 @@ async def aget_table_credentials_and_endpoint(
     Both clients are taken as given: callers pick them (see :func:`_clients`)
     before crossing into the event loop.
     """
-    credentials = await _as_client(rath, datalayer).arequest_parquet_access(ID.validate(store))
+    credentials = await _as_client(rath, datalayer).arequest_parquet_access(
+        ID.validate(store)
+    )
     endpoint_url = await datalayer.get_endpoint_url()
     return credentials, endpoint_url
 
@@ -68,7 +74,9 @@ async def aget_bigfile_credentials_and_endpoint(
     Both clients are taken as given: callers pick them (see :func:`_clients`)
     before crossing into the event loop.
     """
-    credentials = await _as_client(rath, datalayer).arequest_bigfile_access(ID.validate(store))
+    credentials = await _as_client(rath, datalayer).arequest_bigfile_access(
+        ID.validate(store)
+    )
     endpoint_url = await datalayer.get_endpoint_url()
     return credentials, endpoint_url
 
@@ -83,7 +91,9 @@ async def aget_media_credentials_and_endpoint(
     Both clients are taken as given: callers pick them (see :func:`_clients`)
     before crossing into the event loop.
     """
-    credentials = await _as_client(rath, datalayer).arequest_media_access(ID.validate(store))
+    credentials = await _as_client(rath, datalayer).arequest_media_access(
+        ID.validate(store)
+    )
     endpoint_url = await datalayer.get_endpoint_url()
     return credentials, endpoint_url
 
@@ -160,8 +170,15 @@ async def aopen_zarr_store(
 ) -> StorePath:
     """Open a zarr store for the given store ID asynchronously."""
     rath, datalayer = _clients(rath, datalayer, obj)
-    credentials, endpoint_url = await aget_zarr_credentials_and_endpoint(store_id, rath, datalayer)
-    return create_zarr_store_path(endpoint_url, credentials, proxy=datalayer.proxy, certificates=datalayer.certificates)
+    credentials, endpoint_url = await aget_zarr_credentials_and_endpoint(
+        store_id, rath, datalayer
+    )
+    return create_zarr_store_path(
+        endpoint_url,
+        credentials,
+        proxy=datalayer.proxy,
+        certificates=datalayer.certificates,
+    )
 
 
 def open_zarr_store(
@@ -177,7 +194,12 @@ def open_zarr_store(
     credentials, endpoint_url = unkoil(
         aget_zarr_credentials_and_endpoint, store_id, rath, datalayer
     )
-    return create_zarr_store_path(endpoint_url, credentials, proxy=datalayer.proxy, certificates=datalayer.certificates)
+    return create_zarr_store_path(
+        endpoint_url,
+        credentials,
+        proxy=datalayer.proxy,
+        certificates=datalayer.certificates,
+    )
 
 
 async def aopen_parquet_filesytem(
@@ -196,7 +218,15 @@ async def aopen_parquet_filesytem(
     credentials, endpoint_url = await aget_table_credentials_and_endpoint(
         store_id, rath, datalayer
     )
-    return ParquetDatasetViaObstore(create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy, certificates=datalayer.certificates), credentials.key)
+    return ParquetDatasetViaObstore(
+        create_s3_store(
+            endpoint_url,
+            credentials,
+            proxy=datalayer.proxy,
+            certificates=datalayer.certificates,
+        ),
+        credentials.key,
+    )
 
 
 def open_parquet_filesystem(
@@ -215,7 +245,15 @@ def open_parquet_filesystem(
     credentials, endpoint_url = unkoil(
         aget_table_credentials_and_endpoint, store_id, rath, datalayer
     )
-    return ParquetDatasetViaObstore(create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy, certificates=datalayer.certificates), credentials.key)
+    return ParquetDatasetViaObstore(
+        create_s3_store(
+            endpoint_url,
+            credentials,
+            proxy=datalayer.proxy,
+            certificates=datalayer.certificates,
+        ),
+        credentials.key,
+    )
 
 
 async def aopen_parquet_duckdb(
@@ -268,11 +306,19 @@ def _ensure_parent_directory(file_name: str) -> None:
 
 
 async def _awrite_object(
-    credentials: BigFileAccessGrant | MediaAccessGrant, endpoint_url: str, file_name: str, datalayer: DataLayer
+    credentials: BigFileAccessGrant | MediaAccessGrant,
+    endpoint_url: str,
+    file_name: str,
+    datalayer: DataLayer,
 ) -> str:
     """Stream the one object a grant names into ``file_name``."""
     _ensure_parent_directory(file_name)
-    store = create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy, certificates=datalayer.certificates)
+    store = create_s3_store(
+        endpoint_url,
+        credentials,
+        proxy=datalayer.proxy,
+        certificates=datalayer.certificates,
+    )
 
     # Stream the file asynchronously directly into the file object
     response = await obstore.get_async(store, credentials.key)
@@ -284,11 +330,19 @@ async def _awrite_object(
 
 
 def _write_object(
-    credentials: BigFileAccessGrant | MediaAccessGrant, endpoint_url: str, file_name: str, datalayer: DataLayer
+    credentials: BigFileAccessGrant | MediaAccessGrant,
+    endpoint_url: str,
+    file_name: str,
+    datalayer: DataLayer,
 ) -> str:
     """Stream the one object a grant names into ``file_name`` synchronously."""
     _ensure_parent_directory(file_name)
-    store = create_s3_store(endpoint_url, credentials, proxy=datalayer.proxy, certificates=datalayer.certificates)
+    store = create_s3_store(
+        endpoint_url,
+        credentials,
+        proxy=datalayer.proxy,
+        certificates=datalayer.certificates,
+    )
 
     # Stream the file synchronously directly into the file object
     response = obstore.get(store, credentials.key)

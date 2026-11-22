@@ -3,22 +3,21 @@
 import numpy as np
 import pytest
 import xarray as xr
+from kanne.scalars import Unit
+from rath.operation import GraphQLException
 
 from elektro.api.schema import (
     AnnotationKind,
     AxisInput,
     AxisType,
     CoordinateAnchorInput,
-    ScaleInput,
-    ScaleMethod,
     DatasetDerivedFromInput,
     IdentityTransformInput,
     PhysicalAxisInput,
+    ScaleInput,
+    ScaleMethod,
     ValueUnitInput,
 )
-from kanne.scalars import Unit
-from rath.operation import GraphQLException
-
 from elektro.elektro import Elektro
 
 
@@ -35,7 +34,9 @@ def test_dataset_grid_is_unitless(elektro: Elektro) -> None:
         name="bare",
         axes=["t"],
         anchors=[
-            CoordinateAnchorInput(axis_anchors=[], value_unit=ValueUnitInput(unit=Unit("mV")))
+            CoordinateAnchorInput(
+                axis_anchors=[], value_unit=ValueUnitInput(unit=Unit("mV"))
+            )
         ],
     )
 
@@ -63,7 +64,10 @@ def test_multichannel_dataset_keeps_its_axes(elektro: Elektro) -> None:
         data=xr.DataArray(values, dims=["t", "c"]),
         scales=[],
         name="labelled (t, c)",
-        axes=[AxisInput(name="t", type=AxisType.TIME), AxisInput(name="c", type=AxisType.CHANNEL)],
+        axes=[
+            AxisInput(name="t", type=AxisType.TIME),
+            AxisInput(name="c", type=AxisType.CHANNEL),
+        ],
     )
     assert labelled.axis_names == ["t", "c"]
 
@@ -78,7 +82,9 @@ def test_session_clock_states_a_sampling_law(elektro: Elektro) -> None:
         name="probe A",
         axes=["t", "c"],
         anchors=[
-            CoordinateAnchorInput(axis_anchors=[], value_unit=ValueUnitInput(unit=Unit("uV")))
+            CoordinateAnchorInput(
+                axis_anchors=[], value_unit=ValueUnitInput(unit=Unit("uV"))
+            )
         ],
     )
     clock = elektro.create_coordinate_system(
@@ -88,7 +94,10 @@ def test_session_clock_states_a_sampling_law(elektro: Elektro) -> None:
     )
     # `source` is the grid being timed -- a coordinate system, not the dataset.
     law = elektro.create_sampling_law(
-        source=dataset.intrinsic_system.id, clock=clock.id, sampling_rate="30 kHz", t_start="2 s"
+        source=dataset.intrinsic_system.id,
+        clock=clock.id,
+        sampling_rate="30 kHz",
+        t_start="2 s",
     )
     np.testing.assert_allclose(law.apply([30_000, 7]), [3.0])
 
@@ -99,7 +108,10 @@ def test_session_clock_states_a_sampling_law(elektro: Elektro) -> None:
     # A second law of the same grid onto the same clock is a rival, not a correction.
     with pytest.raises(GraphQLException, match="(?i)already|rival|timed"):
         elektro.create_sampling_law(
-            source=dataset.intrinsic_system.id, clock=clock.id, sampling_rate="20 kHz", t_start="0 s"
+            source=dataset.intrinsic_system.id,
+            clock=clock.id,
+            sampling_rate="20 kHz",
+            t_start="0 s",
         )
 
 
@@ -107,7 +119,9 @@ def test_session_clock_states_a_sampling_law(elektro: Elektro) -> None:
 def test_lens_selects_in_samples(elektro: Elektro) -> None:
     """A lens is an immutable selection; its data is the sliced dataset."""
     values = np.random.random((1000, 3))
-    dataset = elektro.create_array_dataset(data=values, scales=[], name="to be lensed", axes=["t", "c"])
+    dataset = elektro.create_array_dataset(
+        data=values, scales=[], name="to be lensed", axes=["t", "c"]
+    )
 
     lens = dataset.lens(t=(100, 300), c=1)
     assert lens.shape == [200, 1]
@@ -130,7 +144,9 @@ def test_marks_drawn_over_a_dataset(elektro: Elektro) -> None:
         axes=["t"],
         # Drawn in the dataset's own samples: the two spaces are the same grid.
         derived_from=[
-            DatasetDerivedFromInput(dataset=dataset.id, transform=IdentityTransformInput())
+            DatasetDerivedFromInput(
+                dataset=dataset.id, transform=IdentityTransformInput()
+            )
         ],
     )
     epoch = elektro.create_annotation(

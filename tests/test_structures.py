@@ -63,9 +63,16 @@ def test_a_lens_and_a_dataset_say_how_they_are_described() -> None:
     from elektro.specs import describe_lens
 
     structures = declared.registry.structure_registry
-    assert structures.get_fullfilled_structure("@elektro/lens").describe is describe_lens
-    assert structures.get_fullfilled_structure("@elektro/arraydataset").describe is describe_lens
-    described = {i for i, s in structures.identifier_structure_map.items() if s.describe}
+    assert (
+        structures.get_fullfilled_structure("@elektro/lens").describe is describe_lens
+    )
+    assert (
+        structures.get_fullfilled_structure("@elektro/arraydataset").describe
+        is describe_lens
+    )
+    described = {
+        i for i, s in structures.identifier_structure_map.items() if s.describe
+    }
     assert described == {"@elektro/lens", "@elektro/arraydataset"}
 
 
@@ -75,5 +82,7 @@ def test_every_structure_class_the_server_identifies_says_so_itself() -> None:
         identifier: getattr(structure.cls, "__identifier__", None)
         for identifier, structure in declared.registry.structure_registry.identifier_structure_map.items()
     }
-    assert {i: s for i, s in stamped.items() if s is not None} == {i: i for i, s in stamped.items() if s is not None}
+    assert {i: s for i, s in stamped.items() if s is not None} == {
+        i: i for i, s in stamped.items() if s is not None
+    }
     assert any(s is not None for s in stamped.values())

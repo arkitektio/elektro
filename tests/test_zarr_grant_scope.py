@@ -12,9 +12,8 @@ import pytest
 import zarr
 from obstore.exceptions import PermissionDeniedError
 
-from elektro.io.obstore import create_s3_store
-
 from elektro.elektro import Elektro
+from elektro.io.obstore import create_s3_store
 
 
 @pytest.mark.integration

@@ -66,7 +66,9 @@ def test_current_clamp_unit_bearing_string_delay() -> None:
 
 def test_sine_wave_stimulus_units() -> None:
     """SineWaveStimulus converts pint amplitude and frequency to expected units."""
-    stim = SineWaveStimulus(cell="cell_1", location="soma", amplitude=80 * pA, frequency=200 * Hz)
+    stim = SineWaveStimulus(
+        cell="cell_1", location="soma", amplitude=80 * pA, frequency=200 * Hz
+    )
     assert stim.amplitude.to("nanoampere").magnitude == pytest.approx(0.08)
     assert stim.frequency.to("hertz").magnitude == pytest.approx(200.0)
 

@@ -26,12 +26,19 @@ def test_a_bare_axis_name_may_be_any_hashable() -> None:
     """A str, a str-valued enum member, or an AxisInput itself."""
     assert AxisInput.model_validate("t").type == AxisType.TIME
     assert AxisInput.model_validate(Dim.T).name == "t"
-    assert AxisInput.model_validate(AxisInput(name="c", type=AxisType.CHANNEL)).name == "c"
+    assert (
+        AxisInput.model_validate(AxisInput(name="c", type=AxisType.CHANNEL)).name == "c"
+    )
 
 
-def test_carried_axes_take_the_dims_xarray_reports(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_carried_axes_take_the_dims_xarray_reports(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Known dims keep their source type; a new one falls back to its name."""
     monkeypatch.setattr(specs, "axis_types", lambda lens: ("TIME", "CHANNEL"))
     lens = SimpleNamespace(axis_names=("t", "c"))
     axes = specs.carried_axes(lens, (Dim.T, "c"))  # type: ignore[arg-type]
-    assert [(a.name, a.type) for a in axes] == [("t", AxisType.TIME), ("c", AxisType.CHANNEL)]
+    assert [(a.name, a.type) for a in axes] == [
+        ("t", AxisType.TIME),
+        ("c", AxisType.CHANNEL),
+    ]

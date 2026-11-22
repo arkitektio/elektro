@@ -7,6 +7,7 @@ dataset onto the clock, then the experiment read off the clock.
 import numpy as np
 import pytest
 import scipy.sparse as sp
+from kanne.scalars import Unit
 
 from elektro.api.schema import (
     AxisType,
@@ -17,8 +18,6 @@ from elektro.api.schema import (
     SparseAxisInput,
     TableIdentifiesInput,
 )
-from kanne.scalars import Unit
-
 from elektro.elektro import Elektro
 
 RATE_HZ = 1000.0
@@ -45,7 +44,9 @@ def _session(elektro: Elektro, clock_name: str) -> dict:
         axes=["t"],
     )
     # Objects resolve to the space they mean: the trace to its sample grid.
-    elektro.create_sampling_law(source=trace, clock=clock, sampling_rate=f"{RATE_HZ} Hz", t_start="0 s")
+    elektro.create_sampling_law(
+        source=trace, clock=clock, sampling_rate=f"{RATE_HZ} Hz", t_start="0 s"
+    )
 
     events = elektro.create_table_dataset(
         name="TTL edges",
@@ -60,7 +61,10 @@ def _session(elektro: Elektro, clock_name: str) -> dict:
 
     units = elektro.create_table_dataset(
         name="sorted units",
-        data={"unit_id": np.arange(N_UNITS), "depth": np.array([10.0, 40.0, 70.0, 120.0])},
+        data={
+            "unit_id": np.arange(N_UNITS),
+            "depth": np.array([10.0, 40.0, 70.0, 120.0]),
+        },
         columns=[
             ColumnInput(name="unit_id", axis_type=AxisType.INDEX),
             ColumnInput(name="depth", unit=Unit("micrometer")),
@@ -80,12 +84,19 @@ def _session(elektro: Elektro, clock_name: str) -> dict:
         name="spike raster",
         store=[matrix, matrix.tocsc()],
         axes=[
-            SparseAxisInput(name="unit", identified_by=[TableIdentifiesInput(table=units.id)]),
+            SparseAxisInput(
+                name="unit", identified_by=[TableIdentifiesInput(table=units.id)]
+            ),
             SparseAxisInput(name="t", type=AxisType.TIME),
         ],
     )
     # A raster is placed exactly as the recording it was sorted from: by a sampling law.
-    elektro.create_sampling_law(source=raster.coordinate_system.id, clock=clock.id, sampling_rate=f"{RATE_HZ} Hz", t_start="0 s")
+    elektro.create_sampling_law(
+        source=raster.coordinate_system.id,
+        clock=clock.id,
+        sampling_rate=f"{RATE_HZ} Hz",
+        t_start="0 s",
+    )
 
     return {
         "clock": clock,
@@ -112,18 +123,28 @@ def test_tables_and_raster_upload(elektro: Elektro) -> None:
     assert raster.axis_names == ["unit", "t"]
     assert raster.shape == [N_UNITS, N_SAMPLES]
     assert sorted(raster.indexable_axes) == ["t", "unit"]
-    assert [ref.references.id for ref in raster.axis_references] == [session["units"].id]
-    assert sum(layout.nnz for layout in raster.arrays[0].store.layouts) == 2 * session["matrix"].nnz
+    assert [ref.references.id for ref in raster.axis_references] == [
+        session["units"].id
+    ]
+    assert (
+        sum(layout.nnz for layout in raster.arrays[0].store.layouts)
+        == 2 * session["matrix"].nnz
+    )
 
 
 @pytest.mark.integration
 def test_experiment_layers_by_hand(elektro: Elektro) -> None:
     """One layer per kind, each a view over data the experiment does not own."""
     session = _session(elektro, "layers-by-hand")
-    experiment = elektro.create_experiment(name="by hand", coordinate_system=session["clock"].id)
+    experiment = elektro.create_experiment(
+        name="by hand", coordinate_system=session["clock"].id
+    )
 
     trace = elektro.create_trace_layer(
-        experiment=experiment.id, dataset=session["trace"].id, name="V soma", color=[0, 0, 0, 255]
+        experiment=experiment.id,
+        dataset=session["trace"].id,
+        name="V soma",
+        color=[0, 0, 0, 255],
     )
     assert trace.lens.dataset.id == session["trace"].id
     assert trace.duration.to("second").magnitude == pytest.approx(N_SAMPLES / RATE_HZ)
@@ -133,7 +154,9 @@ def test_experiment_layers_by_hand(elektro: Elektro) -> None:
         sparse_dataset=session["raster"].id,
         name="units",
         color_bys=[
-            ColorByInput(table=session["units"].id, column="depth", colormap=ColorMap.VIRIDIS)
+            ColorByInput(
+                table=session["units"].id, column="depth", colormap=ColorMap.VIRIDIS
+            )
         ],
     )
     assert spikes.unit_table.id == session["units"].id
@@ -149,7 +172,9 @@ def test_experiment_layers_by_hand(elektro: Elektro) -> None:
     assert events.label_column == "label"
 
     experiment = elektro.get_experiment(experiment.id)
-    assert sorted(experiment.layers_of_kind(k)[0].name for k in ("TRACE", "SPIKES", "EVENTS")) == [
+    assert sorted(
+        experiment.layers_of_kind(k)[0].name for k in ("TRACE", "SPIKES", "EVENTS")
+    ) == [
         "TTL",
         "V soma",
         "units",
@@ -173,7 +198,9 @@ def test_experiment_from_clock(elektro: Elektro) -> None:
     experiment = elektro.create_experiment_from_coordinate_system(
         coordinate_system=session["clock"].id, name="bootstrapped"
     )
-    kinds = sorted(str(getattr(layer.kind, "value", layer.kind)) for layer in experiment.layers)
+    kinds = sorted(
+        str(getattr(layer.kind, "value", layer.kind)) for layer in experiment.layers
+    )
     # The units table has no TIME column and nothing times it: it is looked up, not laid out.
     assert kinds == ["EVENTS", "SPIKES", "TRACE"]
     assert experiment.world.id == session["clock"].id
@@ -183,16 +210,32 @@ def test_experiment_from_clock(elektro: Elektro) -> None:
 def test_multichannel_trace_layers(elektro: Elektro) -> None:
     """A (t, c) lens is one row per channel, or the one row its layer's channelIndex picks."""
     clock = _session_clock(elektro, "multichannel")
-    values = np.stack([np.arange(100.0), 10 * np.arange(100.0), 100 * np.arange(100.0)], axis=1)
-    probe = elektro.create_array_dataset(data=values, scales=[], name="probe", axes=["t", "c"])
-    elektro.create_sampling_law(
-        source=probe.intrinsic_system.id, clock=clock.id, sampling_rate="100 Hz", t_start="0 s"
+    values = np.stack(
+        [np.arange(100.0), 10 * np.arange(100.0), 100 * np.arange(100.0)], axis=1
     )
-    experiment = elektro.create_experiment(name="multichannel", coordinate_system=clock.id)
+    probe = elektro.create_array_dataset(
+        data=values, scales=[], name="probe", axes=["t", "c"]
+    )
+    elektro.create_sampling_law(
+        source=probe.intrinsic_system.id,
+        clock=clock.id,
+        sampling_rate="100 Hz",
+        t_start="0 s",
+    )
+    experiment = elektro.create_experiment(
+        name="multichannel", coordinate_system=clock.id
+    )
     elektro.create_trace_layer(experiment=experiment.id, dataset=probe.id, name="all")
-    elektro.create_trace_layer(experiment=experiment.id, dataset=probe.id, name="one", channel_index=1)
+    elektro.create_trace_layer(
+        experiment=experiment.id, dataset=probe.id, name="one", channel_index=1
+    )
 
     traces = elektro.get_experiment(experiment.id).data["traces"]
-    assert sorted(traces.coords["trace"].values.tolist()) == ["all[c=0]", "all[c=1]", "all[c=2]", "one"]
+    assert sorted(traces.coords["trace"].values.tolist()) == [
+        "all[c=0]",
+        "all[c=1]",
+        "all[c=2]",
+        "one",
+    ]
     np.testing.assert_allclose(traces.sel(trace="one").values, values[:, 1])
     np.testing.assert_allclose(traces.sel(trace="all[c=2]").values, values[:, 2])

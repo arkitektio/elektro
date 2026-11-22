@@ -12,16 +12,18 @@ import numpy as np
 import obstore
 import xarray as xr
 import zarr
-from obstore.store import ObjectStore as ObstoreObjectStore, S3Store
-from zarr.storage import ObjectStore as ZarrObjectStore, StorePath
+from obstore.store import ObjectStore as ObstoreObjectStore
+from obstore.store import S3Store
+from zarr.storage import ObjectStore as ZarrObjectStore
+from zarr.storage import StorePath
 
 from elektro.scalars import is_dask_array
 from elektro.utils import rechunk
 
-
 if TYPE_CHECKING:
-    from pyarrow import Table  # type: ignore
     from obstore.store import ClientConfig, RetryConfig, S3Credential
+    from pyarrow import Table  # type: ignore
+
     from elektro.datalayer import DataLayer
 
 
@@ -49,7 +51,9 @@ class S3UploadGrantLike(Protocol):
 #: Called with the store id; returns a new grant for the *same* key. A context variable rather
 #: than a parameter because the store is built several calls down, in every writer the
 #: middleware drives, and the refresher is the middleware's to know about.
-upload_refresher: ContextVar["Callable[[str], S3UploadGrantLike] | None"] = ContextVar("upload_refresher", default=None)
+upload_refresher: ContextVar["Callable[[str], S3UploadGrantLike] | None"] = ContextVar(
+    "upload_refresher", default=None
+)
 
 #: How long before a grant runs out a fresh one is asked for. obstore asks its credential
 #: provider again shortly before the expiry it reported; refreshing a little earlier than that
@@ -69,7 +73,9 @@ class RefreshingUploadCredentials:
     refreshes would mint two sessions for nothing.
     """
 
-    def __init__(self, grant: "S3UploadGrantLike", refresh: "Callable[[], S3UploadGrantLike]") -> None:
+    def __init__(
+        self, grant: "S3UploadGrantLike", refresh: "Callable[[], S3UploadGrantLike]"
+    ) -> None:
         """Wrap the grant an upload started with, and how to renew it."""
         self._refresh = refresh
         self._lock = threading.Lock()
@@ -78,13 +84,19 @@ class RefreshingUploadCredentials:
     def _install(self, grant: "S3UploadGrantLike") -> None:
         self._grant = grant
         expires_in = getattr(grant, "expires_in", None)
-        self._expires_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=expires_in) if expires_in else None
+        self._expires_at = (
+            datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=expires_in)
+            if expires_in
+            else None
+        )
 
     def __call__(self) -> "S3Credential":
         """The credentials to sign the next request with."""
         with self._lock:
             if self._expires_at is not None:
-                remaining = (self._expires_at - datetime.datetime.now(datetime.UTC)).total_seconds()
+                remaining = (
+                    self._expires_at - datetime.datetime.now(datetime.UTC)
+                ).total_seconds()
                 if remaining < UPLOAD_REFRESH_MARGIN_SECONDS:
                     self._install(self._refresh())
             return {
@@ -129,7 +141,9 @@ def create_s3_store(
     if proxy:
         normalized_client_options["proxy_url"] = proxy
     if certificates:
-        normalized_client_options["root_certificate"] = "\n".join(pem.strip() for pem in certificates)
+        normalized_client_options["root_certificate"] = "\n".join(
+            pem.strip() for pem in certificates
+        )
         normalized_client_options["disable_system_certificates"] = True
 
     store_kwargs: dict[str, object] = {
@@ -142,7 +156,9 @@ def create_s3_store(
     store_id = getattr(grant, "store", None)
     if refresh is not None and store_id:
         # Inside an upload: credentials that renew themselves against the same store.
-        store_kwargs["credential_provider"] = RefreshingUploadCredentials(grant, lambda: refresh(store_id))
+        store_kwargs["credential_provider"] = RefreshingUploadCredentials(
+            grant, lambda: refresh(store_id)
+        )
     else:
         store_kwargs["access_key_id"] = grant.access_key
         store_kwargs["secret_access_key"] = grant.secret_key
@@ -175,7 +191,13 @@ def create_zarr_store_path(
     a 403. A node at the root has no parents to walk.
     """
     zarr_store = ZarrObjectStore(
-        create_s3_store(endpoint_url, grant, prefix=grant.key, proxy=proxy, certificates=certificates)
+        create_s3_store(
+            endpoint_url,
+            grant,
+            prefix=grant.key,
+            proxy=proxy,
+            certificates=certificates,
+        )
     )
     return StorePath(zarr_store, "")
 
@@ -243,7 +265,10 @@ SHARD_MIN_ARRAY_BYTES = SHARD_BYTES
 
 
 def _generic_shard_shape(
-    shape: tuple[int, ...], inner: tuple[int, ...], itemsize: int, shard_bytes: int = SHARD_BYTES
+    shape: tuple[int, ...],
+    inner: tuple[int, ...],
+    itemsize: int,
+    shard_bytes: int = SHARD_BYTES,
 ) -> tuple[int, ...]:
     """Grow an inner chunk shape into a shard shape for arbitrarily-labelled dims.
 
@@ -267,7 +292,9 @@ def _generic_shard_shape(
     return tuple(int(s) for s in shard)
 
 
-def _zarr_chunk_layout(array: xr.DataArray) -> tuple[tuple[int, ...], tuple[int, ...] | None]:
+def _zarr_chunk_layout(
+    array: xr.DataArray,
+) -> tuple[tuple[int, ...], tuple[int, ...] | None]:
     """The on-disk zarr (inner chunk, shard) layout, in the array's own dimension order.
 
     Canonical 5D ``ctzyx`` arrays keep the ``ctzyx``-aware ~20 MB :func:`rechunk`, unsharded
@@ -278,7 +305,9 @@ def _zarr_chunk_layout(array: xr.DataArray) -> tuple[tuple[int, ...], tuple[int,
     """
     if set(array.dims) == _CTZYX_DIMS:
         chunks = rechunk(
-            dict(array.sizes), itemsize=array.dtype.itemsize, chunksize_in_bytes=20_000_000
+            dict(array.sizes),
+            itemsize=array.dtype.itemsize,
+            chunksize_in_bytes=20_000_000,
         )
         return tuple(int(chunks[dim]) for dim in array.dims), None
 
@@ -300,7 +329,8 @@ def _dimension_names(array: xr.DataArray) -> list[str | None] | None:
     null is the store declining to name the dimension.
     """
     names: list[str | None] = [
-        None if str(dim) == f"dim_{index}" else str(dim) for index, dim in enumerate(array.dims)
+        None if str(dim) == f"dim_{index}" else str(dim)
+        for index, dim in enumerate(array.dims)
     ]
     return names if any(name is not None for name in names) else None
 
@@ -362,7 +392,9 @@ async def awrite_dataarray_to_zarr(
     Delegates to the synchronous streaming writer in a worker thread: ``dask.array.store``
     runs the dask scheduler synchronously, so it must not be awaited on the event loop.
     """
-    await asyncio.to_thread(write_dataarray_to_zarr, store_path, array, chunks=chunks, shards=shards)
+    await asyncio.to_thread(
+        write_dataarray_to_zarr, store_path, array, chunks=chunks, shards=shards
+    )
 
 
 async def awrite_xarray_to_obstore(
@@ -374,7 +406,10 @@ async def awrite_xarray_to_obstore(
     Asynchronously write an xarray dataset to S3 via obstore and Zarr.
     """
     store_path = create_zarr_store_path(
-        await datalayer.get_endpoint_url(), grant, proxy=datalayer.proxy, certificates=datalayer.certificates
+        await datalayer.get_endpoint_url(),
+        grant,
+        proxy=datalayer.proxy,
+        certificates=datalayer.certificates,
     )
     await awrite_dataarray_to_zarr(store_path, da)
 

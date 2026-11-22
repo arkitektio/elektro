@@ -39,7 +39,9 @@ def build_config() -> ModelConfigInput:
     """A one-section soma whose compartment uses the custom 'customleak' mechanism."""
     topology = TopologyInput(
         sections=[
-            SectionInput(id="soma", category="soma", nseg=1, diam="20 um", length="20 um"),
+            SectionInput(
+                id="soma", category="soma", nseg=1, diam="20 um", length="20 um"
+            ),
         ]
     )
     biophysics = BiophysicsInput(
@@ -70,8 +72,8 @@ def build_config() -> ModelConfigInput:
 
 def main() -> None:
     try:
-        from koil import unkoil
         from kanne.scalars import ElectricCurrent
+        from koil import unkoil
 
         from elektro.neuron.simulate import (
             CurrentClampStimulus,

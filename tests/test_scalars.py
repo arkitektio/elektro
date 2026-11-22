@@ -6,7 +6,7 @@ import pytest
 import xarray as xr
 from pydantic import BaseModel, ValidationError
 
-from elektro.scalars import ByteCount, Matrix, ArrayLike, TwoDVector, is_unlabeled
+from elektro.scalars import ArrayLike, ByteCount, Matrix, TwoDVector, is_unlabeled
 
 
 class ArrayModel(BaseModel):

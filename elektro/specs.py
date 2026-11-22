@@ -81,13 +81,13 @@ from typing import (
     get_args,
 )
 
-from arkitekt_spec.declare.annotations import Provides, Requires
-from arkitekt_spec.declare.descriptors import holds
-from arkitekt_spec.declare.descriptors import unfulfilled as descriptor_failures
 from arkitekt_spec.actions import (
     DescriptorOperator,
     RequiresInput,
 )
+from arkitekt_spec.declare.annotations import Provides, Requires
+from arkitekt_spec.declare.descriptors import holds
+from arkitekt_spec.declare.descriptors import unfulfilled as descriptor_failures
 
 from elektro.api.schema import AxisInput, AxisType, Lens
 from elektro.scalars import axis_name
@@ -321,7 +321,9 @@ any channels. Structurally also what unit waveform templates ``(unit, c, w)``
 are; which one a dataset is, is its provenance (a template set derives from a
 spike raster), not its shape."""
 
-Spectrogram = Annotated[Scalar, *exactly(N_TIME_AXES, 1), *at_least(N_FREQUENCY_AXES, 1)]
+Spectrogram = Annotated[
+    Scalar, *exactly(N_TIME_AXES, 1), *at_least(N_FREQUENCY_AXES, 1)
+]
 """Power over time and frequency: one TIME axis and a FREQUENCY axis."""
 
 Spectrum = Annotated[Scalar, *exactly(N_TIME_AXES, 0), *at_least(N_FREQUENCY_AXES, 1)]
@@ -396,7 +398,9 @@ def _typed_system(candidate: Candidate) -> _HasAxes | None:
     )
     if system is None:
         dataset = getattr(candidate, "dataset", None)
-        system = getattr(dataset, "intrinsic_system", None) if dataset is not None else None
+        system = (
+            getattr(dataset, "intrinsic_system", None) if dataset is not None else None
+        )
     return system
 
 
@@ -477,7 +481,9 @@ def lens_descriptors(candidate: Candidate) -> dict[DescriptorKey, DescriptorValu
         key: counts.get(axis_type, 0) for axis_type, key in _KEY_BY_AXIS_TYPE.items()
     }
     for key, wanted in ADJUSTABLE_KEYS.items():
-        descriptors[key] = sum(extent for _, axis_type, extent in table if axis_type == wanted)
+        descriptors[key] = sum(
+            extent for _, axis_type, extent in table if axis_type == wanted
+        )
     dimension = value_dimension(_value_unit(candidate))
     if dimension is not None:
         descriptors[VALUE_DIMENSION] = dimension
@@ -493,7 +499,11 @@ def axes_of_type(lens: Lens, axis_type: AxisType | AxisTypeName) -> tuple[str, .
     what it is called.
     """
     wanted = enum_value(axis_type)
-    return tuple(name for name, found in zip(lens.axis_names, axis_types(lens)) if found == wanted)
+    return tuple(
+        name
+        for name, found in zip(lens.axis_names, axis_types(lens))
+        if found == wanted
+    )
 
 
 def carried_axes(lens: Lens, dims: Sequence[Hashable]) -> list[AxisInput]:
@@ -509,7 +519,10 @@ def carried_axes(lens: Lens, dims: Sequence[Hashable]) -> list[AxisInput]:
     types = dict(zip(lens.axis_names, axis_types(lens)))
     names = [axis_name(dim) for dim in dims]
     return [
-        AxisInput(name=name, type=AxisType(types[name] if name in types else default_axis_type(name)))
+        AxisInput(
+            name=name,
+            type=AxisType(types[name] if name in types else default_axis_type(name)),
+        )
         for name in names
     ]
 
@@ -604,7 +617,9 @@ def ensure(lens: Lens, spec: Spec, declares: Declarations | None = None) -> Lens
     """
     failures = unfulfilled(lens, spec, declares)
     if failures:
-        raise SpecMismatch("Lens does not fulfil the promised spec: " + "; ".join(failures))
+        raise SpecMismatch(
+            "Lens does not fulfil the promised spec: " + "; ".join(failures)
+        )
     return lens
 
 
@@ -680,7 +695,9 @@ def compose(
         if holds(operator, actual, constraint.value):
             continue
         axis_type = ADJUSTABLE_KEYS.get(key)
-        axes = tuple((name, extent) for name, found, extent in table if found == axis_type)
+        axes = tuple(
+            (name, extent) for name, found, extent in table if found == axis_type
+        )
         target = constraint.value
         if (
             axis_type is not None
@@ -690,10 +707,18 @@ def compose(
             and actual > target >= len(axes)
         ):
             pins.append(
-                Pin(key=key, axis_type=axis_type, axes=axes, operator=operator, target=target)
+                Pin(
+                    key=key,
+                    axis_type=axis_type,
+                    axes=axes,
+                    operator=operator,
+                    target=target,
+                )
             )
         else:
-            failures.append(f"{key} {operator} {constraint.value!r} (actual {actual!r})")
+            failures.append(
+                f"{key} {operator} {constraint.value!r} (actual {actual!r})"
+            )
     return CompositionPlan(failures=tuple(failures), pins=tuple(pins))
 
 
@@ -701,12 +726,16 @@ def _selected_extent(choice: AxisSelection, extent: int, axis: str) -> int:
     """The extent an axis keeps under a selection, mirroring DatasetTrait.lens."""
     if isinstance(choice, int) and not isinstance(choice, bool):
         if not 0 <= choice < extent:
-            raise ValueError(f"Index {choice} out of range for axis {axis!r} (extent {extent})")
+            raise ValueError(
+                f"Index {choice} out of range for axis {axis!r} (extent {extent})"
+            )
     start, stop, step = normalize_selection(axis, choice)
     return len(range(*slice(start, stop, step).indices(extent)))
 
 
-def selections_for(plan: CompositionPlan, **choices: AxisSelection) -> dict[str, AxisSelection]:
+def selections_for(
+    plan: CompositionPlan, **choices: AxisSelection
+) -> dict[str, AxisSelection]:
     """Resolve a plan's pins into per-axis selections for ``dataset.lens(...)``.
 
     Each choice keyword names an axis of a pin (``c=1`` pins channel 1). Every
@@ -728,7 +757,11 @@ def selections_for(plan: CompositionPlan, **choices: AxisSelection) -> dict[str,
             _selected_extent(picked[name], extent, name) if name in picked else extent
             for name, extent in pin.axes
         )
-        fits = achieved == pin.target if pin.operator == "EQUALS" else achieved <= pin.target
+        fits = (
+            achieved == pin.target
+            if pin.operator == "EQUALS"
+            else achieved <= pin.target
+        )
         if not fits:
             raise ValueError(
                 f"Choices leave {pin.key} at {achieved}, need {pin.operator} {pin.target}"
@@ -765,7 +798,9 @@ def fit_lens(
     """
     plan = compose(dataset, spec, declares)
     if not plan.satisfiable:
-        raise SpecMismatch("No lens over this dataset fits the spec: " + "; ".join(plan.failures))
+        raise SpecMismatch(
+            "No lens over this dataset fits the spec: " + "; ".join(plan.failures)
+        )
     selections = selections_for(plan, **choices)
     lens = dataset.lens(**selections)
     return ensure(lens, spec, declares)

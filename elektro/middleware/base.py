@@ -12,7 +12,7 @@ Both sync and async variants are supported:
 from __future__ import annotations
 
 import abc
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
@@ -45,7 +45,7 @@ class OperationMiddleware(BaseModel, abc.ABC):
         self,
         variables: dict[str, Any],
         operation: type[TOperation],
-        rath: "ElektroRath",
+        rath: ElektroRath,
     ) -> dict[str, Any]:
         """Process the serialized variables dict synchronously.
 
@@ -67,7 +67,7 @@ class OperationMiddleware(BaseModel, abc.ABC):
         self,
         variables: dict[str, Any],
         operation: type[TOperation],
-        rath: "ElektroRath",
+        rath: ElektroRath,
     ) -> dict[str, Any]:
         """Process the serialized variables dict asynchronously.
 

@@ -92,7 +92,9 @@ def endpoint() -> Any:
     server.close()
 
 
-def test_a_plain_http_store_without_proxy_reaches_the_endpoint(endpoint: Answer404) -> None:
+def test_a_plain_http_store_without_proxy_reaches_the_endpoint(
+    endpoint: Answer404,
+) -> None:
     """allow_http survives: the request is sent (and answered 404), not refused locally."""
     store = create_s3_store(endpoint.url, GRANT)
 
@@ -172,7 +174,9 @@ def _links(client: Any) -> tuple[Any, Any]:
     return split.left, split.right
 
 
-def test_the_builder_puts_the_alias_proxy_on_both_links(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_builder_puts_the_alias_proxy_on_both_links(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(elektro_arkitekt, "AIOHttpLink", RecordingHttpLink)
     monkeypatch.setattr(elektro_arkitekt, "GraphQLWSLink", RecordingWsLink)
     proxy = "http://127.0.0.1:41234"
@@ -189,7 +193,9 @@ def test_the_builder_puts_the_alias_proxy_on_both_links(monkeypatch: pytest.Monk
 
 def test_the_builder_passes_no_proxy_when_the_alias_has_none() -> None:
     """A direct (not mesh) alias builds links and a datalayer without a proxy."""
-    client = elektro_arkitekt.elektro._function(elektro=_alias(), datalayer=_alias(), tokens=Tokens())
+    client = elektro_arkitekt.elektro._function(
+        elektro=_alias(), datalayer=_alias(), tokens=Tokens()
+    )
 
     http, ws = _links(client)
     assert http.endpoint_url == "http://mesh-host:9000/graphql"
@@ -217,7 +223,9 @@ async def test_a_pinned_datalayer_hands_its_store_the_hub_certificate_alone(
 ) -> None:
     """Per store, not via SSL_CERT_FILE: obstore >= 0.11 never reads it on macOS or Windows."""
     monkeypatch.delenv("SSL_CERT_FILE", raising=False)
-    alias = Alias(id="s3", host="localhost", port=2577, ssl=True, certificates=[HUB_CERTIFICATE])
+    alias = Alias(
+        id="s3", host="localhost", port=2577, ssl=True, certificates=[HUB_CERTIFICATE]
+    )
 
     store = await acreate_s3_store(GRANT, DataLayer.from_alias(alias))
 

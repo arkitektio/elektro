@@ -35,7 +35,9 @@ def build_config() -> ModelConfigInput:
     """A one-section soma using only built-in NEURON mechanisms."""
     topology = TopologyInput(
         sections=[
-            SectionInput(id="soma", category="soma", nseg=1, diam="20 um", length="20 um"),
+            SectionInput(
+                id="soma", category="soma", nseg=1, diam="20 um", length="20 um"
+            ),
         ]
     )
     biophysics = BiophysicsInput(
@@ -68,15 +70,17 @@ def create_builtin_environment(elektro: Elektro, name: str):
     """Create a minimal, mechanism-free ModEnvironment (see 01_basic_model.py)."""
     empty_dir = tempfile.mkdtemp(prefix="elektro-builtin-env-")
     zip_file, mechanisms = build_and_zip_environment(empty_dir)
-    return elektro.create_mod_environment(name=name, zip_file=zip_file, mechanisms=mechanisms)
+    return elektro.create_mod_environment(
+        name=name, zip_file=zip_file, mechanisms=mechanisms
+    )
 
 
 def main() -> None:
     # Simulation-only imports — kept local so the create-only path in
     # 01_basic_model.py works without the NEURON extra installed.
     try:
-        from koil import unkoil
         from kanne.scalars import ElectricCurrent
+        from koil import unkoil
 
         from elektro.neuron.simulate import (
             CurrentClampStimulus,

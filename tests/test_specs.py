@@ -59,7 +59,8 @@ def system(names: list[str], types: list[str]) -> SimpleNamespace:
     """A typed coordinate system: one axis per name, in order."""
     return SimpleNamespace(
         axes=[
-            SimpleNamespace(order=i, name=n, type=t) for i, (n, t) in enumerate(zip(names, types))
+            SimpleNamespace(order=i, name=n, type=t)
+            for i, (n, t) in enumerate(zip(names, types))
         ]
     )
 
@@ -83,7 +84,9 @@ def candidate(
 VM = candidate(["t"], (30_000,), ["TIME"], "mV")
 ARRAY = candidate(["t", "c"], (30_000, 32), ["TIME", "CHANNEL"], "microvolt")
 CLAMP = candidate(["t", "c"], (30_000, 1), ["TIME", "CHANNEL"], "pA")
-EPISODIC = candidate(["sweep", "t", "c"], (20, 5_000, 2), ["INDEX", "TIME", "CHANNEL"], "mV")
+EPISODIC = candidate(
+    ["sweep", "t", "c"], (20, 5_000, 2), ["INDEX", "TIME", "CHANNEL"], "mV"
+)
 SPECTROGRAM = candidate(["t", "f"], (2_000, 64), ["TIME", "FREQUENCY"], "dB")
 PSD = candidate(["f"], (512,), ["FREQUENCY"], "V**2/Hz")
 UNITLESS = candidate(["t"], (100,), ["TIME"])
@@ -99,20 +102,28 @@ class TestDescriptors:
 
     def test_the_bare_name_convention_is_the_fallback(self) -> None:
         """The bare name convention is the fallback."""
-        assert axis_types(candidate(["sweep", "t", "c"], (2, 3, 4))) == ("INDEX", "TIME", "CHANNEL")
+        assert axis_types(candidate(["sweep", "t", "c"], (2, 3, 4))) == (
+            "INDEX",
+            "TIME",
+            "CHANNEL",
+        )
 
     def test_an_unconventional_untyped_name_is_refused_not_guessed(self) -> None:
         """Nothing in an array says whether a second dimension is channels or sweeps."""
         with pytest.raises(UnknownAxisName):
             axis_types(candidate(["t", "electrode"], (10, 4)))
 
-    def test_a_lens_is_typed_through_its_dataset_when_fetched_without_a_system(self) -> None:
+    def test_a_lens_is_typed_through_its_dataset_when_fetched_without_a_system(
+        self,
+    ) -> None:
         """A lens is typed through its dataset when fetched without a system."""
         lens = SimpleNamespace(
             axis_names=["t", "c"], shape=(100, 1), coordinate_system=None, dataset=ARRAY
         )
         assert axis_types(lens) == ("TIME", "CHANNEL")
-        assert lens_descriptors(lens)[VALUE_DIMENSION] == "voltage", "and measured through it"
+        assert lens_descriptors(lens)[VALUE_DIMENSION] == "voltage", (
+            "and measured through it"
+        )
 
     def test_every_count_key_is_emitted_including_the_zeroes(self) -> None:
         """`Trace` and `SingleChannel` match on absence, so a missing key and a zero count differ."""
@@ -208,7 +219,9 @@ class TestFulfilment:
         assert fulfills(VM, Categorical)
         assert fulfills(VM, Categorical, {VALUE_KIND: "categorical"})
         (failure,) = unfulfilled(VM, Categorical, {VALUE_KIND: "continuous"})
-        assert "@elektro/value_kind EQUALS 'categorical' (actual 'continuous')" in failure
+        assert (
+            "@elektro/value_kind EQUALS 'categorical' (actual 'continuous')" in failure
+        )
 
     def test_refine_stacks_constraints_onto_a_base(self) -> None:
         """Refine stacks constraints onto a base."""
@@ -252,7 +265,9 @@ class TestCompose:
 
     def test_a_single_sweep_of_one_channel_is_two_pins(self) -> None:
         """A single sweep of one channel is two pins."""
-        spec = refine(Sweeps, *exactly(N_CHANNELS, 1), *exactly("@elektro/n_indices", 1))
+        spec = refine(
+            Sweeps, *exactly(N_CHANNELS, 1), *exactly("@elektro/n_indices", 1)
+        )
         plan = compose(EPISODIC, spec)
         assert sorted(pin.axis_type for pin in plan.pins) == ["CHANNEL", "INDEX"]
         assert selections_for(plan, sweep=3, c=0) == {"sweep": 3, "c": 0}
@@ -294,7 +309,9 @@ class TestSelections:
 class TestFitLens:
     """The conversion itself: plan, lens, re-check."""
 
-    def test_fit_lens_lenses_the_dataset_with_the_chosen_pins_and_checks_the_result(self) -> None:
+    def test_fit_lens_lenses_the_dataset_with_the_chosen_pins_and_checks_the_result(
+        self,
+    ) -> None:
         """Fit lens lenses the dataset with the chosen pins and checks the result."""
         asked = {}
 
@@ -302,10 +319,15 @@ class TestFitLens:
             """The dataset's `lens`, recording what it was asked for."""
             asked.update(selections)
             return SimpleNamespace(
-                axis_names=["t", "c"], shape=(30_000, 1), coordinate_system=None, dataset=ARRAY
+                axis_names=["t", "c"],
+                shape=(30_000, 1),
+                coordinate_system=None,
+                dataset=ARRAY,
             )
 
         dataset = SimpleNamespace(**vars(ARRAY), lens=lens)
         fitted = fit_lens(dataset, SingleChannelTrace, c=7)
         assert asked == {"c": 7}
-        assert axes_of_type(fitted, "CHANNEL") == ("c",), "a pinned channel axis survives, size one"
+        assert axes_of_type(fitted, "CHANNEL") == ("c",), (
+            "a pinned channel axis survives, size one"
+        )

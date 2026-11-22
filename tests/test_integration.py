@@ -36,7 +36,9 @@ def test_get_written(elektro: Elektro) -> None:
     )
 
     assert elektro.get_array_dataset(written.id).id == written.id
-    assert [d.id for d in elektro.get_array_datasets(filters={"folder": folder.id})] == [written.id]
+    assert [
+        d.id for d in elektro.get_array_datasets(filters={"folder": folder.id})
+    ] == [written.id]
 
 
 @pytest.mark.integration

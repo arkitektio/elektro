@@ -67,11 +67,18 @@ def _config(section_params: list[SectionParamMap]) -> NeuronModelConfig:
     )
     biophysics = CellBiophysics(
         compartments=[
-            Compartment(id="soma", mechanisms=["pas", "hh"], sectionParams=section_params, ions=[]),
+            Compartment(
+                id="soma",
+                mechanisms=["pas", "hh"],
+                sectionParams=section_params,
+                ions=[],
+            ),
             Compartment(
                 id="dend",
                 mechanisms=["pas"],
-                sectionParams=[_param("e_pas", "pas", kind="EXPRESSION", expression="-65 - d/100")],
+                sectionParams=[
+                    _param("e_pas", "pas", kind="EXPRESSION", expression="-65 - d/100")
+                ],
                 ions=[],
             ),
         ]
@@ -103,9 +110,13 @@ def _model() -> NeuronModel:
         ("g_pas", "0.001 S/cm2", 0.001),  # already native
     ],
 )
-def test_values_are_converted_to_the_neuron_unit(name: str, value: str, expected: float) -> None:
+def test_values_are_converted_to_the_neuron_unit(
+    name: str, value: str, expected: float
+) -> None:
     """A quantity reaches NEURON in the unit the mechanism declares, not the one typed."""
-    assert _to_neuron_magnitude(h, name, GenericQuantity.validate(value)) == pytest.approx(expected)
+    assert _to_neuron_magnitude(
+        h, name, GenericQuantity.validate(value)
+    ) == pytest.approx(expected)
 
 
 def test_incompatible_unit_is_rejected() -> None:
@@ -150,7 +161,9 @@ def test_expression_distance_is_measured_from_the_soma() -> None:
 DT_MS = 0.025
 
 
-def _run(stims: list, dt_ms: float = DT_MS, duration_ms: float = 200.0) -> SimulationResults:
+def _run(
+    stims: list, dt_ms: float = DT_MS, duration_ms: float = 200.0
+) -> SimulationResults:
     return run_simulation_processed(
         model=_model(),
         duration=Duration(f"{duration_ms} ms"),
@@ -163,7 +176,10 @@ def _run(stims: list, dt_ms: float = DT_MS, duration_ms: float = 200.0) -> Simul
 
 def _noise(**kwargs: object) -> WhiteNoiseStimulus:
     return WhiteNoiseStimulus(
-        cell="cell_1", location="soma", noise_level=ElectricCurrent("0.02 nanoampere"), **kwargs
+        cell="cell_1",
+        location="soma",
+        noise_level=ElectricCurrent("0.02 nanoampere"),
+        **kwargs,
     )
 
 

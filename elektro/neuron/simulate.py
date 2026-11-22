@@ -2,43 +2,21 @@
 
 import ast
 import asyncio
-from concurrent.futures import ProcessPoolExecutor
+import logging
 import math
 import multiprocessing as mp
-from dataclasses import dataclass
-import numpy as np
-import logging
-import uuid
 import os
 import platform
+import uuid
 import zipfile
+from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
-from filelock import FileLock, Timeout
 from typing import TYPE_CHECKING, Any, Literal
-from pydantic import BaseModel, Field
 
-from elektro.api.schema import (
-    ModEnvironment,
-    NeuronModelConfig,
-    Cell,
-    ExpTwoSynapse,
-    SynapticConnection,
-    RecordingSiteInput,
-    StimulusSiteInput,
-    StimulusKind,
-    RecordingKind,
-    IonStyle,
-    NeuronModel,
-    SamplingInput,
-    ArrayDataset,
-    AxisInput,
-    AxisType,
-    CoordinateAnchorInput,
-    ValueUnitInput,
-    CoordinateSystem,
-    SimulationStateInput,
-)
-
+import numpy as np
+from filelock import FileLock, Timeout
 from kanne.scalars import (
     Duration,
     DurationCoercible,
@@ -48,7 +26,29 @@ from kanne.scalars import (
     PintQuantity,
     Unit,
 )
-from collections import defaultdict
+from pydantic import BaseModel, Field
+
+from elektro.api.schema import (
+    ArrayDataset,
+    AxisInput,
+    AxisType,
+    Cell,
+    CoordinateAnchorInput,
+    CoordinateSystem,
+    ExpTwoSynapse,
+    IonStyle,
+    ModEnvironment,
+    NeuronModel,
+    NeuronModelConfig,
+    RecordingKind,
+    RecordingSiteInput,
+    SamplingInput,
+    SimulationStateInput,
+    StimulusKind,
+    StimulusSiteInput,
+    SynapticConnection,
+    ValueUnitInput,
+)
 
 if TYPE_CHECKING:
     from elektro.elektro import Elektro
@@ -126,7 +126,9 @@ async def aensure_compiled_mechanisms(
     try:
         # 2. Check Cache
         if not dll_path.exists():
-            logger.info(f"Cache miss for environment {env_hash}. Downloading asynchronously...")
+            logger.info(
+                f"Cache miss for environment {env_hash}. Downloading asynchronously..."
+            )
             cache_dir.mkdir(parents=True, exist_ok=True)
             zip_path = cache_dir / "mechanisms.zip"
 
@@ -380,7 +382,10 @@ def _safe_eval_expression(expression: str, variables: dict[str, float]) -> float
             )
         if isinstance(node, ast.Call):
             # Only direct calls to whitelisted function names, no keyword/star args.
-            if not isinstance(node.func, ast.Name) or node.func.id not in _EXPR_FUNCTIONS:
+            if (
+                not isinstance(node.func, ast.Name)
+                or node.func.id not in _EXPR_FUNCTIONS
+            ):
                 raise ValueError(
                     f"Disallowed function call in distribution expression {expression!r}."
                 )
@@ -393,14 +398,18 @@ def _safe_eval_expression(expression: str, variables: dict[str, float]) -> float
             and node.id not in variables
             and (node.id not in _EXPR_FUNCTIONS and node.id not in _EXPR_CONSTANTS)
         ):
-            raise ValueError(f"Unknown name {node.id!r} in distribution expression {expression!r}.")
+            raise ValueError(
+                f"Unknown name {node.id!r} in distribution expression {expression!r}."
+            )
         if isinstance(node, ast.Constant) and not isinstance(node.value, (int, float)):
             raise ValueError(
                 f"Only numeric literals are allowed in distribution expression {expression!r}."
             )
 
     names = {**_EXPR_CONSTANTS, **_EXPR_FUNCTIONS, **variables}
-    return float(eval(compile(tree, "<distribution>", "eval"), {"__builtins__": {}}, names))
+    return float(
+        eval(compile(tree, "<distribution>", "eval"), {"__builtins__": {}}, names)
+    )
 
 
 def _neuron_unit(h: Any, name: str) -> str | None:
@@ -443,7 +452,9 @@ def _to_neuron_magnitude(h: Any, name: str, value: Any) -> float:
         )
         return value.magnitude
 
-    target = GenericQuantity._normalize_string("1" + unit if unit.startswith("/") else unit)
+    target = GenericQuantity._normalize_string(
+        "1" + unit if unit.startswith("/") else unit
+    )
     try:
         return float(value.to(target).magnitude)
     except Exception as e:
@@ -477,7 +488,9 @@ def _apply_section_param(
 
     if kind.endswith("LINEAR"):
         if dist.proximal_value is None or dist.distal_value is None:
-            raise ValueError("A 'linear' distribution requires proximal_value and distal_value.")
+            raise ValueError(
+                "A 'linear' distribution requires proximal_value and distal_value."
+            )
         proximal = _to_neuron_magnitude(h, param, dist.proximal_value)
         distal = _to_neuron_magnitude(h, param, dist.distal_value)
 
@@ -495,7 +508,9 @@ def _apply_section_param(
         # An expression yields a bare number, taken to be in the parameter's NEURON unit.
         h.distance(0, origin if origin is not None else sec(0))
         for seg in sec:
-            value = _safe_eval_expression(dist.expression, {"x": seg.x, "d": h.distance(seg)})
+            value = _safe_eval_expression(
+                dist.expression, {"x": seg.x, "d": h.distance(seg)}
+            )
             setattr(seg, param, value)
         return
 
@@ -574,13 +589,25 @@ def _apply_ions(h: Any, sec: Any, ions: list[Any]) -> None:
         try:
             h.ion_style(ion_mech, *style_args, sec=sec)
             if ion.reversal_potential is not None:
-                setattr(sec, f"e{ion.ion}", ion.reversal_potential.to("millivolt").magnitude)
+                setattr(
+                    sec, f"e{ion.ion}", ion.reversal_potential.to("millivolt").magnitude
+                )
             if ion.internal_concentration is not None:
-                setattr(sec, f"{ion.ion}i", ion.internal_concentration.to("millimolar").magnitude)
+                setattr(
+                    sec,
+                    f"{ion.ion}i",
+                    ion.internal_concentration.to("millimolar").magnitude,
+                )
             if ion.external_concentration is not None:
-                setattr(sec, f"{ion.ion}o", ion.external_concentration.to("millimolar").magnitude)
+                setattr(
+                    sec,
+                    f"{ion.ion}o",
+                    ion.external_concentration.to("millimolar").magnitude,
+                )
         except Exception as e:
-            raise ValueError(f"Failed to set ion {ion.ion} on section {sec.name()}") from e
+            raise ValueError(
+                f"Failed to set ion {ion.ion} on section {sec.name()}"
+            ) from e
 
 
 def instantiate_cell(h: Any, cell: Cell, config: NeuronModelConfig) -> dict[str, Any]:
@@ -612,7 +639,9 @@ def instantiate_cell(h: Any, cell: Cell, config: NeuronModelConfig) -> dict[str,
         elif sec_def.length is not None:
             sec.L = sec_def.length.to("micrometer").magnitude
         else:
-            raise ValueError("Either coords or length must be provided for section geometry")
+            raise ValueError(
+                "Either coords or length must be provided for section geometry"
+            )
 
         # Passive cable properties: a section's own value wins, then the model-wide
         # default, otherwise NEURON's built-in default is left untouched.
@@ -652,7 +681,9 @@ def instantiate_cell(h: Any, cell: Cell, config: NeuronModelConfig) -> dict[str,
             try:
                 sec.insert(mechanism)
             except Exception as e:
-                raise ValueError(f"Failed add mechanism {mechanism} to section {sec_def.id}") from e
+                raise ValueError(
+                    f"Failed add mechanism {mechanism} to section {sec_def.id}"
+                ) from e
 
         for param in comp.section_params:
             assert param.mechanism in comp.mechanisms
@@ -788,10 +819,16 @@ def _fit_length(values: np.ndarray, length: int) -> np.ndarray:
     return np.concatenate([values, np.full(length - len(values), values[-1])])
 
 
-def _stimulus_window(stim: Any, times: np.ndarray, total_ms: float) -> tuple[float, np.ndarray]:
+def _stimulus_window(
+    stim: Any, times: np.ndarray, total_ms: float
+) -> tuple[float, np.ndarray]:
     """``stim``'s onset (ms) and the boolean mask of ``times`` during which it is on."""
     delay = stim.delay.to("millisecond").magnitude
-    duration = stim.duration.to("millisecond").magnitude if stim.duration is not None else total_ms
+    duration = (
+        stim.duration.to("millisecond").magnitude
+        if stim.duration is not None
+        else total_ms
+    )
     return delay, (times >= delay) & (times < delay + duration)
 
 
@@ -867,7 +904,9 @@ def run_simulation_processed(
                 A = stim_param.amplitude.to("nanoampere").magnitude
                 f = stim_param.frequency.to("hertz").magnitude
                 delay, window = _stimulus_window(stim_param, times, total_ms)
-                waveform[window] += A * np.sin(2 * np.pi * f * ((times[window] - delay) / 1000.0))
+                waveform[window] += A * np.sin(
+                    2 * np.pi * f * ((times[window] - delay) / 1000.0)
+                )
                 needs_vector = True
 
             elif isinstance(stim_param, WhiteNoiseStimulus):
@@ -879,7 +918,9 @@ def run_simulation_processed(
                 )
                 _, window = _stimulus_window(stim_param, times, total_ms)
                 rng = np.random.default_rng(stim_param.seed)
-                waveform[window] += rng.normal(0.0, sigma, size=int(np.count_nonzero(window)))
+                waveform[window] += rng.normal(
+                    0.0, sigma, size=int(np.count_nonzero(window))
+                )
                 needs_vector = True
 
         if needs_vector:
@@ -944,7 +985,8 @@ def run_simulation_processed(
     # more or fewer than the played grid through float rounding, so trim or pad
     # (holding the last value) to the recorded length.
     output_waveforms: dict[tuple[str, str, float], np.ndarray] = {
-        key: _fit_length(waveform, len(time_trace)) for key, waveform in played_groups.items()
+        key: _fit_length(waveform, len(time_trace))
+        for key, waveform in played_groups.items()
     }
     for key, step_clamps in step_groups.items():
         waveform = np.zeros_like(time_trace)
@@ -1127,7 +1169,9 @@ async def aupload_trace(
     )
 
 
-async def apublish_simulation(elektro: "Elektro", result: SimulationResults) -> PublishedRun:
+async def apublish_simulation(
+    elektro: "Elektro", result: SimulationResults
+) -> PublishedRun:
     """Publish a finished run through ``elektro``: one `ArrayDataset` per trace, timed onto one new clock.
 
     A run is its clock. Each recording states what computed it (a `simulation`
@@ -1147,7 +1191,9 @@ async def apublish_simulation(elektro: "Elektro", result: SimulationResults) -> 
 
     recordings = []
     for index, recorded in enumerate(result.recordings):
-        label = f"{result.name} · {recorded.cell}/{recorded.location}({recorded.position})"
+        label = (
+            f"{result.name} · {recorded.cell}/{recorded.location}({recorded.position})"
+        )
         site = RecordingSiteInput(
             model=result.model.id,  # a site is a place on a model, checked against its config
             kind=recorded.kind,
@@ -1156,11 +1202,21 @@ async def apublish_simulation(elektro: "Elektro", result: SimulationResults) -> 
             position=recorded.position,
             label=label,
         )
-        recordings.append(await aupload_trace(elektro, recorded, f"{label} · recording {index}", site, simulation=state))
+        recordings.append(
+            await aupload_trace(
+                elektro,
+                recorded,
+                f"{label} · recording {index}",
+                site,
+                simulation=state,
+            )
+        )
 
     stimuli = []
     for index, recorded in enumerate(result.stimuli):
-        label = f"{result.name} · {recorded.cell}/{recorded.location}({recorded.position})"
+        label = (
+            f"{result.name} · {recorded.cell}/{recorded.location}({recorded.position})"
+        )
         site = StimulusSiteInput(
             model=result.model.id,
             kind=recorded.kind,
@@ -1169,12 +1225,16 @@ async def apublish_simulation(elektro: "Elektro", result: SimulationResults) -> 
             position=recorded.position,
             label=label,
         )
-        stimuli.append(await aupload_trace(elektro, recorded, f"{label} · stimulus {index}", site))
+        stimuli.append(
+            await aupload_trace(elektro, recorded, f"{label} · stimulus {index}", site)
+        )
 
     clock = await elektro.acreate_session(
         name=result.name,
         datasets=[dataset.id for dataset in [*recordings, *stimuli]],
         time_unit=Unit("millisecond"),  # createSession defaults to seconds
-        sampling=SamplingInput(rate=Frequency(f"{1000.0 / dt_ms} Hz"), t_start=Duration("0 ms")),
+        sampling=SamplingInput(
+            rate=Frequency(f"{1000.0 / dt_ms} Hz"), t_start=Duration("0 ms")
+        ),
     )
     return PublishedRun(clock=clock, recordings=recordings, stimuli=stimuli)
