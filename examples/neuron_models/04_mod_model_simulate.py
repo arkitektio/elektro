@@ -85,7 +85,7 @@ def main() -> None:
             "This example runs a NEURON simulation and needs the neuron extra:\n"
             '    pip install "elektro[neuron]"\n'
             f"(import failed: {exc})"
-        )
+        ) from exc
 
     zip_file, mechanisms = build_and_zip_environment(str(MOD_DIR))
     print(f"Parsed {len(mechanisms)} mechanism(s) from {MOD_DIR}:")

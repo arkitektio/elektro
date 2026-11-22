@@ -24,6 +24,7 @@ from elektro.api.schema import (
     CompartmentInput,
     DistributionInput,
     ModelConfigInput,
+    ModEnvironment,
     SectionInput,
     SectionParamMapInput,
     TopologyInput,
@@ -67,7 +68,7 @@ def build_config() -> ModelConfigInput:
     )
 
 
-def create_builtin_environment(elektro: Elektro, name: str):
+def create_builtin_environment(elektro: Elektro, name: str) -> ModEnvironment:
     """Create a minimal ModEnvironment with no custom mechanisms.
 
     The server requires every NeuronModel to reference an environment, even when

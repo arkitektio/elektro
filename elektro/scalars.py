@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     import pyarrow as pa
 
 
-def is_dask_array(v: Any) -> bool:
+def is_dask_array(v: object) -> bool:
     """Check if the input is a dask array."""
     try:
         import dask.array.core as da
@@ -43,7 +43,7 @@ def is_dask_array(v: Any) -> bool:
     except ImportError:
         return False
     except Exception as e:
-        raise ValueError(f"Error checking for dask array: {e}")
+        raise ValueError(f"Error checking for dask array: {e}") from e
 
 
 # What each scalar's ``validate`` accepts, named so the generated resolvers can state it and a
@@ -73,7 +73,7 @@ class ByteCount(int):
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,  # noqa: ANN401
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Validate with :meth:`validate`, serialize as a plain int."""
@@ -106,7 +106,7 @@ class AssignationID(str):
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -124,7 +124,7 @@ class RGBAColor(list):
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -155,7 +155,7 @@ def is_unlabeled(array: xr.DataArray) -> bool:
     return all(str(dim) == f"dim_{index}" for index, dim in enumerate(array.dims))
 
 
-def coerce_to_labeled_array(v: Any) -> xr.DataArray:
+def coerce_to_labeled_array(v: object) -> xr.DataArray:
     """Coerce array-like input into an ``xr.DataArray``, keeping its dimensions verbatim.
 
     Nothing is added, removed, renamed or transposed. A bare numpy/dask array
@@ -206,7 +206,7 @@ class Upload:
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -234,7 +234,7 @@ class Micrometers(float):
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -254,7 +254,7 @@ class Microliters(float):
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -274,7 +274,7 @@ class Micrograms(float):
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -294,7 +294,7 @@ class Milliseconds(float):
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -314,7 +314,7 @@ class TwoDVector(list):
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -362,7 +362,7 @@ class ThreeDVector(list):
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -390,7 +390,7 @@ class FourDVector(list):
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -418,7 +418,7 @@ class FiveDVector(list):
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -495,7 +495,7 @@ class Matrix(list):
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -524,7 +524,7 @@ class FourByFourMatrix(list):
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -569,13 +569,13 @@ class ArrayLike:
         self.value = value
         self.key = str(uuid.uuid4())
 
-    def __set__(self, instance: Any, value: ArrayCoercible) -> None:
+    def __set__(self, instance: object, value: ArrayCoercible) -> None:
         """Set the descriptor value on the owning instance."""
 
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -608,7 +608,7 @@ class BigFile:
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -655,7 +655,7 @@ class ParquetLike:
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -752,7 +752,7 @@ class SporadikLike:
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,  # noqa: ANN401
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -843,7 +843,7 @@ class FileLike:
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -885,7 +885,7 @@ class MeshLike:
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""
@@ -929,7 +929,7 @@ class BigFileLike:
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
-        source_type: Any,
+        source_type: object,
         handler: GetCoreSchemaHandler,
     ) -> CoreSchema:
         """Get the pydantic core schema for the validator function."""

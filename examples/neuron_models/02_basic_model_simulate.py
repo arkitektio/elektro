@@ -24,6 +24,7 @@ from elektro.api.schema import (
     CompartmentInput,
     DistributionInput,
     ModelConfigInput,
+    ModEnvironment,
     SectionInput,
     SectionParamMapInput,
     TopologyInput,
@@ -66,7 +67,7 @@ def build_config() -> ModelConfigInput:
     )
 
 
-def create_builtin_environment(elektro: Elektro, name: str):
+def create_builtin_environment(elektro: Elektro, name: str) -> ModEnvironment:
     """Create a minimal, mechanism-free ModEnvironment (see 01_basic_model.py)."""
     empty_dir = tempfile.mkdtemp(prefix="elektro-builtin-env-")
     zip_file, mechanisms = build_and_zip_environment(empty_dir)
@@ -92,7 +93,7 @@ def main() -> None:
             "This example runs a NEURON simulation and needs the neuron extra:\n"
             '    pip install "elektro[neuron]"\n'
             f"(import failed: {exc})"
-        )
+        ) from exc
 
     with connect(App("neuron-model-examples", services=[Elektro])) as rt:
         elektro = rt.require(Elektro)

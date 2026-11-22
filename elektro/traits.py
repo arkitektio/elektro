@@ -14,7 +14,7 @@ If you want to add your own traits to the graphql type, you can do so by adding 
 from collections import deque
 from collections.abc import Awaitable, Hashable, Sequence
 from enum import Enum
-from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, Self
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -314,7 +314,7 @@ class ExperimentTrait(ContextBound):
                 return [samples.expand_dims(trace=[label])]
             flat = samples.stack(trace=others).transpose("trace", "time")
             names = [
-                f"{label}[{', '.join(f'{d}={int(v)}' for d, v in zip(others, key if isinstance(key, tuple) else (key,)))}]"
+                f"{label}[{', '.join(f'{d}={int(v)}' for d, v in zip(others, key if isinstance(key, tuple) else (key,), strict=True))}]"
                 for key in flat.indexes["trace"]
             ]
             return [flat.drop_vars([*others, "trace"]).assign_coords(trace=names)]
@@ -357,6 +357,11 @@ class TableDatasetTrait(ContextBound):
         return store.duckdb_relation
 
 
+_CreateTableDatasetTrait = TypeVar(
+    "_CreateTableDatasetTrait", bound="CreateTableDatasetTrait"
+)
+
+
 class CreateTableDatasetTrait(BaseModel):
     """Resolves `columns` against the frame, and checks the whole declaration against it.
 
@@ -368,7 +373,7 @@ class CreateTableDatasetTrait(BaseModel):
     """
 
     @model_validator(mode="after")
-    def _resolve_columns(self) -> Self:
+    def _resolve_columns(self: _CreateTableDatasetTrait) -> _CreateTableDatasetTrait:
         """Derive the declaration, merge the caller's onto it, and refuse what cannot describe this frame."""
         data = getattr(self, "data", None)
         if data is None:
@@ -392,6 +397,11 @@ class CreateTableDatasetTrait(BaseModel):
         return self
 
 
+_CreateSparseDatasetTrait = TypeVar(
+    "_CreateSparseDatasetTrait", bound="CreateSparseDatasetTrait"
+)
+
+
 class CreateSparseDatasetTrait(BaseModel):
     """Checks a sparse dataset's declaration against its matrix, before the matrix moves.
 
@@ -400,7 +410,9 @@ class CreateSparseDatasetTrait(BaseModel):
     """
 
     @model_validator(mode="after")
-    def _check_declaration(self) -> Self:
+    def _check_declaration(
+        self: _CreateSparseDatasetTrait,
+    ) -> _CreateSparseDatasetTrait:
         """Check the axes, then check them against the matrix if one is in hand."""
         axes = getattr(self, "axes", None) or ()
         check_axes(axes)
@@ -634,6 +646,9 @@ class AxisInputTrait(BaseModel):
         return {"name": name, "type": default_axis_type(name)}
 
 
+_DeclaresAxesTrait = TypeVar("_DeclaresAxesTrait", bound="DeclaresAxesTrait")
+
+
 class DeclaresAxesTrait(BaseModel):
     """Checks an input's arrays against the axes declared for them, before upload.
 
@@ -648,7 +663,7 @@ class DeclaresAxesTrait(BaseModel):
     """
 
     @model_validator(mode="after")
-    def _axes_describe_the_arrays(self) -> Self:
+    def _axes_describe_the_arrays(self: _DeclaresAxesTrait) -> _DeclaresAxesTrait:
         axes = getattr(self, "axes", None)
         if not axes:
             return self
@@ -679,7 +694,9 @@ class DeclaresAxesTrait(BaseModel):
                 )
 
             if is_unlabeled(array):
-                wrapped.value = array.rename(dict(zip(array.dims, declared)))
+                wrapped.value = array.rename(
+                    dict(zip(array.dims, declared, strict=True))
+                )
                 continue
 
             dims = [str(dim) for dim in array.dims]
@@ -846,7 +863,7 @@ class TransformationTrait:
                 input_axes, output_axes = get_attributes_or_error(
                     self, "input_axes", "output_axes"
                 )
-                for in_name, out_name in zip(input_axes, output_axes):
+                for in_name, out_name in zip(input_axes, output_axes, strict=False):
                     matrix[out_names.index(out_name), in_names.index(in_name)] = 1.0
                 return matrix
 

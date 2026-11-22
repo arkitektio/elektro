@@ -422,7 +422,7 @@ def _axis_table(candidate: Candidate) -> tuple[tuple[str, AxisTypeName, int], ..
         types = tuple(enum_value(axis.type) for axis in axes)
     else:
         types = tuple(default_axis_type(name) for name in names)
-    return tuple(zip(names, types, shape))
+    return tuple(zip(names, types, shape, strict=False))
 
 
 def axis_types(candidate: Candidate) -> tuple[AxisTypeName, ...]:
@@ -501,7 +501,7 @@ def axes_of_type(lens: Lens, axis_type: AxisType | AxisTypeName) -> tuple[str, .
     wanted = enum_value(axis_type)
     return tuple(
         name
-        for name, found in zip(lens.axis_names, axis_types(lens))
+        for name, found in zip(lens.axis_names, axis_types(lens), strict=False)
         if found == wanted
     )
 
@@ -516,7 +516,7 @@ def carried_axes(lens: Lens, dims: Sequence[Hashable]) -> list[AxisInput]:
     unconventionally named axes. A genuinely new dim falls back to the bare-name
     convention.
     """
-    types = dict(zip(lens.axis_names, axis_types(lens)))
+    types = dict(zip(lens.axis_names, axis_types(lens), strict=False))
     names = [axis_name(dim) for dim in dims]
     return [
         AxisInput(

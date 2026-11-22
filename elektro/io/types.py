@@ -3,7 +3,6 @@
 from collections.abc import Awaitable
 from typing import (
     TYPE_CHECKING,
-    Any,
     Protocol,
     runtime_checkable,
 )
@@ -27,7 +26,7 @@ class Namer(Protocol):
 
     def __call__(
         self,
-        file: Any,
+        file: object,
     ) -> Awaitable[tuple[str, str]]:
         """Return the s3 path (bucket and key) for the given file."""
         ...
@@ -45,7 +44,7 @@ class Downloader(Protocol):
         key: str,
         credentials: "Credentials",
         executor: ThreadPoolExecutor | None = None,
-    ) -> Any:
+    ) -> str:
         """Download a file from the DataLayer and return the local path."""
         ...
 
@@ -61,7 +60,7 @@ class Uploader(Protocol):
 
     def __call__(
         self,
-        file: Any,
+        file: object,
         credentials: "Credentials",
         endpoint_url: str,
         executor: ThreadPoolExecutor | None = None,

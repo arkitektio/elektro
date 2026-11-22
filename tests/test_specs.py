@@ -60,7 +60,7 @@ def system(names: list[str], types: list[str]) -> SimpleNamespace:
     return SimpleNamespace(
         axes=[
             SimpleNamespace(order=i, name=n, type=t)
-            for i, (n, t) in enumerate(zip(names, types))
+            for i, (n, t) in enumerate(zip(names, types, strict=False))
         ]
     )
 

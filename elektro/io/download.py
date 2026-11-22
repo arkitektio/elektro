@@ -1,5 +1,6 @@
 """Helpers for downloading Zarr, Parquet, big-file and media data from the DataLayer."""
 
+import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -322,7 +323,9 @@ async def _awrite_object(
 
     # Stream the file asynchronously directly into the file object
     response = await obstore.get_async(store, credentials.key)
-    with open(file_name, "wb") as file:
+    # Opened off the loop; the writes are of chunks already in memory.
+    file = await asyncio.to_thread(open, file_name, "wb")
+    with file:
         async for chunk in response.stream():
             file.write(chunk)
 

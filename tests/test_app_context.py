@@ -227,7 +227,7 @@ def test_an_object_fetched_through_no_client_says_so(
     store = Store(id="store-1", nested=Nested(id="n-1"))
 
     with pytest.raises(NoElektroFound, match="not fetched through an Elektro client"):
-        store.zarr_store
+        _ = store.zarr_store
     with pytest.raises(NoElektroFound, match="elektro=..."):
         client_of(store)
     assert opened == []
@@ -302,7 +302,7 @@ def test_the_client_has_exactly_its_fields() -> None:
 
     from elektro.rath import ElektroRath
 
-    service = Elektro(
+    Elektro(
         rath=ElektroRath(link=DirectSucceedingLink()),
         datalayer=DataLayer(endpoint_url="self"),
     )
@@ -370,7 +370,7 @@ async def test_rekuest_expands_through_the_client_its_registry_was_bound_to(
         shelver=None,  # type: ignore[arg-type]
     )
     store = expanded["store"]
-    store.zarr_store  # touched while the OTHER app is current
+    _ = store.zarr_store  # touched while the OTHER app is current
 
     assert (a.rath.calls, b.rath.calls) == (1, 0)
     assert (opened[0]["rath"], opened[0]["datalayer"]) == (a.rath, a.datalayer)

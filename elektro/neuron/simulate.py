@@ -43,6 +43,7 @@ from elektro.api.schema import (
     RecordingKind,
     RecordingSiteInput,
     SamplingInput,
+    SectionParamMapDistribution,
     SimulationStateInput,
     StimulusKind,
     StimulusSiteInput,
@@ -51,6 +52,9 @@ from elektro.api.schema import (
 )
 
 if TYPE_CHECKING:
+    from neuron import nrn
+    from neuron.hoc import HocObject
+
     from elektro.elektro import Elektro
 
 logger = logging.getLogger(__name__)
@@ -163,7 +167,9 @@ async def aensure_compiled_mechanisms(
 
 
 def load_compiled_mechanisms(
-    h: Any, environment: ModEnvironment, base_cache_dir: str = "/tmp/neuron_cache"
+    h: "HocObject",
+    environment: ModEnvironment,
+    base_cache_dir: str = "/tmp/neuron_cache",
 ) -> None:
     """
     PHASE 2: Synchronous loader.
@@ -412,7 +418,7 @@ def _safe_eval_expression(expression: str, variables: dict[str, float]) -> float
     )
 
 
-def _neuron_unit(h: Any, name: str) -> str | None:
+def _neuron_unit(h: "HocObject", name: str) -> str | None:
     """The unit NEURON declares for the variable ``name`` (e.g. ``"mmho/cm2"``).
 
     Returns ``None`` when NEURON declares no unit (or does not know the name).
@@ -424,7 +430,9 @@ def _neuron_unit(h: Any, name: str) -> str | None:
     return unit or None
 
 
-def _to_neuron_magnitude(h: Any, name: str, value: Any) -> float:
+def _to_neuron_magnitude(
+    h: "HocObject", name: str, value: PintQuantity | float
+) -> float:
     """Convert a unit-bearing ``value`` to a bare float in ``name``'s NEURON unit.
 
     NEURON range and global variables are bare numbers in the unit declared by their
@@ -464,7 +472,11 @@ def _to_neuron_magnitude(h: Any, name: str, value: Any) -> float:
 
 
 def _apply_section_param(
-    h: Any, sec: Any, param: str, dist: Any, origin: Any = None
+    h: "HocObject",
+    sec: "nrn.Section",
+    param: str,
+    dist: SectionParamMapDistribution,
+    origin: "nrn.Segment | None" = None,
 ) -> None:
     """Set a range variable on ``sec`` according to its spatial ``distribution``.
 
@@ -530,7 +542,7 @@ _ION_STYLE_ARGS: dict[str, tuple[int, int, int, int, int]] = {
 }
 
 
-def _lambda_f(h: Any, sec: Any, freq: float) -> float:
+def _lambda_f(h: "HocObject", sec: "nrn.Section", freq: float) -> float:
     """The AC length constant of ``sec`` at ``freq`` Hz, in micrometers.
 
     Mirrors NEURON's stdlib ``lambda_f``: when the section carries 3D points the
@@ -554,7 +566,7 @@ def _lambda_f(h: Any, sec: Any, freq: float) -> float:
     return sec.L / lam
 
 
-def _nseg_from_dlambda(h: Any, sec: Any, d_lambda: float) -> int:
+def _nseg_from_dlambda(h: "HocObject", sec: "nrn.Section", d_lambda: float) -> int:
     """Number of segments for ``sec`` under NEURON's d_lambda rule (odd count).
 
     ``d_lambda`` is the target fraction of the 100 Hz AC length constant per
@@ -563,7 +575,7 @@ def _nseg_from_dlambda(h: Any, sec: Any, d_lambda: float) -> int:
     return int((sec.L / (d_lambda * _lambda_f(h, sec, 100.0)) + 0.9) / 2) * 2 + 1
 
 
-def _apply_ions(h: Any, sec: Any, ions: list[Any]) -> None:
+def _apply_ions(h: "HocObject", sec: "nrn.Section", ions: list[Any]) -> None:
     """Apply per-section ion settings (reversal potential / concentrations / style).
 
     An ion can only be configured on a section where a mechanism actually uses it
@@ -610,7 +622,9 @@ def _apply_ions(h: Any, sec: Any, ions: list[Any]) -> None:
             ) from e
 
 
-def instantiate_cell(h: Any, cell: Cell, config: NeuronModelConfig) -> dict[str, Any]:
+def instantiate_cell(
+    h: "HocObject", cell: Cell, config: NeuronModelConfig
+) -> dict[str, Any]:
     """Build NEURON sections for a cell and return them keyed by section id.
 
     ``config`` supplies the model-wide defaults (Ra, cm, ion settings) that a
@@ -747,7 +761,7 @@ class SimulationResults:
     stims: list[Any] | None = None
 
 
-def instantiate_model(h: Any, model: NeuronModelConfig) -> NeuronModelInstance:
+def instantiate_model(h: "HocObject", model: NeuronModelConfig) -> NeuronModelInstance:
     """Instantiate all cells, synapses and connections of a model in NEURON."""
     cell_h_sections: dict[str, dict[str, Any]] = {}
     net_stimulations: dict[str, Any] = {}
@@ -820,7 +834,7 @@ def _fit_length(values: np.ndarray, length: int) -> np.ndarray:
 
 
 def _stimulus_window(
-    stim: Any, times: np.ndarray, total_ms: float
+    stim: "WhiteNoiseStimulus | SineWaveStimulus", times: np.ndarray, total_ms: float
 ) -> tuple[float, np.ndarray]:
     """``stim``'s onset (ms) and the boolean mask of ``times`` during which it is on."""
     delay = stim.delay.to("millisecond").magnitude
