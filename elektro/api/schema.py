@@ -112,6 +112,16 @@ class Blending(str, Enum):
     'Alpha-over compositing: the layer is blended over the layers below using its opacity.'
     __str__ = str.__str__
 
+class ChannelColoring(str, Enum):
+    """When a multi-channel trace gives each channel its own colour, stepped round the wheel from the layer's colour"""
+    OVERLAY = 'OVERLAY'
+    'Only where the channels share one plot; stacked channels are already told apart by their bands. The default.'
+    ALWAYS = 'ALWAYS'
+    'Every channel its own colour, stacked or overlaid.'
+    NEVER = 'NEVER'
+    "Every channel in the layer's one colour."
+    __str__ = str.__str__
+
 class ClampMode(str, Enum):
     """Which quantity the amplifier controlled: the potential (voltage clamp), the current (current clamp), or nothing at all (I=0)"""
     VOLTAGE_CLAMP = 'VOLTAGE_CLAMP'
@@ -642,6 +652,8 @@ class AnnotationCollectionFilter(BaseModel):
     created_before: datetime | None = Field(validation_alias=AliasChoices('created_before', 'createdBefore'), serialization_alias='createdBefore', default=None, description='Filter for items created before this datetime')
     created_after: datetime | None = Field(validation_alias=AliasChoices('created_after', 'createdAfter'), serialization_alias='createdAfter', default=None, description='Filter for items created after this datetime')
     owner: ID | None = Field(default=None, description="Filter by the creator's subject ID")
+    in_collaboration: ID | None = Field(validation_alias=AliasChoices('in_collaboration', 'inCollaboration'), serialization_alias='inCollaboration', default=None, description='Only what is in this collaboration (its key): put in, or part of what was')
+    created_under: ID | None = Field(validation_alias=AliasChoices('created_under', 'createdUnder'), serialization_alias='createdUnder', default=None, description='Only what the workflow (its root task id) created')
     id: ID | None = None
     name: 'StrFilterLookup | None' = None
     and_: 'AnnotationCollectionFilter | None' = Field(validation_alias=AliasChoices('and_', 'AND'), serialization_alias='AND', default=None)
@@ -652,12 +664,15 @@ class AnnotationCollectionFilter(BaseModel):
     coordinate_system: ID | None = Field(validation_alias=AliasChoices('coordinate_system', 'coordinateSystem'), serialization_alias='coordinateSystem', default=None, description="Filter by the coordinate system the annotations are drawn in (the collection's own)")
     dataset: ID | None = Field(default=None, description='Filter to the collections drawn over this dataset (or over a lens of it), following the derivation edge')
     drawn_over: ID | None = Field(validation_alias=AliasChoices('drawn_over', 'drawnOver'), serialization_alias='drawnOver', default=None, description="Filter to the collections drawn over this coordinate system: pass a segment's clock for the events and epochs marking the whole segment, or an experiment's world for those on its timeline")
+    timed: bool | None = Field(default=None, description='Filter by whether the collection is drawn in a space with a TIME axis -- events and epochs on a clock -- or in one without (shapes over a static map)')
     model_config = ConfigDict(extra='forbid', validate_assignment=True)
 
 class AnnotationFilter(BaseModel):
     """No documentation"""
     ids: list[ID] | None = Field(default=None, description='Filter by list of IDs')
     search: str | None = Field(default=None, description='Search by name (case-insensitive substring)')
+    in_collaboration: ID | None = Field(validation_alias=AliasChoices('in_collaboration', 'inCollaboration'), serialization_alias='inCollaboration', default=None, description='Only what is in this collaboration (its key): put in, or part of what was')
+    created_under: ID | None = Field(validation_alias=AliasChoices('created_under', 'createdUnder'), serialization_alias='createdUnder', default=None, description='Only what the workflow (its root task id) created')
     id: str | None = None
     name: 'StrFilterLookup | None' = None
     description: 'StrFilterLookup | None' = None
@@ -698,6 +713,8 @@ class ArrayDatasetFilter(BaseModel):
     created_through: ID | None = Field(validation_alias=AliasChoices('created_through', 'createdThrough'), serialization_alias='createdThrough', default=None, description='Filter by the database ID of the task the item was created through (the `createdThrough { id }` field)')
     assigned_by: ID | None = Field(validation_alias=AliasChoices('assigned_by', 'assignedBy'), serialization_alias='assignedBy', default=None, description='Filter by the sub of the user that assigned the creating task')
     created_through_by: ID | None = Field(validation_alias=AliasChoices('created_through_by', 'createdThroughBy'), serialization_alias='createdThroughBy', default=None, description='Filter by the database ID of the user that assigned the creating task (the `createdThroughBy { id }` field)')
+    in_collaboration: ID | None = Field(validation_alias=AliasChoices('in_collaboration', 'inCollaboration'), serialization_alias='inCollaboration', default=None, description='Only what is in this collaboration (its key): put in, or part of what was')
+    created_under: ID | None = Field(validation_alias=AliasChoices('created_under', 'createdUnder'), serialization_alias='createdUnder', default=None, description='Only what the workflow (its root task id) created')
     id: ID | None = None
     name: 'StrFilterLookup | None' = None
     description: 'StrFilterLookup | None' = None
@@ -710,6 +727,7 @@ class ArrayDatasetFilter(BaseModel):
     folders: list[ID] | None = Field(default=None, description='Filter by a list of folder IDs')
     spec: list[ArrayDatasetSpec] | None = Field(default=None, description='Filter to datasets satisfying every one of these specs, e.g. [TIMESERIES, MULTICHANNEL] for multi-channel recordings. Materialized at creation from the axes of the intrinsic coordinate system and the level-0 shape; an axis counts only when it has more than one position, so a stack of one plane is an IMAGE and a single frame is not a TIMESERIES (use `hasAxisTypes` to ask whether an axis is declared at all). A dataset carries one spatial spec (by how many such SPACE axes it has) plus a modifier per such acquisition axis, so two spatial specs together match nothing')
     has_axis_types: list[AxisType] | None = Field(validation_alias=AliasChoices('has_axis_types', 'hasAxisTypes'), serialization_alias='hasAxisTypes', default=None, description='Filter to datasets whose intrinsic coordinate system carries every one of these axis types, e.g. [TIME, CHANNEL]. The raw form of `spec`, for the types no spec names: COORDINATE, DISPLACEMENT, INDEX')
+    timed: bool | None = Field(default=None, description="Filter by whether the dataset's sample grid has a TIME axis -- a recording, a stimulus, placeable on a clock -- or none (a unit's waveform templates, a static map). The same question `timed` asks of sparse and table datasets; `hasAxisTypes: [TIME]` is its true half")
     multiscale: bool | None = Field(default=None, description='Filter by whether the dataset carries a resolution pyramid: true for the multiscale ones, false for those with a single level')
     has_physical_space: bool | None = Field(validation_alias=AliasChoices('has_physical_space', 'hasPhysicalSpace'), serialization_alias='hasPhysicalSpace', default=None, description='Filter by whether the dataset has an edge into a space with real units. False finds the data that is still only samples, with no sampling law or time lookup recorded -- the datasets nothing has timed yet')
     placeable_in: 'PlaceableFilter | None' = Field(validation_alias=AliasChoices('placeable_in', 'placeableIn'), serialization_alias='placeableIn', default=None, description="Filter to datasets placeable into a coordinate system: those with a lens whose space reaches it across steps that compose into one affine map, walking the transformation edges. A route crossing a FIELD is not one -- it relates the two spaces by the values of an array -- so a spike train or a variable-step run is not offered here, though `inView` reports it. Takes a *space*: pass an experiment's `world.id` to ask it of an experiment")
@@ -858,6 +876,8 @@ class CoordinateSystemFilter(BaseModel):
     created_before: datetime | None = Field(validation_alias=AliasChoices('created_before', 'createdBefore'), serialization_alias='createdBefore', default=None, description='Filter for items created before this datetime')
     created_after: datetime | None = Field(validation_alias=AliasChoices('created_after', 'createdAfter'), serialization_alias='createdAfter', default=None, description='Filter for items created after this datetime')
     owner: ID | None = Field(default=None, description="Filter by the creator's subject ID")
+    in_collaboration: ID | None = Field(validation_alias=AliasChoices('in_collaboration', 'inCollaboration'), serialization_alias='inCollaboration', default=None, description='Only what is in this collaboration (its key): put in, or part of what was')
+    created_under: ID | None = Field(validation_alias=AliasChoices('created_under', 'createdUnder'), serialization_alias='createdUnder', default=None, description='Only what the workflow (its root task id) created')
     id: ID | None = None
     name: 'StrFilterLookup | None' = None
     and_: 'CoordinateSystemFilter | None' = Field(validation_alias=AliasChoices('and_', 'AND'), serialization_alias='AND', default=None)
@@ -866,6 +886,7 @@ class CoordinateSystemFilter(BaseModel):
     distinct: bool | None = Field(validation_alias=AliasChoices('distinct', 'DISTINCT'), serialization_alias='DISTINCT', default=None)
     uninhabited: bool | None = Field(default=None, description='Filter to the spaces nothing lives in: pure reference frames -- the clocks and worlds that datasets are sampled onto and registered into. False finds the spaces some data actually occupies')
     dataset: ID | None = Field(default=None, description="Filter to the spaces this dataset's data lives in: its own sample grid, and the grids of its sliced lenses")
+    has_axis_types: list[AxisType] | None = Field(validation_alias=AliasChoices('has_axis_types', 'hasAxisTypes'), serialization_alias='hasAxisTypes', default=None, description='Filter to the spaces carrying every one of these axis types, e.g. [TIME] for clocks and the spaces sampled on one. The same question `hasAxisTypes` asks of array datasets, asked of the space itself')
     composed_over: bool | None = Field(validation_alias=AliasChoices('composed_over', 'composedOver'), serialization_alias='composedOver', default=None, description="Filter to the spaces something composes over without living in them: an experiment's world. False finds the spaces nothing is laid out in")
     model_config = ConfigDict(extra='forbid', validate_assignment=True)
 
@@ -1114,6 +1135,7 @@ class CreateTraceLayerInput(BaseModel):
     line_width: float | None = Field(validation_alias=AliasChoices('line_width', 'lineWidth'), serialization_alias='lineWidth', default=None)
     clim_min: float | None = Field(validation_alias=AliasChoices('clim_min', 'climMin'), serialization_alias='climMin', default=None)
     clim_max: float | None = Field(validation_alias=AliasChoices('clim_max', 'climMax'), serialization_alias='climMax', default=None)
+    channel_coloring: ChannelColoring | None = Field(validation_alias=AliasChoices('channel_coloring', 'channelColoring'), serialization_alias='channelColoring', default=None)
     experiment: ID
     lens: ID | None = None
     dataset: ID | None = None
@@ -1225,10 +1247,12 @@ class ExperimentFilter(BaseModel):
     created_after: datetime | None = Field(validation_alias=AliasChoices('created_after', 'createdAfter'), serialization_alias='createdAfter', default=None)
     created_by: ID | None = Field(validation_alias=AliasChoices('created_by', 'createdBy'), serialization_alias='createdBy', default=None)
     mine: bool | None = None
-    provenance_task: str | None = Field(validation_alias=AliasChoices('provenance_task', 'provenanceTask'), serialization_alias='provenanceTask', default=None)
-    provenance_root_task: str | None = Field(validation_alias=AliasChoices('provenance_root_task', 'provenanceRootTask'), serialization_alias='provenanceRootTask', default=None)
-    created_with: str | None = Field(validation_alias=AliasChoices('created_with', 'createdWith'), serialization_alias='createdWith', default=None)
-    created_by_agent: bool | None = Field(validation_alias=AliasChoices('created_by_agent', 'createdByAgent'), serialization_alias='createdByAgent', default=None)
+    provenance_task: str | None = Field(validation_alias=AliasChoices('provenance_task', 'provenanceTask'), serialization_alias='provenanceTask', default=None, description='Filter to what a change ran under this task id')
+    provenance_root_task: str | None = Field(validation_alias=AliasChoices('provenance_root_task', 'provenanceRootTask'), serialization_alias='provenanceRootTask', default=None, description='Filter to what a change ran under this root task (the workflow): created or modified by it')
+    created_with: str | None = Field(validation_alias=AliasChoices('created_with', 'createdWith'), serialization_alias='createdWith', default=None, description='Filter to what a change was made with this client: directly, or as the agent executing its task')
+    created_by_agent: bool | None = Field(validation_alias=AliasChoices('created_by_agent', 'createdByAgent'), serialization_alias='createdByAgent', default=None, description='True: what some change was made under an automated task. False: only what no task ever touched (human / direct API)')
+    in_collaboration: ID | None = Field(validation_alias=AliasChoices('in_collaboration', 'inCollaboration'), serialization_alias='inCollaboration', default=None, description='Only what is in this collaboration (its key): put in, or part of what was')
+    created_under: ID | None = Field(validation_alias=AliasChoices('created_under', 'createdUnder'), serialization_alias='createdUnder', default=None, description='Only what the workflow (its root task id) created')
     id: ID | None = None
     name: 'StrFilterLookup | None' = None
     world: ID | None = None
@@ -1241,6 +1265,8 @@ class ExperimentFilter(BaseModel):
 class ExperimentLayerFilter(BaseModel):
     """No documentation"""
     ids: list[ID] | None = Field(default=None, description='Filter by list of IDs')
+    in_collaboration: ID | None = Field(validation_alias=AliasChoices('in_collaboration', 'inCollaboration'), serialization_alias='inCollaboration', default=None, description='Only what is in this collaboration (its key): put in, or part of what was')
+    created_under: ID | None = Field(validation_alias=AliasChoices('created_under', 'createdUnder'), serialization_alias='createdUnder', default=None, description='Only what the workflow (its root task id) created')
     id: ID | None = None
     name: 'StrFilterLookup | None' = None
     and_: 'ExperimentLayerFilter | None' = Field(validation_alias=AliasChoices('and_', 'AND'), serialization_alias='AND', default=None)
@@ -1380,6 +1406,8 @@ class LabelInput(BaseModel):
 class LensFilter(BaseModel):
     """No documentation"""
     ids: list[ID] | None = Field(default=None, description='Filter by list of IDs')
+    in_collaboration: ID | None = Field(validation_alias=AliasChoices('in_collaboration', 'inCollaboration'), serialization_alias='inCollaboration', default=None, description='Only what is in this collaboration (its key): put in, or part of what was')
+    created_under: ID | None = Field(validation_alias=AliasChoices('created_under', 'createdUnder'), serialization_alias='createdUnder', default=None, description='Only what the workflow (its root task id) created')
     id: ID | None = None
     and_: 'LensFilter | None' = Field(validation_alias=AliasChoices('and_', 'AND'), serialization_alias='AND', default=None)
     or_: 'LensFilter | None' = Field(validation_alias=AliasChoices('or_', 'OR'), serialization_alias='OR', default=None)
@@ -1424,6 +1452,8 @@ class ModelCollectionFilter(BaseModel):
     created_after: datetime | None = Field(validation_alias=AliasChoices('created_after', 'createdAfter'), serialization_alias='createdAfter', default=None)
     created_by: ID | None = Field(validation_alias=AliasChoices('created_by', 'createdBy'), serialization_alias='createdBy', default=None)
     mine: bool | None = None
+    in_collaboration: ID | None = Field(validation_alias=AliasChoices('in_collaboration', 'inCollaboration'), serialization_alias='inCollaboration', default=None, description='Only what is in this collaboration (its key): put in, or part of what was')
+    created_under: ID | None = Field(validation_alias=AliasChoices('created_under', 'createdUnder'), serialization_alias='createdUnder', default=None, description='Only what the workflow (its root task id) created')
     id: ID | None = None
     name: 'StrFilterLookup | None' = None
     and_: 'ModelCollectionFilter | None' = Field(validation_alias=AliasChoices('and_', 'AND'), serialization_alias='AND', default=None)
@@ -1499,10 +1529,12 @@ class NeuronModelFilter(BaseModel):
     created_after: datetime | None = Field(validation_alias=AliasChoices('created_after', 'createdAfter'), serialization_alias='createdAfter', default=None)
     created_by: ID | None = Field(validation_alias=AliasChoices('created_by', 'createdBy'), serialization_alias='createdBy', default=None)
     mine: bool | None = None
-    provenance_task: str | None = Field(validation_alias=AliasChoices('provenance_task', 'provenanceTask'), serialization_alias='provenanceTask', default=None)
-    provenance_root_task: str | None = Field(validation_alias=AliasChoices('provenance_root_task', 'provenanceRootTask'), serialization_alias='provenanceRootTask', default=None)
-    created_with: str | None = Field(validation_alias=AliasChoices('created_with', 'createdWith'), serialization_alias='createdWith', default=None)
-    created_by_agent: bool | None = Field(validation_alias=AliasChoices('created_by_agent', 'createdByAgent'), serialization_alias='createdByAgent', default=None)
+    provenance_task: str | None = Field(validation_alias=AliasChoices('provenance_task', 'provenanceTask'), serialization_alias='provenanceTask', default=None, description='Filter to what a change ran under this task id')
+    provenance_root_task: str | None = Field(validation_alias=AliasChoices('provenance_root_task', 'provenanceRootTask'), serialization_alias='provenanceRootTask', default=None, description='Filter to what a change ran under this root task (the workflow): created or modified by it')
+    created_with: str | None = Field(validation_alias=AliasChoices('created_with', 'createdWith'), serialization_alias='createdWith', default=None, description='Filter to what a change was made with this client: directly, or as the agent executing its task')
+    created_by_agent: bool | None = Field(validation_alias=AliasChoices('created_by_agent', 'createdByAgent'), serialization_alias='createdByAgent', default=None, description='True: what some change was made under an automated task. False: only what no task ever touched (human / direct API)')
+    in_collaboration: ID | None = Field(validation_alias=AliasChoices('in_collaboration', 'inCollaboration'), serialization_alias='inCollaboration', default=None, description='Only what is in this collaboration (its key): put in, or part of what was')
+    created_under: ID | None = Field(validation_alias=AliasChoices('created_under', 'createdUnder'), serialization_alias='createdUnder', default=None, description='Only what the workflow (its root task id) created')
     id: ID | None = None
     name: 'StrFilterLookup | None' = None
     and_: 'NeuronModelFilter | None' = Field(validation_alias=AliasChoices('and_', 'AND'), serialization_alias='AND', default=None)
@@ -1737,6 +1769,8 @@ class SparseDatasetFilter(BaseModel):
     created_through: ID | None = Field(validation_alias=AliasChoices('created_through', 'createdThrough'), serialization_alias='createdThrough', default=None, description='Filter by the database ID of the task the item was created through (the `createdThrough { id }` field)')
     assigned_by: ID | None = Field(validation_alias=AliasChoices('assigned_by', 'assignedBy'), serialization_alias='assignedBy', default=None, description='Filter by the sub of the user that assigned the creating task')
     created_through_by: ID | None = Field(validation_alias=AliasChoices('created_through_by', 'createdThroughBy'), serialization_alias='createdThroughBy', default=None, description='Filter by the database ID of the user that assigned the creating task (the `createdThroughBy { id }` field)')
+    in_collaboration: ID | None = Field(validation_alias=AliasChoices('in_collaboration', 'inCollaboration'), serialization_alias='inCollaboration', default=None, description='Only what is in this collaboration (its key): put in, or part of what was')
+    created_under: ID | None = Field(validation_alias=AliasChoices('created_under', 'createdUnder'), serialization_alias='createdUnder', default=None, description='Only what the workflow (its root task id) created')
     id: ID | None = None
     name: 'StrFilterLookup | None' = None
     description: 'StrFilterLookup | None' = None
@@ -1793,6 +1827,8 @@ class TableDatasetFilter(BaseModel):
     created_through: ID | None = Field(validation_alias=AliasChoices('created_through', 'createdThrough'), serialization_alias='createdThrough', default=None, description='Filter by the database ID of the task the item was created through (the `createdThrough { id }` field)')
     assigned_by: ID | None = Field(validation_alias=AliasChoices('assigned_by', 'assignedBy'), serialization_alias='assignedBy', default=None, description='Filter by the sub of the user that assigned the creating task')
     created_through_by: ID | None = Field(validation_alias=AliasChoices('created_through_by', 'createdThroughBy'), serialization_alias='createdThroughBy', default=None, description='Filter by the database ID of the user that assigned the creating task (the `createdThroughBy { id }` field)')
+    in_collaboration: ID | None = Field(validation_alias=AliasChoices('in_collaboration', 'inCollaboration'), serialization_alias='inCollaboration', default=None, description='Only what is in this collaboration (its key): put in, or part of what was')
+    created_under: ID | None = Field(validation_alias=AliasChoices('created_under', 'createdUnder'), serialization_alias='createdUnder', default=None, description='Only what the workflow (its root task id) created')
     id: ID | None = None
     name: StrFilterLookup | None = None
     description: StrFilterLookup | None = None
@@ -1933,6 +1969,7 @@ class UpdateTraceLayerInput(BaseModel):
     line_width: float | None = Field(validation_alias=AliasChoices('line_width', 'lineWidth'), serialization_alias='lineWidth', default=None)
     clim_min: float | None = Field(validation_alias=AliasChoices('clim_min', 'climMin'), serialization_alias='climMin', default=None)
     clim_max: float | None = Field(validation_alias=AliasChoices('clim_max', 'climMax'), serialization_alias='climMax', default=None)
+    channel_coloring: ChannelColoring | None = Field(validation_alias=AliasChoices('channel_coloring', 'channelColoring'), serialization_alias='channelColoring', default=None)
     id: ID
     lens: ID | None = None
     model_config = ConfigDict(extra='forbid', validate_assignment=True)
@@ -5152,7 +5189,7 @@ class GetCoordinateGraphQueryCoordinateGraph(BaseModel):
 class GetCoordinateGraphQuery(BaseModel):
     """No documentation found for this operation."""
     coordinate_graph: GetCoordinateGraphQueryCoordinateGraph = Field(alias='coordinateGraph')
-    "Walk the coordinate graph out from one system: every coordinate system it reaches and every top-level edge between them. Reachability is undirected (an edge pointing into the system relates to it as much as one pointing out), the edges keep their true direction, and nothing is composed -- what the list queries cannot answer is 'which edges relate to *this* one', because relatedness is transitive and a filter is not"
+    "Walk the coordinate graph out from one system: every coordinate system it reaches and every top-level edge between them. Reachability is undirected by default (an edge pointing into the system relates to it as much as one pointing out); `direction` follows edges one way only, so a walk does not cross a shared world into everything else registered there. The edges keep their true direction, and nothing is composed -- what the list queries cannot answer is 'which edges relate to *this* one', because relatedness is transitive and a filter is not"
 
     class Arguments(BaseModel):
         """Arguments for GetCoordinateGraph """
@@ -5848,7 +5885,7 @@ Arguments:
     _data['metadataString'] = metadata_string
     return AcquisitionMetadataInput.model_validate(_data)
 
-def annotation_collection_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, owner: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, and_: AnnotationCollectionFilter | None | UnsetType=UNSET, or_: AnnotationCollectionFilter | None | UnsetType=UNSET, not_: AnnotationCollectionFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, experiment: IDCoercible | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, drawn_over: IDCoercible | None | UnsetType=UNSET) -> AnnotationCollectionFilter:
+def annotation_collection_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, owner: IDCoercible | None | UnsetType=UNSET, in_collaboration: IDCoercible | None | UnsetType=UNSET, created_under: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, and_: AnnotationCollectionFilter | None | UnsetType=UNSET, or_: AnnotationCollectionFilter | None | UnsetType=UNSET, not_: AnnotationCollectionFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, experiment: IDCoercible | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, drawn_over: IDCoercible | None | UnsetType=UNSET, timed: bool | None | UnsetType=UNSET) -> AnnotationCollectionFilter:
     """Creates a AnnotationCollectionFilter
 
 Arguments:
@@ -5857,6 +5894,8 @@ Arguments:
     created_before: Filter for items created before this datetime
     created_after: Filter for items created after this datetime
     owner: Filter by the creator's subject ID
+    in_collaboration: Only what is in this collaboration (its key): put in, or part of what was
+    created_under: Only what the workflow (its root task id) created
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     name: 
     and_: 
@@ -5867,6 +5906,7 @@ Arguments:
     coordinate_system: Filter by the coordinate system the annotations are drawn in (the collection's own)
     dataset: Filter to the collections drawn over this dataset (or over a lens of it), following the derivation edge
     drawn_over: Filter to the collections drawn over this coordinate system: pass a segment's clock for the events and epochs marking the whole segment, or an experiment's world for those on its timeline
+    timed: Filter by whether the collection is drawn in a space with a TIME axis -- events and epochs on a clock -- or in one without (shapes over a static map)
 """
     _data: dict[str, builtins.object] = {}
     if ids is not UNSET:
@@ -5879,6 +5919,10 @@ Arguments:
         _data['createdAfter'] = created_after
     if owner is not UNSET:
         _data['owner'] = owner
+    if in_collaboration is not UNSET:
+        _data['inCollaboration'] = in_collaboration
+    if created_under is not UNSET:
+        _data['createdUnder'] = created_under
     if id is not UNSET:
         _data['id'] = id
     if name is not UNSET:
@@ -5899,14 +5943,18 @@ Arguments:
         _data['dataset'] = dataset
     if drawn_over is not UNSET:
         _data['drawnOver'] = drawn_over
+    if timed is not UNSET:
+        _data['timed'] = timed
     return AnnotationCollectionFilter.model_validate(_data)
 
-def annotation_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, id: str | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, description: StrFilterLookup | None | UnsetType=UNSET, kind: AnnotationKindChoices | None | UnsetType=UNSET, and_: AnnotationFilter | None | UnsetType=UNSET, or_: AnnotationFilter | None | UnsetType=UNSET, not_: AnnotationFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, collection: IDCoercible | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, pinned_to: Iterable[CoordinateInput] | None | UnsetType=UNSET, intersects: BoundingBoxInput | None | UnsetType=UNSET, contains_point: Iterable[float] | None | UnsetType=UNSET) -> AnnotationFilter:
+def annotation_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, in_collaboration: IDCoercible | None | UnsetType=UNSET, created_under: IDCoercible | None | UnsetType=UNSET, id: str | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, description: StrFilterLookup | None | UnsetType=UNSET, kind: AnnotationKindChoices | None | UnsetType=UNSET, and_: AnnotationFilter | None | UnsetType=UNSET, or_: AnnotationFilter | None | UnsetType=UNSET, not_: AnnotationFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, collection: IDCoercible | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, pinned_to: Iterable[CoordinateInput] | None | UnsetType=UNSET, intersects: BoundingBoxInput | None | UnsetType=UNSET, contains_point: Iterable[float] | None | UnsetType=UNSET) -> AnnotationFilter:
     """Creates a AnnotationFilter
 
 Arguments:
     ids: Filter by list of IDs
     search: Search by name (case-insensitive substring)
+    in_collaboration: Only what is in this collaboration (its key): put in, or part of what was
+    created_under: Only what the workflow (its root task id) created
     id: 
     name: 
     description: 
@@ -5927,6 +5975,10 @@ Arguments:
         _data['ids'] = ids
     if search is not UNSET:
         _data['search'] = search
+    if in_collaboration is not UNSET:
+        _data['inCollaboration'] = in_collaboration
+    if created_under is not UNSET:
+        _data['createdUnder'] = created_under
     if id is not UNSET:
         _data['id'] = id
     if name is not UNSET:
@@ -5990,7 +6042,7 @@ Arguments:
         _data['filled'] = filled
     return AnnotationSpecInput.model_validate(_data)
 
-def array_dataset_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, owner: IDCoercible | None | UnsetType=UNSET, created_through_task: str | None | UnsetType=UNSET, created_through: IDCoercible | None | UnsetType=UNSET, assigned_by: IDCoercible | None | UnsetType=UNSET, created_through_by: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, description: StrFilterLookup | None | UnsetType=UNSET, and_: ArrayDatasetFilter | None | UnsetType=UNSET, or_: ArrayDatasetFilter | None | UnsetType=UNSET, not_: ArrayDatasetFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, requires: Iterable[DescriptorConstraintInput] | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, folders: Iterable[IDCoercible] | None | UnsetType=UNSET, spec: Iterable[ArrayDatasetSpec] | None | UnsetType=UNSET, has_axis_types: Iterable[AxisType] | None | UnsetType=UNSET, multiscale: bool | None | UnsetType=UNSET, has_physical_space: bool | None | UnsetType=UNSET, placeable_in: PlaceableFilter | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, value_unit: str | None | UnsetType=UNSET, derived_from: IDCoercible | None | UnsetType=UNSET, not_derived: bool | None | UnsetType=UNSET, source_file: IDCoercible | None | UnsetType=UNSET, source_series_identifier: str | None | UnsetType=UNSET) -> ArrayDatasetFilter:
+def array_dataset_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, owner: IDCoercible | None | UnsetType=UNSET, created_through_task: str | None | UnsetType=UNSET, created_through: IDCoercible | None | UnsetType=UNSET, assigned_by: IDCoercible | None | UnsetType=UNSET, created_through_by: IDCoercible | None | UnsetType=UNSET, in_collaboration: IDCoercible | None | UnsetType=UNSET, created_under: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, description: StrFilterLookup | None | UnsetType=UNSET, and_: ArrayDatasetFilter | None | UnsetType=UNSET, or_: ArrayDatasetFilter | None | UnsetType=UNSET, not_: ArrayDatasetFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, requires: Iterable[DescriptorConstraintInput] | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, folders: Iterable[IDCoercible] | None | UnsetType=UNSET, spec: Iterable[ArrayDatasetSpec] | None | UnsetType=UNSET, has_axis_types: Iterable[AxisType] | None | UnsetType=UNSET, timed: bool | None | UnsetType=UNSET, multiscale: bool | None | UnsetType=UNSET, has_physical_space: bool | None | UnsetType=UNSET, placeable_in: PlaceableFilter | None | UnsetType=UNSET, coordinate_system: IDCoercible | None | UnsetType=UNSET, value_unit: str | None | UnsetType=UNSET, derived_from: IDCoercible | None | UnsetType=UNSET, not_derived: bool | None | UnsetType=UNSET, source_file: IDCoercible | None | UnsetType=UNSET, source_series_identifier: str | None | UnsetType=UNSET) -> ArrayDatasetFilter:
     """Creates a ArrayDatasetFilter
 
 Arguments:
@@ -6003,6 +6055,8 @@ Arguments:
     created_through: Filter by the database ID of the task the item was created through (the `createdThrough { id }` field)
     assigned_by: Filter by the sub of the user that assigned the creating task
     created_through_by: Filter by the database ID of the user that assigned the creating task (the `createdThroughBy { id }` field)
+    in_collaboration: Only what is in this collaboration (its key): put in, or part of what was
+    created_under: Only what the workflow (its root task id) created
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     name: 
     description: 
@@ -6015,6 +6069,7 @@ Arguments:
     folders: Filter by a list of folder IDs
     spec: Filter to datasets satisfying every one of these specs, e.g. [TIMESERIES, MULTICHANNEL] for multi-channel recordings. Materialized at creation from the axes of the intrinsic coordinate system and the level-0 shape; an axis counts only when it has more than one position, so a stack of one plane is an IMAGE and a single frame is not a TIMESERIES (use `hasAxisTypes` to ask whether an axis is declared at all). A dataset carries one spatial spec (by how many such SPACE axes it has) plus a modifier per such acquisition axis, so two spatial specs together match nothing
     has_axis_types: Filter to datasets whose intrinsic coordinate system carries every one of these axis types, e.g. [TIME, CHANNEL]. The raw form of `spec`, for the types no spec names: COORDINATE, DISPLACEMENT, INDEX
+    timed: Filter by whether the dataset's sample grid has a TIME axis -- a recording, a stimulus, placeable on a clock -- or none (a unit's waveform templates, a static map). The same question `timed` asks of sparse and table datasets; `hasAxisTypes: [TIME]` is its true half
     multiscale: Filter by whether the dataset carries a resolution pyramid: true for the multiscale ones, false for those with a single level
     has_physical_space: Filter by whether the dataset has an edge into a space with real units. False finds the data that is still only samples, with no sampling law or time lookup recorded -- the datasets nothing has timed yet
     placeable_in: Filter to datasets placeable into a coordinate system: those with a lens whose space reaches it across steps that compose into one affine map, walking the transformation edges. A route crossing a FIELD is not one -- it relates the two spaces by the values of an array -- so a spike train or a variable-step run is not offered here, though `inView` reports it. Takes a *space*: pass an experiment's `world.id` to ask it of an experiment
@@ -6044,6 +6099,10 @@ Arguments:
         _data['assignedBy'] = assigned_by
     if created_through_by is not UNSET:
         _data['createdThroughBy'] = created_through_by
+    if in_collaboration is not UNSET:
+        _data['inCollaboration'] = in_collaboration
+    if created_under is not UNSET:
+        _data['createdUnder'] = created_under
     if id is not UNSET:
         _data['id'] = id
     if name is not UNSET:
@@ -6068,6 +6127,8 @@ Arguments:
         _data['spec'] = spec
     if has_axis_types is not UNSET:
         _data['hasAxisTypes'] = has_axis_types
+    if timed is not UNSET:
+        _data['timed'] = timed
     if multiscale is not UNSET:
         _data['multiscale'] = multiscale
     if has_physical_space is not UNSET:
@@ -6373,7 +6434,7 @@ Arguments:
     _data['value'] = value
     return CoordinateInput.model_validate(_data)
 
-def coordinate_system_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, owner: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, and_: CoordinateSystemFilter | None | UnsetType=UNSET, or_: CoordinateSystemFilter | None | UnsetType=UNSET, not_: CoordinateSystemFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, uninhabited: bool | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, composed_over: bool | None | UnsetType=UNSET) -> CoordinateSystemFilter:
+def coordinate_system_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, owner: IDCoercible | None | UnsetType=UNSET, in_collaboration: IDCoercible | None | UnsetType=UNSET, created_under: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, and_: CoordinateSystemFilter | None | UnsetType=UNSET, or_: CoordinateSystemFilter | None | UnsetType=UNSET, not_: CoordinateSystemFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, uninhabited: bool | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, has_axis_types: Iterable[AxisType] | None | UnsetType=UNSET, composed_over: bool | None | UnsetType=UNSET) -> CoordinateSystemFilter:
     """Creates a CoordinateSystemFilter
 
 Arguments:
@@ -6382,6 +6443,8 @@ Arguments:
     created_before: Filter for items created before this datetime
     created_after: Filter for items created after this datetime
     owner: Filter by the creator's subject ID
+    in_collaboration: Only what is in this collaboration (its key): put in, or part of what was
+    created_under: Only what the workflow (its root task id) created
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     name: 
     and_: 
@@ -6390,6 +6453,7 @@ Arguments:
     distinct: The `Boolean` scalar type represents `true` or `false`.
     uninhabited: Filter to the spaces nothing lives in: pure reference frames -- the clocks and worlds that datasets are sampled onto and registered into. False finds the spaces some data actually occupies
     dataset: Filter to the spaces this dataset's data lives in: its own sample grid, and the grids of its sliced lenses
+    has_axis_types: Filter to the spaces carrying every one of these axis types, e.g. [TIME] for clocks and the spaces sampled on one. The same question `hasAxisTypes` asks of array datasets, asked of the space itself
     composed_over: Filter to the spaces something composes over without living in them: an experiment's world. False finds the spaces nothing is laid out in
 """
     _data: dict[str, builtins.object] = {}
@@ -6403,6 +6467,10 @@ Arguments:
         _data['createdAfter'] = created_after
     if owner is not UNSET:
         _data['owner'] = owner
+    if in_collaboration is not UNSET:
+        _data['inCollaboration'] = in_collaboration
+    if created_under is not UNSET:
+        _data['createdUnder'] = created_under
     if id is not UNSET:
         _data['id'] = id
     if name is not UNSET:
@@ -6419,6 +6487,8 @@ Arguments:
         _data['uninhabited'] = uninhabited
     if dataset is not UNSET:
         _data['dataset'] = dataset
+    if has_axis_types is not UNSET:
+        _data['hasAxisTypes'] = has_axis_types
     if composed_over is not UNSET:
         _data['composedOver'] = composed_over
     return CoordinateSystemFilter.model_validate(_data)
@@ -6975,7 +7045,7 @@ Arguments:
         _data['anchors'] = anchors
     return CreateTableDatasetInput.model_validate(_data)
 
-def create_trace_layer_input(experiment: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, window: WindowInput | None | UnsetType=UNSET, clock: IDCoercible | None | UnsetType=UNSET) -> CreateTraceLayerInput:
+def create_trace_layer_input(experiment: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, channel_coloring: ChannelColoring | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, window: WindowInput | None | UnsetType=UNSET, clock: IDCoercible | None | UnsetType=UNSET) -> CreateTraceLayerInput:
     """Creates a CreateTraceLayerInput
 
 Arguments:
@@ -6989,6 +7059,7 @@ Arguments:
     line_width: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     clim_min: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     clim_max: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
+    channel_coloring: ChannelColoring
     experiment: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     lens: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     dataset: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
@@ -7016,6 +7087,8 @@ Arguments:
         _data['climMin'] = clim_min
     if clim_max is not UNSET:
         _data['climMax'] = clim_max
+    if channel_coloring is not UNSET:
+        _data['channelColoring'] = channel_coloring
     _data['experiment'] = experiment
     if lens is not UNSET:
         _data['lens'] = lens
@@ -7258,7 +7331,7 @@ Arguments:
         _data['expression'] = expression
     return DistributionInput.model_validate(_data)
 
-def experiment_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, created_by: IDCoercible | None | UnsetType=UNSET, mine: bool | None | UnsetType=UNSET, provenance_task: str | None | UnsetType=UNSET, provenance_root_task: str | None | UnsetType=UNSET, created_with: str | None | UnsetType=UNSET, created_by_agent: bool | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, world: IDCoercible | None | UnsetType=UNSET, and_: ExperimentFilter | None | UnsetType=UNSET, or_: ExperimentFilter | None | UnsetType=UNSET, not_: ExperimentFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET) -> ExperimentFilter:
+def experiment_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, created_by: IDCoercible | None | UnsetType=UNSET, mine: bool | None | UnsetType=UNSET, provenance_task: str | None | UnsetType=UNSET, provenance_root_task: str | None | UnsetType=UNSET, created_with: str | None | UnsetType=UNSET, created_by_agent: bool | None | UnsetType=UNSET, in_collaboration: IDCoercible | None | UnsetType=UNSET, created_under: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, world: IDCoercible | None | UnsetType=UNSET, and_: ExperimentFilter | None | UnsetType=UNSET, or_: ExperimentFilter | None | UnsetType=UNSET, not_: ExperimentFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET) -> ExperimentFilter:
     """Creates a ExperimentFilter
 
 Arguments:
@@ -7268,10 +7341,12 @@ Arguments:
     created_after: Date with time (isoformat)
     created_by: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     mine: The `Boolean` scalar type represents `true` or `false`.
-    provenance_task: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    provenance_root_task: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    created_with: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    created_by_agent: The `Boolean` scalar type represents `true` or `false`.
+    provenance_task: Filter to what a change ran under this task id
+    provenance_root_task: Filter to what a change ran under this root task (the workflow): created or modified by it
+    created_with: Filter to what a change was made with this client: directly, or as the agent executing its task
+    created_by_agent: True: what some change was made under an automated task. False: only what no task ever touched (human / direct API)
+    in_collaboration: Only what is in this collaboration (its key): put in, or part of what was
+    created_under: Only what the workflow (its root task id) created
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     name: 
     world: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
@@ -7301,6 +7376,10 @@ Arguments:
         _data['createdWith'] = created_with
     if created_by_agent is not UNSET:
         _data['createdByAgent'] = created_by_agent
+    if in_collaboration is not UNSET:
+        _data['inCollaboration'] = in_collaboration
+    if created_under is not UNSET:
+        _data['createdUnder'] = created_under
     if id is not UNSET:
         _data['id'] = id
     if name is not UNSET:
@@ -7317,11 +7396,13 @@ Arguments:
         _data['DISTINCT'] = distinct
     return ExperimentFilter.model_validate(_data)
 
-def experiment_layer_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, and_: ExperimentLayerFilter | None | UnsetType=UNSET, or_: ExperimentLayerFilter | None | UnsetType=UNSET, not_: ExperimentLayerFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, experiment: IDCoercible | None | UnsetType=UNSET, kind: ExperimentLayerKind | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET) -> ExperimentLayerFilter:
+def experiment_layer_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, in_collaboration: IDCoercible | None | UnsetType=UNSET, created_under: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, and_: ExperimentLayerFilter | None | UnsetType=UNSET, or_: ExperimentLayerFilter | None | UnsetType=UNSET, not_: ExperimentLayerFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, experiment: IDCoercible | None | UnsetType=UNSET, kind: ExperimentLayerKind | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET) -> ExperimentLayerFilter:
     """Creates a ExperimentLayerFilter
 
 Arguments:
     ids: Filter by list of IDs
+    in_collaboration: Only what is in this collaboration (its key): put in, or part of what was
+    created_under: Only what the workflow (its root task id) created
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     name: 
     and_: 
@@ -7336,6 +7417,10 @@ Arguments:
     _data: dict[str, builtins.object] = {}
     if ids is not UNSET:
         _data['ids'] = ids
+    if in_collaboration is not UNSET:
+        _data['inCollaboration'] = in_collaboration
+    if created_under is not UNSET:
+        _data['createdUnder'] = created_under
     if id is not UNSET:
         _data['id'] = id
     if name is not UNSET:
@@ -7645,11 +7730,13 @@ Arguments:
     _data['label'] = label
     return LabelInput.model_validate(_data)
 
-def lens_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, and_: LensFilter | None | UnsetType=UNSET, or_: LensFilter | None | UnsetType=UNSET, not_: LensFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, requires: Iterable[DescriptorConstraintInput] | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, placeable_in: PlaceableFilter | None | UnsetType=UNSET) -> LensFilter:
+def lens_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, in_collaboration: IDCoercible | None | UnsetType=UNSET, created_under: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, and_: LensFilter | None | UnsetType=UNSET, or_: LensFilter | None | UnsetType=UNSET, not_: LensFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, requires: Iterable[DescriptorConstraintInput] | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, placeable_in: PlaceableFilter | None | UnsetType=UNSET) -> LensFilter:
     """Creates a LensFilter
 
 Arguments:
     ids: Filter by list of IDs
+    in_collaboration: Only what is in this collaboration (its key): put in, or part of what was
+    created_under: Only what the workflow (its root task id) created
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     and_: 
     or_: 
@@ -7662,6 +7749,10 @@ Arguments:
     _data: dict[str, builtins.object] = {}
     if ids is not UNSET:
         _data['ids'] = ids
+    if in_collaboration is not UNSET:
+        _data['inCollaboration'] = in_collaboration
+    if created_under is not UNSET:
+        _data['createdUnder'] = created_under
     if id is not UNSET:
         _data['id'] = id
     if and_ is not UNSET:
@@ -7741,7 +7832,7 @@ Arguments:
     _data['parameters'] = parameters
     return MechanismInput.model_validate(_data)
 
-def model_collection_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, created_by: IDCoercible | None | UnsetType=UNSET, mine: bool | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, and_: ModelCollectionFilter | None | UnsetType=UNSET, or_: ModelCollectionFilter | None | UnsetType=UNSET, not_: ModelCollectionFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET) -> ModelCollectionFilter:
+def model_collection_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, created_by: IDCoercible | None | UnsetType=UNSET, mine: bool | None | UnsetType=UNSET, in_collaboration: IDCoercible | None | UnsetType=UNSET, created_under: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, and_: ModelCollectionFilter | None | UnsetType=UNSET, or_: ModelCollectionFilter | None | UnsetType=UNSET, not_: ModelCollectionFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET) -> ModelCollectionFilter:
     """Creates a ModelCollectionFilter
 
 Arguments:
@@ -7751,6 +7842,8 @@ Arguments:
     created_after: Date with time (isoformat)
     created_by: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     mine: The `Boolean` scalar type represents `true` or `false`.
+    in_collaboration: Only what is in this collaboration (its key): put in, or part of what was
+    created_under: Only what the workflow (its root task id) created
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     name: 
     and_: 
@@ -7771,6 +7864,10 @@ Arguments:
         _data['createdBy'] = created_by
     if mine is not UNSET:
         _data['mine'] = mine
+    if in_collaboration is not UNSET:
+        _data['inCollaboration'] = in_collaboration
+    if created_under is not UNSET:
+        _data['createdUnder'] = created_under
     if id is not UNSET:
         _data['id'] = id
     if name is not UNSET:
@@ -7889,7 +7986,7 @@ Arguments:
     _data['position'] = position
     return NetSynapseInput.model_validate(_data)
 
-def neuron_model_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, created_by: IDCoercible | None | UnsetType=UNSET, mine: bool | None | UnsetType=UNSET, provenance_task: str | None | UnsetType=UNSET, provenance_root_task: str | None | UnsetType=UNSET, created_with: str | None | UnsetType=UNSET, created_by_agent: bool | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, and_: NeuronModelFilter | None | UnsetType=UNSET, or_: NeuronModelFilter | None | UnsetType=UNSET, not_: NeuronModelFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET) -> NeuronModelFilter:
+def neuron_model_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, created_by: IDCoercible | None | UnsetType=UNSET, mine: bool | None | UnsetType=UNSET, provenance_task: str | None | UnsetType=UNSET, provenance_root_task: str | None | UnsetType=UNSET, created_with: str | None | UnsetType=UNSET, created_by_agent: bool | None | UnsetType=UNSET, in_collaboration: IDCoercible | None | UnsetType=UNSET, created_under: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, and_: NeuronModelFilter | None | UnsetType=UNSET, or_: NeuronModelFilter | None | UnsetType=UNSET, not_: NeuronModelFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET) -> NeuronModelFilter:
     """Creates a NeuronModelFilter
 
 Arguments:
@@ -7899,10 +7996,12 @@ Arguments:
     created_after: Date with time (isoformat)
     created_by: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     mine: The `Boolean` scalar type represents `true` or `false`.
-    provenance_task: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    provenance_root_task: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    created_with: The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
-    created_by_agent: The `Boolean` scalar type represents `true` or `false`.
+    provenance_task: Filter to what a change ran under this task id
+    provenance_root_task: Filter to what a change ran under this root task (the workflow): created or modified by it
+    created_with: Filter to what a change was made with this client: directly, or as the agent executing its task
+    created_by_agent: True: what some change was made under an automated task. False: only what no task ever touched (human / direct API)
+    in_collaboration: Only what is in this collaboration (its key): put in, or part of what was
+    created_under: Only what the workflow (its root task id) created
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     name: 
     and_: 
@@ -7931,6 +8030,10 @@ Arguments:
         _data['createdWith'] = created_with
     if created_by_agent is not UNSET:
         _data['createdByAgent'] = created_by_agent
+    if in_collaboration is not UNSET:
+        _data['inCollaboration'] = in_collaboration
+    if created_under is not UNSET:
+        _data['createdUnder'] = created_under
     if id is not UNSET:
         _data['id'] = id
     if name is not UNSET:
@@ -8432,7 +8535,7 @@ Arguments:
         _data['description'] = description
     return SparseAxisInput.model_validate(_data)
 
-def sparse_dataset_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, owner: IDCoercible | None | UnsetType=UNSET, created_through_task: str | None | UnsetType=UNSET, created_through: IDCoercible | None | UnsetType=UNSET, assigned_by: IDCoercible | None | UnsetType=UNSET, created_through_by: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, description: StrFilterLookup | None | UnsetType=UNSET, and_: SparseDatasetFilter | None | UnsetType=UNSET, or_: SparseDatasetFilter | None | UnsetType=UNSET, not_: SparseDatasetFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, indexes_axis: str | None | UnsetType=UNSET, timed: bool | None | UnsetType=UNSET, placeable_in: PlaceableFilter | None | UnsetType=UNSET) -> SparseDatasetFilter:
+def sparse_dataset_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, owner: IDCoercible | None | UnsetType=UNSET, created_through_task: str | None | UnsetType=UNSET, created_through: IDCoercible | None | UnsetType=UNSET, assigned_by: IDCoercible | None | UnsetType=UNSET, created_through_by: IDCoercible | None | UnsetType=UNSET, in_collaboration: IDCoercible | None | UnsetType=UNSET, created_under: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, description: StrFilterLookup | None | UnsetType=UNSET, and_: SparseDatasetFilter | None | UnsetType=UNSET, or_: SparseDatasetFilter | None | UnsetType=UNSET, not_: SparseDatasetFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, indexes_axis: str | None | UnsetType=UNSET, timed: bool | None | UnsetType=UNSET, placeable_in: PlaceableFilter | None | UnsetType=UNSET) -> SparseDatasetFilter:
     """Creates a SparseDatasetFilter
 
 Arguments:
@@ -8445,6 +8548,8 @@ Arguments:
     created_through: Filter by the database ID of the task the item was created through (the `createdThrough { id }` field)
     assigned_by: Filter by the sub of the user that assigned the creating task
     created_through_by: Filter by the database ID of the user that assigned the creating task (the `createdThroughBy { id }` field)
+    in_collaboration: Only what is in this collaboration (its key): put in, or part of what was
+    created_under: Only what the workflow (its root task id) created
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     name: 
     description: 
@@ -8476,6 +8581,10 @@ Arguments:
         _data['assignedBy'] = assigned_by
     if created_through_by is not UNSET:
         _data['createdThroughBy'] = created_through_by
+    if in_collaboration is not UNSET:
+        _data['inCollaboration'] = in_collaboration
+    if created_under is not UNSET:
+        _data['createdUnder'] = created_under
     if id is not UNSET:
         _data['id'] = id
     if name is not UNSET:
@@ -8583,7 +8692,7 @@ Arguments:
         _data['iRegex'] = i_regex
     return StrFilterLookup.model_validate(_data)
 
-def table_dataset_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, owner: IDCoercible | None | UnsetType=UNSET, created_through_task: str | None | UnsetType=UNSET, created_through: IDCoercible | None | UnsetType=UNSET, assigned_by: IDCoercible | None | UnsetType=UNSET, created_through_by: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, description: StrFilterLookup | None | UnsetType=UNSET, and_: TableDatasetFilter | None | UnsetType=UNSET, or_: TableDatasetFilter | None | UnsetType=UNSET, not_: TableDatasetFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, folders: Iterable[IDCoercible] | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, has_column_role: ColumnRole | None | UnsetType=UNSET, timed: bool | None | UnsetType=UNSET, placeable_in: PlaceableFilter | None | UnsetType=UNSET) -> TableDatasetFilter:
+def table_dataset_filter(ids: Iterable[IDCoercible] | None | UnsetType=UNSET, search: str | None | UnsetType=UNSET, created_before: datetime | None | UnsetType=UNSET, created_after: datetime | None | UnsetType=UNSET, owner: IDCoercible | None | UnsetType=UNSET, created_through_task: str | None | UnsetType=UNSET, created_through: IDCoercible | None | UnsetType=UNSET, assigned_by: IDCoercible | None | UnsetType=UNSET, created_through_by: IDCoercible | None | UnsetType=UNSET, in_collaboration: IDCoercible | None | UnsetType=UNSET, created_under: IDCoercible | None | UnsetType=UNSET, id: IDCoercible | None | UnsetType=UNSET, name: StrFilterLookup | None | UnsetType=UNSET, description: StrFilterLookup | None | UnsetType=UNSET, and_: TableDatasetFilter | None | UnsetType=UNSET, or_: TableDatasetFilter | None | UnsetType=UNSET, not_: TableDatasetFilter | None | UnsetType=UNSET, distinct: bool | None | UnsetType=UNSET, folder: IDCoercible | None | UnsetType=UNSET, folders: Iterable[IDCoercible] | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, has_column_role: ColumnRole | None | UnsetType=UNSET, timed: bool | None | UnsetType=UNSET, placeable_in: PlaceableFilter | None | UnsetType=UNSET) -> TableDatasetFilter:
     """Creates a TableDatasetFilter
 
 Arguments:
@@ -8596,6 +8705,8 @@ Arguments:
     created_through: Filter by the database ID of the task the item was created through (the `createdThrough { id }` field)
     assigned_by: Filter by the sub of the user that assigned the creating task
     created_through_by: Filter by the database ID of the user that assigned the creating task (the `createdThroughBy { id }` field)
+    in_collaboration: Only what is in this collaboration (its key): put in, or part of what was
+    created_under: Only what the workflow (its root task id) created
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     name: 
     description: 
@@ -8629,6 +8740,10 @@ Arguments:
         _data['assignedBy'] = assigned_by
     if created_through_by is not UNSET:
         _data['createdThroughBy'] = created_through_by
+    if in_collaboration is not UNSET:
+        _data['inCollaboration'] = in_collaboration
+    if created_under is not UNSET:
+        _data['createdUnder'] = created_under
     if id is not UNSET:
         _data['id'] = id
     if name is not UNSET:
@@ -8969,7 +9084,7 @@ Arguments:
         _data['description'] = description
     return UpdateTableDatasetInput.model_validate(_data)
 
-def update_trace_layer_input(id: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET) -> UpdateTraceLayerInput:
+def update_trace_layer_input(id: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, channel_coloring: ChannelColoring | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET) -> UpdateTraceLayerInput:
     """Creates a UpdateTraceLayerInput
 
 Arguments:
@@ -8983,6 +9098,7 @@ Arguments:
     line_width: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     clim_min: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     clim_max: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
+    channel_coloring: ChannelColoring
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     lens: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
 """
@@ -9007,6 +9123,8 @@ Arguments:
         _data['climMin'] = clim_min
     if clim_max is not UNSET:
         _data['climMax'] = clim_max
+    if channel_coloring is not UNSET:
+        _data['channelColoring'] = channel_coloring
     _data['id'] = id
     if lens is not UNSET:
         _data['lens'] = lens
@@ -11307,7 +11425,7 @@ Returns:
         variables['input'] = _input
         return self.execute(RevertFolderMutation, variables, task=task).revert_folder
 
-    async def acreate_trace_layer(self, experiment: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, window: WindowInput | None | UnsetType=UNSET, clock: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerTraceLayer:
+    async def acreate_trace_layer(self, experiment: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, channel_coloring: ChannelColoring | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, window: WindowInput | None | UnsetType=UNSET, clock: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerTraceLayer:
         """CreateTraceLayer 
  One mutation per kind, as mikro's `createXxxLayer`. A layer carries view state
  only; where its data sits in time is the graph's answer.
@@ -11323,6 +11441,7 @@ Args:
     line_width: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     clim_min: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     clim_max: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
+    channel_coloring: ChannelColoring
     experiment: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     lens: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     dataset: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
@@ -11355,6 +11474,8 @@ Returns:
             _input['climMin'] = clim_min
         if clim_max is not UNSET:
             _input['climMax'] = clim_max
+        if channel_coloring is not UNSET:
+            _input['channelColoring'] = channel_coloring
         _input['experiment'] = experiment
         if lens is not UNSET:
             _input['lens'] = lens
@@ -11367,7 +11488,7 @@ Returns:
         variables['input'] = _input
         return (await self.aexecute(CreateTraceLayerMutation, variables, task=task)).create_trace_layer
 
-    def create_trace_layer(self, experiment: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, window: WindowInput | None | UnsetType=UNSET, clock: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerTraceLayer:
+    def create_trace_layer(self, experiment: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, channel_coloring: ChannelColoring | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, dataset: IDCoercible | None | UnsetType=UNSET, window: WindowInput | None | UnsetType=UNSET, clock: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerTraceLayer:
         """CreateTraceLayer 
  One mutation per kind, as mikro's `createXxxLayer`. A layer carries view state
  only; where its data sits in time is the graph's answer.
@@ -11383,6 +11504,7 @@ Args:
     line_width: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     clim_min: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     clim_max: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
+    channel_coloring: ChannelColoring
     experiment: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     lens: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     dataset: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
@@ -11415,6 +11537,8 @@ Returns:
             _input['climMin'] = clim_min
         if clim_max is not UNSET:
             _input['climMax'] = clim_max
+        if channel_coloring is not UNSET:
+            _input['channelColoring'] = channel_coloring
         _input['experiment'] = experiment
         if lens is not UNSET:
             _input['lens'] = lens
@@ -11427,7 +11551,7 @@ Returns:
         variables['input'] = _input
         return self.execute(CreateTraceLayerMutation, variables, task=task).create_trace_layer
 
-    async def aupdate_trace_layer(self, id: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerTraceLayer:
+    async def aupdate_trace_layer(self, id: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, channel_coloring: ChannelColoring | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerTraceLayer:
         """UpdateTraceLayer 
 
 Restyle a trace layer, or point it at another lens
@@ -11443,6 +11567,7 @@ Args:
     line_width: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     clim_min: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     clim_max: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
+    channel_coloring: ChannelColoring
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     lens: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
@@ -11472,13 +11597,15 @@ Returns:
             _input['climMin'] = clim_min
         if clim_max is not UNSET:
             _input['climMax'] = clim_max
+        if channel_coloring is not UNSET:
+            _input['channelColoring'] = channel_coloring
         _input['id'] = id
         if lens is not UNSET:
             _input['lens'] = lens
         variables['input'] = _input
         return (await self.aexecute(UpdateTraceLayerMutation, variables, task=task)).update_trace_layer
 
-    def update_trace_layer(self, id: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerTraceLayer:
+    def update_trace_layer(self, id: IDCoercible, name: str | None | UnsetType=UNSET, blending: Blending | None | UnsetType=UNSET, opacity: float | None | UnsetType=UNSET, visible: bool | None | UnsetType=UNSET, order: int | None | UnsetType=UNSET, channel_index: int | None | UnsetType=UNSET, color: Iterable[int] | None | UnsetType=UNSET, line_width: float | None | UnsetType=UNSET, clim_min: float | None | UnsetType=UNSET, clim_max: float | None | UnsetType=UNSET, channel_coloring: ChannelColoring | None | UnsetType=UNSET, lens: IDCoercible | None | UnsetType=UNSET, task: TaskLike | None=None) -> ExperimentLayerTraceLayer:
         """UpdateTraceLayer 
 
 Restyle a trace layer, or point it at another lens
@@ -11494,6 +11621,7 @@ Args:
     line_width: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     clim_min: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
     clim_max: The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point).
+    channel_coloring: ChannelColoring
     id: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID. (required)
     lens: The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
     task (rath.task.TaskLike, optional): The task this call is made for; the ambient one by default.
@@ -11523,6 +11651,8 @@ Returns:
             _input['climMin'] = clim_min
         if clim_max is not UNSET:
             _input['climMax'] = clim_max
+        if channel_coloring is not UNSET:
+            _input['channelColoring'] = channel_coloring
         _input['id'] = id
         if lens is not UNSET:
             _input['lens'] = lens
@@ -13518,7 +13648,7 @@ Returns:
     async def aget_coordinate_graph(self, coordinate_system: IDCoercible, max_depth: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> GetCoordinateGraphQueryCoordinateGraph:
         """GetCoordinateGraph 
 
-Walk the coordinate graph out from one system: every coordinate system it reaches and every top-level edge between them. Reachability is undirected (an edge pointing into the system relates to it as much as one pointing out), the edges keep their true direction, and nothing is composed -- what the list queries cannot answer is 'which edges relate to *this* one', because relatedness is transitive and a filter is not
+Walk the coordinate graph out from one system: every coordinate system it reaches and every top-level edge between them. Reachability is undirected by default (an edge pointing into the system relates to it as much as one pointing out); `direction` follows edges one way only, so a walk does not cross a shared world into everything else registered there. The edges keep their true direction, and nothing is composed -- what the list queries cannot answer is 'which edges relate to *this* one', because relatedness is transitive and a filter is not
 
 Args:
     coordinate_system (ID): No description
@@ -13537,7 +13667,7 @@ Returns:
     def get_coordinate_graph(self, coordinate_system: IDCoercible, max_depth: int | None | UnsetType=UNSET, task: TaskLike | None=None) -> GetCoordinateGraphQueryCoordinateGraph:
         """GetCoordinateGraph 
 
-Walk the coordinate graph out from one system: every coordinate system it reaches and every top-level edge between them. Reachability is undirected (an edge pointing into the system relates to it as much as one pointing out), the edges keep their true direction, and nothing is composed -- what the list queries cannot answer is 'which edges relate to *this* one', because relatedness is transitive and a filter is not
+Walk the coordinate graph out from one system: every coordinate system it reaches and every top-level edge between them. Reachability is undirected by default (an edge pointing into the system relates to it as much as one pointing out); `direction` follows edges one way only, so a walk does not cross a shared world into everything else registered there. The edges keep their true direction, and nothing is composed -- what the list queries cannot answer is 'which edges relate to *this* one', because relatedness is transitive and a filter is not
 
 Args:
     coordinate_system (ID): No description
