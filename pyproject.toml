@@ -33,34 +33,6 @@ table = ["pyarrow>=12.0.1", "pandas>=2.2", "duckdb>=1.0"]
 # a sparse dataset should not carry it.
 sparse = ["sporadik>=1.1"]
 
-[tool.uv]
-dev-dependencies =  [
-    # The structure serialization tests run through rekuest's runtime.
-    "rekuest>=6",
-    "pytest-asyncio>=0.26.0",
-    "pytest-cov>=6.1.1",
-    "pytest>=8.3.5",
-    "python-semantic-release>=9.21.0",
-    "testcontainers==3.7.0",
-    "autoflake>=1.7.7,<2",
-    "aiohttp>=3.8.3,<4",
-    "pytest-aiohttp>=1.0.4,<2",
-    "cryptography>=44.0.3",
-    "pyjwt>=2.10.1",
-    "dokker>=2.8",
-    "pillow>=11.2.1",
-    "pyarrow>=18.1.0",
-    # `SporadikLike.validate` -- and so every sparse test -- cannot run without the format;
-    # scipy builds the test rasters.
-    "sporadik>=1.1",
-    "scipy>=1.11",
-    "neuron>=9.0.1; sys_platform != 'win32'",
-    "turms>=3.0",
-]
-
-
-# `_tested.json` is written by the integration tests (the server version they ran against)
-# and is not in git: named as an artifact, on both, it is shipped all the same.
 [tool.hatch.build.targets.sdist]
 include = ["elektro"]
 artifacts = ["elektro/_tested.json"]
@@ -143,4 +115,22 @@ exclude_commit_patterns = [
 dev = [
     "ruff==0.17.6",
     "basedpyright==1.40.2",
+    "rekuest>=6",
+    "pytest-asyncio>=0.26.0",
+    "pytest-cov>=6.1.1",
+    "pytest>=8.3.5",
+    "python-semantic-release>=9.21.0",
+    "testcontainers==3.7.0",
+    "autoflake>=1.7.7,<2",
+    "aiohttp>=3.8.3,<4",
+    "pytest-aiohttp>=1.0.4,<2",
+    "cryptography>=44.0.3",
+    "pyjwt>=2.10.1",
+    "dokker>=2.8",
+    "pillow>=11.2.1",
+    "pyarrow>=18.1.0",
+    "sporadik>=1.1",
+    "scipy>=1.11",
+    "neuron>=9.0.1; sys_platform != 'win32'",
+    "turms>=3.0",
 ]
