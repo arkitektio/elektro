@@ -7,7 +7,7 @@ what it fetches later goes through that client too.
 """
 
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from pydantic import BaseModel, ConfigDict
@@ -346,7 +346,7 @@ async def test_rekuest_expands_through_the_client_its_registry_was_bound_to(
 
     declared = StructureRegistry(clients={"elektro": StoreClient})
     declared.register_as_structure(
-        Store, identifier="@elektro/teststore", aexpand=expand_store
+        Store, identifier="@elektro/teststore", aexpand=cast(Any, expand_store)
     )
     bound = declared.bound({"elektro": StoreClient()})
 

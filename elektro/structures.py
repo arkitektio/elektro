@@ -3,6 +3,7 @@
 Imported by ``elektro/__init__``, so each class is marked whenever elektro is.
 """
 
+from arkitekt_spec.actions import AssignWidgetInput
 from arkitekt_spec.declare.structures.declare import structure
 from arkitekt_spec.declare.widgets import SearchWidget
 
@@ -34,7 +35,7 @@ from elektro.elektro import Elektro
 from elektro.specs import describe_lens
 
 
-def _search(query: object) -> SearchWidget:
+def _search(query: object) -> AssignWidgetInput:
     """The widget that picks one of these out of the deployment."""
     return SearchWidget(query=query.Meta.document, ward="elektro")  # type: ignore[attr-defined]
 
