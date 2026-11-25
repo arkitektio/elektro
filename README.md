@@ -67,7 +67,7 @@ connection into typed objects and lazy arrays.
 
 ## Core concepts
 
-The domain types you work with (all registered as structures in `elektro/arkitekt.py`, beside the service):
+The domain types you work with (all declared as structures in `elektro/structures.py`):
 
 | Type              | Meaning                                                                 |
 |-------------------|-------------------------------------------------------------------------|
@@ -142,7 +142,7 @@ Nothing is looked up behind your back: you call through the client you were give
 
 ### In an arkitekt app
 
-Add `elektro_service` to your app and take the client by annotation — arkitekt injects it.
+Take the client by annotation (`elektro: Elektro`) — arkitekt injects it.
 `elektro.specs` holds lens types such as `SingleChannelTrace` that declare what an action needs:
 
 ```python
@@ -150,10 +150,10 @@ import numpy as np
 import xarray as xr
 
 from arkitekt import App, Task, run
-from elektro import Elektro, elektro_service
+from elektro import Elektro
 from elektro.specs import SingleChannelTrace, carried_axes, ensure
 
-app = App("rectify", "0.1.0", services=[elektro_service])
+app = App("rectify", "0.1.0")
 
 
 @app.action
@@ -184,10 +184,10 @@ directly.
 
 ```python
 import numpy as np
-from arkitekt import easy
-from elektro import elektro_service
+from arkitekt import connect
+from elektro import Elektro
 
-with easy("my-script", elektro_service) as elektro:
+with connect(Elektro) as elektro:
     # Create a folder (metadata only)
     folder = elektro.create_folder(name="my_experiment")
 
@@ -208,7 +208,7 @@ with easy("my-script", elektro_service) as elektro:
     again = elektro.get_array_dataset(dataset.id)
 ```
 
-In async code use `async with aeasy("my-script", elektro_service) as elektro:` and the async twins:
+In async code use `async with connect(Elektro) as elektro:` and the async twins:
 
 ```python
 folder = await elektro.acreate_folder(name="my_experiment")
@@ -409,15 +409,12 @@ them all onto one new clock with a sampling law. It returns a `PublishedRun` (`c
 
 ## In the Arkitekt ecosystem
 
-- **`elektro_service`** (`elektro/arkitekt.py`) — registers Elektro as an Arkitekt service. It
-  builds a fully wired `Elektro` client from a [Fakts](https://github.com/jhnnsrs/fakts) config
-  (`FaktsAuthLink` for auth, `AIOHttpLink`/`GraphQLWSLink` for transport, a `DataLayer` for
-  storage), so `App(services=[elektro_service])` gets a ready-to-use client with no manual setup.
-- **Structures** (the same module's `registry`) — the domain types (`ArrayDataset`, `Lens`,
-  `Folder`, `Experiment`, `NeuronModel`, …) are registered as structures on an
-  [arkitekt-spec](https://github.com/arkitektio/arkitekt-spec) `AppRegistry`, each under an identifier like
-  `@elektro/arraydataset`, so they can be passed in and out of actions and workflows
-  (expand/shrink/search handled for you).
+- **`Elektro`** is an [arkitekt-spec](https://github.com/arkitektio/arkitekt-spec) `@client`:
+  a run builds it from a [Fakts](https://github.com/jhnnsrs/fakts) config with
+  `Elektro.from_fakts` (auth, http/ws transport, a `DataLayer` for storage).
+- **Structures** (`elektro/structures.py`) — the domain types (`ArrayDataset`, `Lens`, `Folder`,
+  `Experiment`, `NeuronModel`, …) are declared with `@structure`, each under an identifier like
+  `@elektro/arraydataset`, so they pass in and out of actions by id.
 
 Under the hood the transport is [Rath](https://github.com/jhnnsrs/rath) (`ElektroRath`, a link
 chain of file extraction, dicting, pint coercion, auth and an HTTP/WebSocket split), the
@@ -427,7 +424,7 @@ composition is [koil](https://github.com/jhnnsrs/koil), and object storage goes 
 ## Public API
 
 ```python
-from elektro import Elektro, elektro_service
+from elektro import Elektro
 
 # the building blocks of the client
 from elektro.rath import ElektroRath

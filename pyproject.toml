@@ -20,7 +20,7 @@ dependencies = [
     "filelock>=3.12",
     "pydantic>=2",
     # The service and structures are declared with arkitekt-spec (5.0: a service reads its scopes off its client).
-    "arkitekt-spec>=12.9",
+    "arkitekt-spec>=14",
     # The service wiring (Alias, Require, FaktsAuthLink); it came through rekuest before.
     "fakts>=6.1",
 ]
@@ -115,7 +115,7 @@ exclude_commit_patterns = [
 dev = [
     "ruff==0.17.6",
     "basedpyright==1.40.2",
-    "rekuest>=6",
+    "rekuest>=19",
     "pytest-asyncio>=0.26.0",
     "pytest-cov>=6.1.1",
     "pytest>=8.3.5",

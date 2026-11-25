@@ -324,12 +324,9 @@ async def test_rekuest_expands_through_the_client_its_registry_was_bound_to(
     app A afterwards even though B is the only app current by then.
     """
     pytest.importorskip("arkitekt_spec.declare.app")
-    from typing import Annotated
-
     from arkitekt_runtime.structures.serialization.actor import expand_inputs
-    from arkitekt_spec.declare.app import AppRegistry
     from arkitekt_spec.declare.definition.define import prepare_definition
-    from fakts import Alias, Require
+    from arkitekt_spec.declare.structures.registry import StructureRegistry
     from rath.origin import get_origin
 
     a, b = apps
@@ -343,18 +340,15 @@ async def test_rekuest_expands_through_the_client_its_registry_was_bound_to(
         async def aget_store(self, id: str) -> Store:
             return await aget_store(a.elektro, id)
 
-    def elektro(alias: Annotated[Alias, Require("live.test.elektro")]) -> StoreClient:
-        """A parameter is only a client once a registered service returns its type."""
-        return StoreClient()
-
     async def expand_store(id: str, elektro: StoreClient) -> Store:
         """The expander names the client it needs; binding supplies it."""
         return await elektro.aget_store(id)
 
-    app_registry = AppRegistry()
-    app_registry.service()(elektro)
-    app_registry.structure("@elektro/teststore")(expand_store)
-    bound = app_registry.structure_registry.bound({"elektro": StoreClient()})
+    declared = StructureRegistry(clients={"elektro": StoreClient})
+    declared.register_as_structure(
+        Store, identifier="@elektro/teststore", aexpand=expand_store
+    )
+    bound = declared.bound({"elektro": StoreClient()})
 
     def uses_store(store: Store) -> str:
         """Takes a store."""

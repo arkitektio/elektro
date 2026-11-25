@@ -26,7 +26,7 @@ from rath.links.compose import ComposedLink
 from rath.links.graphql_ws import GraphQLWSLink
 from rath.links.split import SplitLink
 
-import elektro.arkitekt as elektro_arkitekt
+import elektro.connect as elektro_connect
 from elektro.datalayer import DataLayer
 from elektro.elektro import Elektro
 from elektro.io.obstore import acreate_s3_store, create_s3_store
@@ -185,11 +185,11 @@ def _links(client: Elektro) -> tuple[AIOHttpLink, GraphQLWSLink]:
 def test_the_builder_puts_the_alias_proxy_on_both_links(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(elektro_arkitekt, "AIOHttpLink", RecordingHttpLink)
-    monkeypatch.setattr(elektro_arkitekt, "GraphQLWSLink", RecordingWsLink)
+    monkeypatch.setattr(elektro_connect, "AIOHttpLink", RecordingHttpLink)
+    monkeypatch.setattr(elektro_connect, "GraphQLWSLink", RecordingWsLink)
     proxy = "http://127.0.0.1:41234"
 
-    client = elektro_arkitekt.elektro._function(
+    client = Elektro.from_fakts(
         elektro=_alias(proxy=proxy), datalayer=_alias(proxy=proxy), tokens=Tokens()
     )
 
@@ -201,9 +201,7 @@ def test_the_builder_puts_the_alias_proxy_on_both_links(
 
 def test_the_builder_passes_no_proxy_when_the_alias_has_none() -> None:
     """A direct (not mesh) alias builds links and a datalayer without a proxy."""
-    client = elektro_arkitekt.elektro._function(
-        elektro=_alias(), datalayer=_alias(), tokens=Tokens()
-    )
+    client = Elektro.from_fakts(elektro=_alias(), datalayer=_alias(), tokens=Tokens())
 
     http, ws = _links(client)
     assert http.endpoint_url == "http://mesh-host:9000/graphql"

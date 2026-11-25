@@ -155,23 +155,24 @@ wheels = [
 
 [[package]]
 name = "arkitekt-runtime"
-version = "5.2.0"
+version = "11.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "arkitekt-spec" },
     { name = "janus" },
     { name = "jsonpatch" },
     { name = "koil" },
+    { name = "opentelemetry-api" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/93/0b/df0da97de7824dbfe2d2b372159116d15f5403825d7a34abd72aaf10fd77/arkitekt_runtime-5.2.0.tar.gz", hash = "sha256:1b3841b5d5d629ecee0629fe053566af3658a4b490d3dab0b196a4b8082c78d4", size = 123396, upload-time = "2026-10-23T20:25:10.12Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fc/f4/c4b21a56adc045f7fdb53a7b0f7ebbf09d5fd00a4c5a8354e962a6919ea9/arkitekt_runtime-11.0.0.tar.gz", hash = "sha256:5cc9e7da785d56d30d5718ca414451f5841c141ecf38fa912b115c59e9825cba", size = 146238, upload-time = "2026-11-25T13:04:20.684Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/51/ea/e5524744340b1f0a39c4a632129d57725903609e42d4b4294fa2bdb57b45/arkitekt_runtime-5.2.0-py3-none-any.whl", hash = "sha256:9a40e44d2b464decd40c2d70bafa0a4343acc809e1c3ae91dc614f585dca124a", size = 152277, upload-time = "2026-10-23T20:25:08.995Z" },
+    { url = "https://files.pythonhosted.org/packages/ec/19/1f850be66cc5acad1369827a49be10c867b58431dc612a09eb38edca3676/arkitekt_runtime-11.0.0-py3-none-any.whl", hash = "sha256:7fefa6e0d10a6703ee533cb5bc1a04b69347d0169981a53c355324ccc53fb527", size = 178217, upload-time = "2026-11-25T13:04:19.579Z" },
 ]
 
 [[package]]
 name = "arkitekt-spec"
-version = "12.9.0"
+version = "14.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -181,9 +182,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ca/02/58f05803d3afce24df62acd37728175f1cfa19ba3749dc222c5d5b4e22d7/arkitekt_spec-12.9.0.tar.gz", hash = "sha256:62e2effb96f3356e77847f8853a018b1d211aeb0c3f1bbbe2c738ace759f8efa", size = 369133, upload-time = "2026-11-21T15:11:19.432Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f8/b0/6b0bd85a2aaf0b2aa86ad49189fe5a74edb662fdc1c64d09c85c0de7e001/arkitekt_spec-14.0.0.tar.gz", hash = "sha256:28a3baad6915b04155d0251654dd4d47077c8bfe9eccf26bbb87faec6a0e63a2", size = 407403, upload-time = "2026-11-25T13:00:29.458Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ce/cb/d15a9ec70573caa42989ebcd0cb4f1420511d959e20e052160f2fc66a973/arkitekt_spec-12.9.0-py3-none-any.whl", hash = "sha256:9eb19e3dd3baf5d29e4aa881b5093bbbbbe912b8b9a8ff01e75359ab200d9e23", size = 422349, upload-time = "2026-11-21T15:11:18.119Z" },
+    { url = "https://files.pythonhosted.org/packages/68/ee/120a601a586dc63de70e01d2ba7a74ae89dcef00bc299f07a946542d69c7/arkitekt_spec-14.0.0-py3-none-any.whl", hash = "sha256:deb1997065fcffa3c8a26ac167a6d7c93d99ddf356f788cc807fb2aea4851d0f", size = 467387, upload-time = "2026-11-25T13:00:28.396Z" },
 ]
 
 [[package]]
@@ -768,7 +769,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "arkitekt-spec", specifier = ">=12.9" },
+    { name = "arkitekt-spec", specifier = ">=14" },
     { name = "dask", specifier = ">=2024.12.1" },
     { name = "duckdb", marker = "extra == 'table'", specifier = ">=1.0" },
     { name = "fakts", specifier = ">=6.1" },
@@ -807,7 +808,7 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.26.0" },
     { name = "pytest-cov", specifier = ">=6.1.1" },
     { name = "python-semantic-release", specifier = ">=9.21.0" },
-    { name = "rekuest", specifier = ">=6" },
+    { name = "rekuest", specifier = ">=19" },
     { name = "ruff", specifier = "==0.17.6" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "sporadik", specifier = ">=1.1" },
@@ -1625,6 +1626,18 @@ wheels = [
 ]
 
 [[package]]
+name = "opentelemetry-api"
+version = "1.45.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/19/14/cf3a6b6448849656e1e5f4e2101f3988dc6789724050096aba1bc5ccf592/opentelemetry_api-1.45.2.tar.gz", hash = "sha256:d7b0008e21e5fd61cbe7a7f34ca3b6905a78ab677d9bc395e299359c75cda6b4", size = 73277, upload-time = "2026-10-29T17:29:37.888Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a9/2d/610db864d7513158cebb8f36cc88e67e73bd6c7aa1905ef18d89e1281c81/opentelemetry_api-1.45.2-py3-none-any.whl", hash = "sha256:2cbd737377e710ee740d261c94e93fa0f08e6d037c18f17513cc0a2d94479a34", size = 60335, upload-time = "2026-10-29T17:29:06.955Z" },
+]
+
+[[package]]
 name = "packaging"
 version = "25.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2331,21 +2344,22 @@ wheels = [
 
 [[package]]
 name = "rath"
-version = "4.1.2"
+version = "4.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "graphql-core" },
     { name = "koil" },
+    { name = "opentelemetry-api" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cb/4c/bf0a743f97c933b7032c986922525f23dab532e81646982062ae0e12d038/rath-4.1.2.tar.gz", hash = "sha256:2b3e482dd5906d09d1536e40f73ca9c7716e5356eb3f1fe18502b76bb428204f", size = 46274, upload-time = "2026-10-07T14:16:59.965Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6d/c9/2ba0fb20ec0f5f985ce3d66998280d5f8b55053542fb822697bb5bfb042d/rath-4.2.1.tar.gz", hash = "sha256:496c8f1161067c4a987598483a8b10bc1ebb778db43894cb85052601975ceb95", size = 46979, upload-time = "2026-11-22T22:39:41.515Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/70/44/8a10d17526f7b25353039f596f8b4e13f9ce423cc831a202dfe1f5b9af26/rath-4.1.2-py3-none-any.whl", hash = "sha256:7ee5e28bf687aa6877684b23465fa274dab3da93274414104bbdbcf1064e1155", size = 65204, upload-time = "2026-10-07T14:16:58.978Z" },
+    { url = "https://files.pythonhosted.org/packages/68/38/83dbb2a1b3df731481881e4c394a1371eaaf955729a9c2d9b921863929a5/rath-4.2.1-py3-none-any.whl", hash = "sha256:2a18b726be550be1baab378b1a91b4875c671051721c619879c3d1a15aa5a70c", size = 66579, upload-time = "2026-11-22T22:39:40.692Z" },
 ]
 
 [[package]]
 name = "rekuest"
-version = "8.1.0"
+version = "19.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "arkitekt-runtime" },
@@ -2357,9 +2371,9 @@ dependencies = [
     { name = "rath" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bf/18/4734e156f1ed75ca89ba4eaacfaef2f44dd6ea2fb04a53b43727415c5da0/rekuest-8.1.0.tar.gz", hash = "sha256:ded1e838b740ebf13db80102844d8e5318a41a7c6297f03824a297af7b7e0ab0", size = 133697, upload-time = "2026-10-07T14:25:15.429Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/35/36/8c1db10fe365b40b7a7a1eecccdc85d1d3d926d3ba5da5b6c9f99413fc31/rekuest-19.0.0.tar.gz", hash = "sha256:191968f88bf241f9edb7d94c34e3346c2f5cc3de6e54448ce4884520c5b38325", size = 227702, upload-time = "2026-11-25T13:12:04.295Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/49/b2/7018eea033a692dd2ad0c3d4e06d764ee74d1a78f03f136465c8f5ad04b1/rekuest-8.1.0-py3-none-any.whl", hash = "sha256:0c96bc1bdf92214f96634a32e084932d7cb8e95316e72fd1a7570734c654e44f", size = 143513, upload-time = "2026-10-07T14:25:14.314Z" },
+    { url = "https://files.pythonhosted.org/packages/51/6f/cd536cfb8685972080456daf28c5e9fea9fd6cd5029f6549bbf8fed5e4c1/rekuest-19.0.0-py3-none-any.whl", hash = "sha256:1ef35ac60064e68922dcddf12552b8851c1f9436a0088c8ff7dc5b5af204b232", size = 242427, upload-time = "2026-11-25T13:12:03.099Z" },
 ]
 
 [[package]]

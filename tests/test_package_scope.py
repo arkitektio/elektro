@@ -1,8 +1,7 @@
 """elektro must stay importable, and correct, without arkitekt.
 
 arkitekt is an optional integration. Two places may know about it: the integration
-module ``elektro/arkitekt.py``, and ``elektro/__init__.py``, which imports that module
-behind ``try/except ImportError``. Everything else, and above all the code
+module ``elektro/structures.py``, and ``elektro/__init__.py``, which imports that module. Everything else, and above all the code
 that decides which client answers a call, takes references instead of importing.
 """
 
@@ -14,7 +13,7 @@ from pathlib import Path
 import elektro
 
 PACKAGE = Path(elektro.__file__).parent
-MAY_KNOW_ARKITEKT = {PACKAGE / "arkitekt.py", PACKAGE / "__init__.py"}
+MAY_KNOW_ARKITEKT = {PACKAGE / "structures.py", PACKAGE / "__init__.py"}
 
 
 def _module_scope_imports(tree: ast.Module) -> list[str]:

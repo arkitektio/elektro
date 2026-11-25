@@ -6,11 +6,7 @@ from .elektro import Elektro
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["Elektro"]
 
-# The service is declared with arkitekt-spec, a core dependency: it is always there.
-from .arkitekt import elektro as elektro_service
-
-__all__ = [
-    "Elektro",
-    "elektro_service",
-]
+# Marks every type elektro sends by id, so an app using `Elektro` finds them.
+from . import structures as _structures  # noqa: E402, F401

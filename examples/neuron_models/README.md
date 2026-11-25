@@ -67,7 +67,7 @@ All scripts connect through the Arkitekt ecosystem:
 from arkitekt import App, connect
 from elektro import Elektro
 
-with connect(App("neuron-model-examples", services=[Elektro])) as rt:
+with connect(App("neuron-model-examples", clients=[Elektro])) as rt:
     elektro = rt.require(Elektro)
     ...
 ```

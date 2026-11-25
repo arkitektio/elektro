@@ -95,7 +95,7 @@ def main() -> None:
             f"(import failed: {exc})"
         ) from exc
 
-    with connect(App("neuron-model-examples", services=[Elektro])) as rt:
+    with connect(App("neuron-model-examples", clients=[Elektro])) as rt:
         elektro = rt.require(Elektro)
         env = create_builtin_environment(elektro, "builtin-mechanisms")
         model = elektro.create_neuronmodel(

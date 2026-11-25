@@ -92,7 +92,7 @@ def main() -> None:
     for mech in mechanisms:
         print(f"  - {mech.name}")
 
-    with connect(App("neuron-model-examples", services=[Elektro])) as rt:
+    with connect(App("neuron-model-examples", clients=[Elektro])) as rt:
         elektro = rt.require(Elektro)
         env = elektro.create_mod_environment(
             name="customleak-env",

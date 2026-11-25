@@ -1,8 +1,12 @@
 """The top-level Elektro client composition."""
 
+import os
 from collections.abc import AsyncGenerator, Generator
-from typing import Any
+from typing import Annotated, Any, Self
 
+from arkitekt_spec.declare.client import client
+from arkitekt_spec.declare.tested import tested_against
+from arkitekt_spec.declare.wiring import Alias, Require, TokenLoader
 from koil import unkoil_gen
 from koil.composition import Composition
 from pydantic import Field
@@ -15,7 +19,22 @@ from elektro.datalayer import DataLayer
 from elektro.middleware.base import OperationMiddleware
 from elektro.rath import ElektroRath
 
+TESTED = tested_against("elektro")
+"""The elektro server this release wants: the one its release job tested it against."""
 
+_API = os.path.join(os.path.dirname(__file__), "api")
+ELEKTRO = Require(
+    "live.arkitekt.elektro",
+    "Where the user's traces and recordings live",
+    version=TESTED,
+)
+S3 = Require("live.arkitekt.s3", "Where the user's files are stored")
+
+
+@client(
+    schema=os.path.join(_API, "schema.graphql"),
+    turms=os.path.join(_API, "project.json"),
+)
 class Elektro(Composition, ElektroApi):
     """The Elektro Composition
 
@@ -39,8 +58,7 @@ class Elektro(Composition, ElektroApi):
             - Async (aexecute/asubscribe): Calls middleware.aprocess_variables()
               which uses async I/O (e.g., obstore for S3 uploads).
 
-    You shouldn't need to create this directly, instead use the builder functions
-    to generate a new instance of this composition.
+    A run builds it with :meth:`from_fakts`; by hand:
 
     ```python
 
@@ -63,6 +81,19 @@ class Elektro(Composition, ElektroApi):
         ...,
         description="The rath for interacting with the elektro api",
     )
+
+    @classmethod
+    def from_fakts(
+        cls,
+        elektro: Annotated[Alias, ELEKTRO],
+        datalayer: Annotated[Alias, S3],
+        tokens: TokenLoader,
+    ) -> Self:
+        """Elektro: electrophysiology traces, recordings and their metadata."""
+        from elektro.connect import elektro_rath
+
+        store = DataLayer.from_alias(datalayer)
+        return cls(rath=elektro_rath(elektro, store, tokens), datalayer=store)
 
     def _origin(self) -> dict[str, Any]:
         """What the objects of a result should remember: the client that fetched them.
