@@ -116,6 +116,7 @@ def create_s3_store(
     *,
     proxy: str | None = None,
     certificates: list[str] | None = None,
+    checksum_algorithm: str | None = None,
 ) -> S3Store:
     """Create an obstore S3 client from an Elektro grant and endpoint.
 
@@ -166,6 +167,11 @@ def create_s3_store(
             store_kwargs["session_token"] = grant.session_token
     if prefix:
         store_kwargs["prefix"] = prefix
+
+    if checksum_algorithm:
+        # Every request and part carries it: with the server's part size as `chunk_size`,
+        # the object store's composite of a big file's parts is the file's digest.
+        store_kwargs["checksum_algorithm"] = checksum_algorithm
 
     return S3Store(
         grant.bucket,

@@ -8,13 +8,14 @@ Provides both async and sync upload paths via obstore:
 """
 
 import asyncio
+import io
 import logging
 import os
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import obstore
 
@@ -245,6 +246,35 @@ async def astore_mesh_file(
         ) from e
 
 
+#: Sent with every request and part of a big-file upload, so the object store verifies it.
+BIGFILE_CHECKSUM = "SHA256"
+
+
+def part_size_for(size: int) -> int:
+    """The part size the server's digest of a ``size``-byte file is cut at (``arkitekt_datalayer.digest``).
+
+    8 MiB, doubled until the parts fit S3's 10,000. Computed here, not read off the grant, so
+    an upload to a hub that does not advertise it still has its digest verified on arrival.
+    """
+    part = 8 * 1024 * 1024
+    while size > part * 10_000:
+        part *= 2
+    return part
+
+
+def _remaining_bytes(value: object) -> int:
+    """How many bytes a write will send: a buffer's length, a path's size, or a file object's rest, left where it was."""
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return len(value)
+    if isinstance(value, (str, os.PathLike)):
+        return os.path.getsize(value)
+    stream = cast("io.IOBase", value)
+    position = stream.tell()
+    end = stream.seek(0, io.SEEK_END)
+    stream.seek(position)
+    return end - position
+
+
 async def aupload_bigfile(
     file: FileLike | BigFileLike,
     credentials: "BigFileUploadGrant",
@@ -257,13 +287,19 @@ async def aupload_bigfile(
         credentials,
         proxy=datalayer.proxy,
         certificates=datalayer.certificates,
+        checksum_algorithm=BIGFILE_CHECKSUM,
     )
 
     try:
         logger.debug(
             f"Uploading file to s3://{credentials.bucket}/{credentials.key} at {endpoint_url}..."
         )
-        await obstore.put_async(store, credentials.key, file.value)
+        await obstore.put_async(
+            store,
+            credentials.key,
+            file.value,
+            chunk_size=part_size_for(_remaining_bytes(file.value)),
+        )
         logger.info(
             f"Successfully uploaded file to s3://{credentials.bucket}/{credentials.key} at {endpoint_url}"
         )
@@ -348,14 +384,23 @@ def _store_bigfile_via_obstore(
 ) -> str:
     """Store a big file in the DataLayer synchronously via obstore."""
     store = create_s3_store(
-        endpoint_url, credentials, proxy=proxy, certificates=certificates
+        endpoint_url,
+        credentials,
+        proxy=proxy,
+        certificates=certificates,
+        checksum_algorithm=BIGFILE_CHECKSUM,
     )
 
     try:
         logger.debug(
             f"Uploading file (sync/obstore) to s3://{credentials.bucket}/{credentials.key} at {endpoint_url}..."
         )
-        obstore.put(store, credentials.key, file.value)
+        obstore.put(
+            store,
+            credentials.key,
+            file.value,
+            chunk_size=part_size_for(_remaining_bytes(file.value)),
+        )
         logger.info(
             f"Successfully uploaded file (sync/obstore) to s3://{credentials.bucket}/{credentials.key} at {endpoint_url}"
         )
